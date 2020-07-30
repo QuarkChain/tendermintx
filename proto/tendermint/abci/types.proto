@@ -75,10 +75,10 @@ message RequestQuery {
 }
 
 message RequestCreateBlock {
-  int64                                  height           = 1;
-  tendermint.types.Commit                last_commit_info = 2;
-  repeated tendermint.types.Evidence evidence         = 3;
-  MempoolIter                            mempool_iter     = 4;
+  int64             height                = 1;
+  LastCommitInfo    last_commit_info      = 2 [(gogoproto.nullable) = false];
+  repeated Evidence byzantine_validators  = 3 [(gogoproto.nullable) = false];
+  MempoolIter       mempool_iter          = 4;
 }
 
 message RequestBeginBlock {
