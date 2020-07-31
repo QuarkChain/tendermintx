@@ -17,7 +17,10 @@ type mempoolServer struct {
 	server   *grpc.Server
 }
 
-func (s *mempoolServer) GetNextTransaction(ctx context.Context, request *mempoolproto.GetNextTransactionRequest) (*mempoolproto.GetNextTransactionResponse, error) {
+func (s *mempoolServer) GetNextTransaction(
+	ctx context.Context,
+	request *mempoolproto.GetNextTransactionRequest,
+) (*mempoolproto.GetNextTransactionResponse, error) {
 	// TODO
 	return nil, errors.New("not implemented")
 }
@@ -27,8 +30,7 @@ func (s *mempoolServer) Stop() {
 	s.server.Stop()
 }
 
-// NewMempoolServer returns a new gRPC memmpool server
-func NewMempoolServer(protoAddr string) (*mempoolServer, error) {
+func newMempoolServer(protoAddr string) (*mempoolServer, error) {
 	proto, addr := tmnet.ProtocolAndAddress(protoAddr)
 	ln, err := net.Listen(proto, addr)
 	if err != nil {

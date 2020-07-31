@@ -104,12 +104,13 @@ func NewCListMempool(
 		option(mempool)
 	}
 	// TODO: mempool server should be bound to balance tree-based mempool. use clist here for now
-	// TODO: should also use config to start the server
-	// server, err := NewMempoolServer("http://localhost:3000")
-	// if err != nil {
-	// panic(err)
-	// }
-	// mempool.server = server
+	if config.ServerHostPort != "" {
+		server, err := newMempoolServer(config.ServerHostPort)
+		if err != nil {
+			panic(err)
+		}
+		mempool.server = server
+	}
 	return mempool
 }
 
