@@ -68,6 +68,8 @@ type CListMempool struct {
 	logger log.Logger
 
 	metrics *Metrics
+
+	server *mempoolServer
 }
 
 var _ Mempool = &CListMempool{}
@@ -101,6 +103,12 @@ func NewCListMempool(
 	for _, option := range options {
 		option(mempool)
 	}
+	// TODO: mempool server should be bound to balance tree-based mempool. use clist here for now
+	server, err := NewMempoolServer("http://localhost:3000")  // TODO: use config
+	if err != nil {
+		panic(err)
+	}
+	mempool.server = server
 	return mempool
 }
 

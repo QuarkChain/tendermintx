@@ -12,3 +12,24 @@ message Message {
     Tx tx = 1;
   }
 }
+
+message Status {
+  int32 code = 1;
+  string message = 2;
+}
+
+message GetNextTransactionRequest {
+  int64 remainingBytes = 1;
+  int64 remainingGas = 2;
+  bytes start = 3;
+}
+
+message GetNextTransactionResponse {
+  Status status = 1;
+  Message txMsg = 2;
+}
+
+service MempoolService {
+  rpc GetNextTransaction(GetNextTransactionRequest)
+    returns (GetNextTransactionResponse) {}
+}
