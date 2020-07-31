@@ -120,6 +120,10 @@ func (app *PersistentKVStoreApplication) InitChain(req types.RequestInitChain) t
 	return types.ResponseInitChain{}
 }
 
+func (app *PersistentKVStoreApplication) CreateBlock(block types.RequestCreateBlock) types.ResponseCreateBlock {
+	panic("unimplemented!")
+}
+
 // Track the block hash and header information
 func (app *PersistentKVStoreApplication) BeginBlock(req types.RequestBeginBlock) types.ResponseBeginBlock {
 	// reset valset changes

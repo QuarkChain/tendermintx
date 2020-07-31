@@ -72,6 +72,10 @@ func (BaseApplication) InitChain(req RequestInitChain) ResponseInitChain {
 	return ResponseInitChain{}
 }
 
+func (BaseApplication) CreateBlock(req RequestCreateBlock) ResponseCreateBlock {
+	panic("unimplemented!")
+}
+
 func (BaseApplication) BeginBlock(req RequestBeginBlock) ResponseBeginBlock {
 	return ResponseBeginBlock{}
 }

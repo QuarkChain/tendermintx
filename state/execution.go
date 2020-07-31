@@ -91,7 +91,7 @@ func (blockExec *BlockExecutor) SetEventBus(eventBus types.BlockEventPublisher) 
 
 // CreateProposalBlock calls state.MakeBlock with evidence from the evpool
 // and txs from the mempool. The max bytes must be big enough to fit the commit.
-// Up to 1/10th of the block space is allcoated for maximum sized evidence.
+// Up to 1/10th of the block space is allocated for maximum sized evidence.
 // The rest is given to txs, up to the max gas.
 func (blockExec *BlockExecutor) CreateProposalBlock(
 	height int64,
@@ -99,22 +99,18 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	proposerAddr []byte,
 	createBlockFromApp bool,
 ) (*types.Block, *types.PartSet) {
-
-	maxBytes := state.ConsensusParams.Block.MaxBytes
-	maxGas := state.ConsensusParams.Block.MaxGas
-
-	evidence := blockExec.evpool.PendingEvidence(state.ConsensusParams.Evidence.MaxNum)
-
-	// Fetch a limited amount of valid txs
-	maxDataBytes := types.MaxDataBytes(maxBytes, state.Validators.Size(), len(evidence))
-
 	var txs types.Txs
+	var timestamp time.Time
+	evidence := blockExec.evpool.PendingEvidence(state.ConsensusParams.Evidence.MaxNum)
 	if createBlockFromApp {
 		voteInfos := make([]abci.VoteInfo, commit.Size())
 		// block.Height=1 -> LastCommitInfo.Votes are empty.
 		// Remember that the first LastCommit is intentionally empty, so it makes
 		// sense for LastCommitInfo.Votes to also be empty.
-		if height > 1 {
+		if height == 1 {
+			timestamp = state.LastBlockTime // genesis time
+		} else {
+			timestamp = MedianTime(commit, state.LastValidators)
 			lastValSet, err := LoadValidators(blockExec.db, height-1)
 			if err != nil {
 				panic(err)
@@ -139,17 +135,8 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 				}
 			}
 		}
-		var timestamp time.Time
-		if height == 1 {
-			timestamp = state.LastBlockTime // genesis time
-		} else {
-			timestamp = MedianTime(commit, state.LastValidators)
-		}
 		byzVals := make([]abci.Evidence, len(evidence))
 		for i, ev := range evidence {
-			// We need the validator set. We already did this in validateBlock.
-			// TODO: Should we instead cache the valset in the evidence itself and add
-			// `SetValidatorSet()` and `ToABCI` methods ?
 			valset, err := LoadValidators(blockExec.db, ev.Height())
 			if err != nil {
 				panic(err)
@@ -174,6 +161,11 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 			txs = append(txs, txBytes)
 		}
 	} else {
+		maxBytes := state.ConsensusParams.Block.MaxBytes
+		maxGas := state.ConsensusParams.Block.MaxGas
+
+		// Fetch a limited amount of valid txs
+		maxDataBytes := types.MaxDataBytes(maxBytes, state.Validators.Size(), len(evidence))
 		txs = blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
 	}
 	return state.MakeBlock(height, txs, commit, evidence, proposerAddr)

@@ -208,7 +208,8 @@ message ResponseCreateBlock {
   repeated bytes txs         = 1;
   repeated bytes invalid_txs = 2;
   bytes          hash        = 3;
-  repeated Event events      = 4 [(gogoproto.nullable) = false, (gogoproto.jsontag) = "events,omitempty"];
+  repeated Event events      = 4
+      [(gogoproto.nullable) = false, (gogoproto.jsontag) = "events,omitempty"];
 }
 
 message ResponseBeginBlock {
