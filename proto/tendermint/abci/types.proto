@@ -21,22 +21,22 @@ import "gogoproto/gogo.proto";
 
 message Request {
   oneof value {
-    RequestEcho               echo                 = 2;
-    RequestFlush              flush                = 3;
-    RequestInfo               info                 = 4;
-    RequestSetOption          set_option           = 5;
-    RequestInitChain          init_chain           = 6;
-    RequestQuery              query                = 7;
-    RequestBeginBlock         begin_block          = 8;
-    RequestCheckTx            check_tx             = 9;
-    RequestDeliverTx          deliver_tx           = 19;
-    RequestEndBlock           end_block            = 11;
-    RequestCommit             commit               = 12;
-    RequestListSnapshots      list_snapshots       = 13;
-    RequestOfferSnapshot      offer_snapshot       = 14;
-    RequestLoadSnapshotChunk  load_snapshot_chunk  = 15;
-    RequestApplySnapshotChunk apply_snapshot_chunk = 16;
-    RequestCreateBlock        create_block         = 17;
+    RequestEcho               echo                 = 1;
+    RequestFlush              flush                = 2;
+    RequestInfo               info                 = 3;
+    RequestSetOption          set_option           = 4;
+    RequestInitChain          init_chain           = 5;
+    RequestQuery              query                = 6;
+    RequestBeginBlock         begin_block          = 7;
+    RequestCheckTx            check_tx             = 8;
+    RequestDeliverTx          deliver_tx           = 9;
+    RequestEndBlock           end_block            = 10;
+    RequestCommit             commit               = 11;
+    RequestListSnapshots      list_snapshots       = 12;
+    RequestOfferSnapshot      offer_snapshot       = 13;
+    RequestLoadSnapshotChunk  load_snapshot_chunk  = 14;
+    RequestApplySnapshotChunk apply_snapshot_chunk = 15;
+    RequestCreateBlock        create_block         = 16;
   }
 }
 
@@ -222,8 +222,8 @@ message ResponseCheckTx {
   bytes          data       = 2;
   string         log        = 3;  // nondeterministic
   string         info       = 4;  // nondeterministic
-  int64          gas_wanted = 5;
-  int64          gas_used   = 6;
+  int64          gas_wanted = 5 [json_name = "gas_wanted"];
+  int64          gas_used   = 6 [json_name = "gas_used"];
   repeated Event events     = 7
       [(gogoproto.nullable) = false, (gogoproto.jsontag) = "events,omitempty"];
   string codespace = 8;
@@ -234,8 +234,8 @@ message ResponseDeliverTx {
   bytes          data       = 2;
   string         log        = 3;  // nondeterministic
   string         info       = 4;  // nondeterministic
-  int64          gas_wanted = 5;
-  int64          gas_used   = 6;
+  int64          gas_wanted = 5 [json_name = "gas_wanted"];
+  int64          gas_used   = 6 [json_name = "gas_used"];
   repeated Event events     = 7
       [(gogoproto.nullable) = false, (gogoproto.jsontag) = "events,omitempty"];
   string codespace = 8;
