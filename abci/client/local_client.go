@@ -125,10 +125,6 @@ func (app *localClient) CommitAsync() *ReqRes {
 	)
 }
 
-func (app *localClient) CreateBlockSync(types.RequestCreateBlock) (*types.ResponseCreateBlock, error) {
-	panic("unimplemented!")
-}
-
 func (app *localClient) InitChainAsync(req types.RequestInitChain) *ReqRes {
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
@@ -262,6 +258,10 @@ func (app *localClient) CommitSync() (*types.ResponseCommit, error) {
 
 	res := app.Application.Commit()
 	return &res, nil
+}
+
+func (app *localClient) CreateBlockSync(types.RequestCreateBlock) (*types.ResponseCreateBlock, error) {
+	panic("unimplemented!")
 }
 
 func (app *localClient) InitChainSync(req types.RequestInitChain) (*types.ResponseInitChain, error) {

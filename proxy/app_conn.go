@@ -73,6 +73,10 @@ func (app *appConnConsensus) Error() error {
 	return app.appConn.Error()
 }
 
+func (app *appConnConsensus) CreateBlockSync(req types.RequestCreateBlock) (*types.ResponseCreateBlock, error) {
+	return app.appConn.CreateBlockSync(req)
+}
+
 func (app *appConnConsensus) InitChainSync(req types.RequestInitChain) (*types.ResponseInitChain, error) {
 	return app.appConn.InitChainSync(req)
 }
@@ -91,10 +95,6 @@ func (app *appConnConsensus) EndBlockSync(req types.RequestEndBlock) (*types.Res
 
 func (app *appConnConsensus) CommitSync() (*types.ResponseCommit, error) {
 	return app.appConn.CommitSync()
-}
-
-func (app *appConnConsensus) CreateBlockSync(req types.RequestCreateBlock) (*types.ResponseCreateBlock, error) {
-	return app.appConn.CreateBlockSync(req)
 }
 
 //------------------------------------------------

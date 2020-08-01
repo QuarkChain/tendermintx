@@ -152,7 +152,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 			Height:              height,
 			LastCommitInfo:      lastCommitInfo,
 			ByzantineValidators: byzVals,
-			MempoolIter:         nil,
+			MempoolIter:         &abci.MempoolIter{},
 		})
 		if err != nil {
 			panic(err)
