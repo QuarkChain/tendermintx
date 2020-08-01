@@ -19,7 +19,7 @@ type Application interface {
 
 	// Consensus Connection
 	CreateBlock(RequestCreateBlock) ResponseCreateBlock // Create block and include tx by priority
-	InitChain(RequestInitChain) ResponseInitChain       // Initialize blockchain w validators/other info from TendermintCore
+	InitChain(RequestInitChain) ResponseInitChain       // Init blockchain w validators/other info from TendermintCore
 	BeginBlock(RequestBeginBlock) ResponseBeginBlock    // Signals the beginning of a block
 	DeliverTx(RequestDeliverTx) ResponseDeliverTx       // Deliver a tx for full processing
 	EndBlock(RequestEndBlock) ResponseEndBlock          // Signals the end of a block, returns changes to the validator set
@@ -152,6 +152,10 @@ func (app *GRPCApplication) Commit(ctx context.Context, req *RequestCommit) (*Re
 func (app *GRPCApplication) InitChain(ctx context.Context, req *RequestInitChain) (*ResponseInitChain, error) {
 	res := app.app.InitChain(*req)
 	return &res, nil
+}
+
+func (app *GRPCApplication) CreateBlock(ctx context.Context, req *RequestCreateBlock) (*ResponseCreateBlock, error) {
+	panic("unimplemented!")
 }
 
 func (app *GRPCApplication) BeginBlock(ctx context.Context, req *RequestBeginBlock) (*ResponseBeginBlock, error) {
