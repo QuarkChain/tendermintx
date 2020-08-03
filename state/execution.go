@@ -248,10 +248,10 @@ func (blockExec *BlockExecutor) Commit(
 }
 
 // MempoolUpdate without commit action
-func (blockExec *BlockExecutor) MempoolUpdate(
+func (blockExec *BlockExecutor) mempoolUpdate(
 	state State,
 	block *types.Block,
-	deliverBlockResponses []*abci.ResponseDeliverBlock,
+	deliverBlockResponses abci.ResponseDeliverBlock,
 ) error {
 	blockExec.mempool.Lock()
 	defer blockExec.mempool.Unlock()
@@ -268,7 +268,7 @@ func (blockExec *BlockExecutor) MempoolUpdate(
 	err = blockExec.mempool.Update(
 		block.Height,
 		block.Txs,
-		deliverBlockResponses,
+		deliverBlockResponses.DeliverTxs,
 		TxPreCheck(state),
 		TxPostCheck(state),
 	)
