@@ -251,7 +251,7 @@ func (blockExec *BlockExecutor) Commit(
 func (blockExec *BlockExecutor) MempoolUpdate(
 	state State,
 	block *types.Block,
-	deliverTxResponses []*abci.ResponseDeliverTx,
+	deliverBlockResponses []*abci.ResponseDeliverBlock,
 ) error {
 	blockExec.mempool.Lock()
 	defer blockExec.mempool.Unlock()
@@ -268,7 +268,7 @@ func (blockExec *BlockExecutor) MempoolUpdate(
 	err = blockExec.mempool.Update(
 		block.Height,
 		block.Txs,
-		deliverTxResponses,
+		deliverBlockResponses,
 		TxPreCheck(state),
 		TxPostCheck(state),
 	)
@@ -292,7 +292,12 @@ func execBlockOnProxyApp(
 	txIndex := 0
 	abciResponses := new(tmstate.ABCIResponses)
 	dtxs := make([]*abci.ResponseDeliverTx, len(block.Txs))
-	abciResponses.DeliverTxs = dtxs
+	if config.DeliverBlock {
+		// Deliver block
+		abciResponses.DeliverBlock.DeliverTxs = dtxs
+	} else {
+		abciResponses.DeliverTxs = dtxs
+	}
 
 	// Execute transactions and get hash.
 	proxyCb := func(req *abci.Request, res *abci.Response) {
@@ -307,7 +312,12 @@ func execBlockOnProxyApp(
 				logger.Debug("Invalid tx", "code", txRes.Code, "log", txRes.Log)
 				invalidTxs++
 			}
-			abciResponses.DeliverTxs[txIndex] = txRes
+			if config.DeliverBlock {
+				// Deliver block
+				abciResponses.DeliverBlock.DeliverTxs[txIndex] = txRes
+			} else {
+				abciResponses.DeliverTxs[txIndex] = txRes
+			}
 			txIndex++
 		}
 	}
