@@ -152,7 +152,12 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	fail.Fail() // XXX
 
 	// validate the validator updates and convert to tendermint types
-	abciValUpdates := abciResponses.EndBlock.ValidatorUpdates
+	var abciValUpdates []abci.ValidatorUpdate
+	if config.DeliverBlock {
+		abciValUpdates = abciResponses.DeliverBlock.ValidatorUpdates
+	} else {
+		abciValUpdates =abciResponses.EndBlock.ValidatorUpdates
+	}
 	err = validateValidatorUpdates(abciValUpdates, state.ConsensusParams.Validator)
 	if err != nil {
 		return state, 0, fmt.Errorf("error in validator updates: %v", err)
