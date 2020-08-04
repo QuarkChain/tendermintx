@@ -109,8 +109,8 @@ func (app *PersistentKVStoreApplication) Query(reqQuery types.RequestQuery) (res
 	}
 }
 
-func (app *PersistentKVStoreApplication) CreateBlock(block types.RequestCreateBlock) types.ResponseCreateBlock {
-	panic("unimplemented!")
+func (app *PersistentKVStoreApplication) CreateBlock(req types.RequestCreateBlock) types.ResponseCreateBlock {
+	return app.app.CreateBlock(req)
 }
 
 // Save the validators in the merkle tree
