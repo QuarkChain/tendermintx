@@ -9,7 +9,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	"github.com/tendermint/tendermint/abci/types"
+	"github.com/tendermint/tendermint/abcix/types"
 	tmnet "github.com/tendermint/tendermint/libs/net"
 	"github.com/tendermint/tendermint/libs/service"
 )
@@ -196,6 +196,15 @@ func (cli *grpcClient) CommitAsync() *ReqRes {
 	return cli.finishAsyncCall(req, &types.Response{Value: &types.Response_Commit{Commit: res}})
 }
 
+func (cli *grpcClient) CreateBlockAsync(params types.RequestCreateBlock) *ReqRes {
+	req := types.ToRequestCreateBlock(params)
+	res, err := cli.client.CreateBlock(context.Background(), req.GetCreateBlock(), grpc.WaitForReady(true))
+	if err != nil {
+		cli.StopForError(err)
+	}
+	return cli.finishAsyncCall(req, &types.Response{Value: &types.Response_CreateBlock{CreateBlock: res}})
+}
+
 func (cli *grpcClient) InitChainAsync(params types.RequestInitChain) *ReqRes {
 	req := types.ToRequestInitChain(params)
 	res, err := cli.client.InitChain(context.Background(), req.GetInitChain(), grpc.WaitForReady(true))
@@ -324,6 +333,11 @@ func (cli *grpcClient) QuerySync(req types.RequestQuery) (*types.ResponseQuery, 
 func (cli *grpcClient) CommitSync() (*types.ResponseCommit, error) {
 	reqres := cli.CommitAsync()
 	return reqres.Response.GetCommit(), cli.Error()
+}
+
+func (cli *grpcClient) CreateBlockSync(req types.RequestCreateBlock) (*types.ResponseCreateBlock, error) {
+	reqres := cli.CreateBlockAsync(req)
+	return reqres.Response.GetCreateBlock(), cli.Error()
 }
 
 func (cli *grpcClient) InitChainSync(params types.RequestInitChain) (*types.ResponseInitChain, error) {
