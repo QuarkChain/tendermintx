@@ -662,9 +662,11 @@ func (mem *CListMempool) recheckTxs() {
 	mem.proxyAppConn.FlushAsync()
 }
 
-func (mem *CListMempool) GetNextTransaction(remainBytes, remainGas int64, prior types.Tx) types.Tx {
+func (mem *CListMempool) GetNextTransaction(remainBytes int64, remainGas int64, priorBytes []byte) types.Tx {
 	mem.updateMtx.RLock()
 	defer mem.updateMtx.RUnlock()
+	var prior types.Tx
+	prior = priorBytes
 	priorTx := mem.txs.Front()
 	var priority int64
 	if prior == nil {
@@ -696,7 +698,7 @@ func (mem *CListMempool) GetNextTransaction(remainBytes, remainGas int64, prior 
 		} else if memTx.priority == priority && !bytes.Equal(memTx.tx.Hash(),prior.Hash()){
 			candidate = memTx
 			break
-			// TODO cannot handle more than two txs with same priority
+			// TODO cannot handle more than two txs with same priority, or assume there's no same priority?
 		}
 		head = head.Next()
 	}

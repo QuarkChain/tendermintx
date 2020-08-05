@@ -7,23 +7,37 @@ import (
 
 //todo use Mempool instead of clisMempool
 type mempoolClient struct {
-	cm *CListMempool
+	mp *Mempool
 }
 
-func NewMempoolClient(cm *CListMempool) *mempoolClient {
+func NewMempoolClient(mp *Mempool) *mempoolClient {
 	cli := &mempoolClient{
-		cm: cm,
+		mp: mp,
 	}
 	return cli
 }
 
+
 func (cli *mempoolClient) GetNextTransaction(
 	req *mempoolproto.GetNextTransactionRequest) (*mempoolproto.GetNextTransactionResponse, error) {
-	//remainByte := req.RemainingBytes
-	//remainGas := req.RemainingGas
-	//prior := req.Start
-	// todo mempool check, return tx
-	//tx := cli.cm.GetNextTransaction(remainByte,remainGas,prior)
+	remainByte := req.RemainingBytes
+	remainGas := req.RemainingGas
+	prior := req.Start
+	// todo mempool check
+	tx := (*cli.mp).GetNextTransaction(remainByte,remainGas,prior)
 
-	return &mempoolproto.GetNextTransactionResponse{}, errors.New("not implemented")
+	Tx := mempoolproto.Tx{Tx: tx}
+
+	mTx := mempoolproto.Message_Tx{Tx: &Tx}
+
+	msg := mempoolproto.Message{
+		Mtx: &mTx,
+		Sum: nil,
+	}
+	sts := mempoolproto.Status{
+		Code:    0,
+		Message: "TBD",
+	}
+
+	return &mempoolproto.GetNextTransactionResponse{&sts,&msg}, errors.New("not finished")
 }
