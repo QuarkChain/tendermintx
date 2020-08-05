@@ -5,7 +5,6 @@ import (
 	mempoolproto "github.com/tendermint/tendermint/proto/tendermint/mempool"
 )
 
-//todo use Mempool instead of clisMempool
 type mempoolClient struct {
 	mp *Mempool
 }
@@ -20,20 +19,17 @@ func NewMempoolClient(mp *Mempool) *mempoolClient {
 
 func (cli *mempoolClient) GetNextTransaction(
 	req *mempoolproto.GetNextTransactionRequest) (*mempoolproto.GetNextTransactionResponse, error) {
-	remainByte := req.RemainingBytes
-	remainGas := req.RemainingGas
-	prior := req.Start
 	// todo mempool check
-	tx := (*cli.mp).GetNextTransaction(remainByte,remainGas,prior)
-
-	Tx := mempoolproto.Tx{Tx: tx}
-
-	mTx := mempoolproto.Message_Tx{Tx: &Tx}
+	tx := (*cli.mp).GetNextTransaction(req.RemainingBytes,req.RemainingGas,req.Start)
 
 	msg := mempoolproto.Message{
-		Mtx: &mTx,
-		Sum: nil,
+		Sum: &mempoolproto.Message_Tx{
+			Tx: &mempoolproto.Tx{
+				Tx: []byte(tx),
+			},
+		},
 	}
+
 	sts := mempoolproto.Status{
 		Code:    0,
 		Message: "TBD",

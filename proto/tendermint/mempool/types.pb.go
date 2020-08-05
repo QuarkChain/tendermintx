@@ -72,7 +72,7 @@ func (m *Tx) GetTx() []byte {
 
 type Message struct {
 	// Types that are valid to be assigned to Sum:
-	Mtx	*Message_Tx
+	//	*Message_Tx
 	Sum isMessage_Sum `protobuf_oneof:"sum"`
 }
 
