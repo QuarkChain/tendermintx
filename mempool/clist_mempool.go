@@ -662,12 +662,55 @@ func (mem *CListMempool) recheckTxs() {
 	mem.proxyAppConn.FlushAsync()
 }
 
+func (mem *CListMempool) GetNextTransaction(remainBytes, remainGas int64, prior types.Tx) types.Tx {
+	mem.updateMtx.RLock()
+	defer mem.updateMtx.RUnlock()
+	priorTx := mem.txs.Front()
+	var priority int64
+	if prior == nil {
+		priorTx = nil
+	} else {
+		for priorTx != nil && !bytes.Equal(priorTx.Value.(*mempoolTx).tx.Hash(),prior.Hash()) {
+			priorTx = priorTx.Next()
+		}
+	}
+	if priorTx != nil {
+		priority = priorTx.Value.(*mempoolTx).priority
+	} else {
+		// return tx with highest priority
+		priority = -1
+	}
+
+	head := mem.txs.Front()
+	candidate := head.Value.(*mempoolTx)
+	for head != nil {
+		memTx := head.Value.(*mempoolTx)
+		if priority < 0 {
+			if memTx.priority < candidate.priority {
+				candidate = memTx
+			}
+		} else if memTx.priority < priority {
+			if memTx.priority > candidate.priority {
+				candidate = memTx
+			}
+		} else if memTx.priority == priority && !bytes.Equal(memTx.tx.Hash(),prior.Hash()){
+			candidate = memTx
+			break
+			// TODO cannot handle more than two txs with same priority
+		}
+		head = head.Next()
+	}
+
+	return candidate.tx
+}
+
 //--------------------------------------------------------------------------------
 
 // mempoolTx is a transaction that successfully ran
 type mempoolTx struct {
 	height    int64    // height that this tx had been validated in
 	gasWanted int64    // amount of gas this tx states it will require
+	priority  int64	   // priority of this tx
 	tx        types.Tx //
 
 	// ids of peers who've sent us this tx (as a map for quick lookups).

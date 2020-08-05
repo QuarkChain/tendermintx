@@ -27,7 +27,7 @@ ifeq (cleveldb,$(findstring cleveldb,$(TENDERMINT_BUILD_OPTIONS)))
 endif
 
 # allow users to pass additional flags via the conventional LDFLAGS variable
-LD_FLAGS += $(LDFLAGS)
+# LD_FLAGS += $(LDFLAGS)
 
 all: check build test install
 .PHONY: all
