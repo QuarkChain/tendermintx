@@ -662,47 +662,58 @@ func (mem *CListMempool) recheckTxs() {
 	mem.proxyAppConn.FlushAsync()
 }
 
-func (mem *CListMempool) GetNextTransaction(remainBytes int64, remainGas int64, priorBytes []byte) types.Tx {
+func checkCandidate(remainBytes int64, remainGas int64, localTx, starterTx *mempoolTx) bool {
+	if localTx.gasWanted > remainGas || int64(len(localTx.tx)) > remainBytes {
+		return false
+	}
+	if starterTx == nil {
+		return true
+	} else {
+		if !bytes.Equal(localTx.tx.Hash(), starterTx.tx.Hash()) {
+			return false
+		}
+		if localTx.priority <= starterTx.priority {
+			return true
+		}
+		return false
+	}
+}
+
+func (mem *CListMempool) GetNextTransaction(remainBytes int64, remainGas int64, Starter []byte) types.Tx {
 	mem.updateMtx.RLock()
 	defer mem.updateMtx.RUnlock()
-	var prior types.Tx
-	prior = priorBytes
-	priorTx := mem.txs.Front()
-	var priority int64
-	if prior == nil {
-		priorTx = nil
+	var s types.Tx
+	s = Starter
+	StarterElement := mem.txs.Front()
+	var StarterTx *mempoolTx
+	if Starter == nil {
+		StarterElement = nil
 	} else {
-		for priorTx != nil && !bytes.Equal(priorTx.Value.(*mempoolTx).tx.Hash(),prior.Hash()) {
-			priorTx = priorTx.Next()
+		// find out clist element related to Starter
+		for StarterElement != nil && !bytes.Equal(StarterElement.Value.(*mempoolTx).tx.Hash(), s.Hash()) {
+			StarterElement = StarterElement.Next()
 		}
 	}
-	if priorTx != nil {
-		priority = priorTx.Value.(*mempoolTx).priority
+	if StarterElement == nil {
+		// starter not provided or not found
+		StarterTx = nil
 	} else {
-		// return tx with highest priority
-		priority = -1
+		StarterTx = StarterElement.Value.(*mempoolTx)
 	}
 
+	// iterate clist to find out required transaction
 	head := mem.txs.Front()
-	candidate := head.Value.(*mempoolTx)
+	var candidate mempoolTx
 	for head != nil {
-		memTx := head.Value.(*mempoolTx)
-		if priority < 0 {
-			if memTx.priority < candidate.priority {
-				candidate = memTx
+		headTx := head.Value.(*mempoolTx)
+		if checkCandidate(remainBytes, remainGas, headTx, StarterTx) {
+			if headTx.priority >= candidate.priority {
+				// update candidate if meet higher priority
+				candidate = *headTx
 			}
-		} else if memTx.priority < priority {
-			if memTx.priority > candidate.priority {
-				candidate = memTx
-			}
-		} else if memTx.priority == priority && !bytes.Equal(memTx.tx.Hash(),prior.Hash()){
-			candidate = memTx
-			break
-			// TODO cannot handle more than two txs with same priority, or assume there's no same priority?
 		}
 		head = head.Next()
 	}
-
 	return candidate.tx
 }
 
@@ -712,7 +723,7 @@ func (mem *CListMempool) GetNextTransaction(remainBytes int64, remainGas int64, 
 type mempoolTx struct {
 	height    int64    // height that this tx had been validated in
 	gasWanted int64    // amount of gas this tx states it will require
-	priority  int64	   // priority of this tx
+	priority  int64    // priority of this tx
 	tx        types.Tx //
 
 	// ids of peers who've sent us this tx (as a map for quick lookups).

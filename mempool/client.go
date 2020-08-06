@@ -1,15 +1,14 @@
 package mempool
 
 import (
-	"github.com/pkg/errors"
 	mempoolproto "github.com/tendermint/tendermint/proto/tendermint/mempool"
 )
 
 type mempoolClient struct {
-	mp *Mempool
+	mp Mempool
 }
 
-func NewMempoolClient(mp *Mempool) *mempoolClient {
+func NewMempoolClient(mp Mempool) *mempoolClient {
 	cli := &mempoolClient{
 		mp: mp,
 	}
@@ -20,7 +19,7 @@ func NewMempoolClient(mp *Mempool) *mempoolClient {
 func (cli *mempoolClient) GetNextTransaction(
 	req *mempoolproto.GetNextTransactionRequest) (*mempoolproto.GetNextTransactionResponse, error) {
 	// todo mempool check
-	tx := (*cli.mp).GetNextTransaction(req.RemainingBytes,req.RemainingGas,req.Start)
+	tx := (cli.mp).GetNextTransaction(req.RemainingBytes,req.RemainingGas,req.Start)
 
 	msg := mempoolproto.Message{
 		Sum: &mempoolproto.Message_Tx{
@@ -35,5 +34,5 @@ func (cli *mempoolClient) GetNextTransaction(
 		Message: "TBD",
 	}
 
-	return &mempoolproto.GetNextTransactionResponse{&sts,&msg}, errors.New("not finished")
+	return &mempoolproto.GetNextTransactionResponse{&sts,&msg}, nil
 }

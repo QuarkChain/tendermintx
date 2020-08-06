@@ -30,8 +30,10 @@ type Mempool interface {
 	ReapMaxTxs(max int) types.Txs
 
 	// GetNextTransaction will return transaction with condition that Bytes and Gas
-	// must be bess than remainBytes and remainGas, and with highest priority less than prior
-	GetNextTransaction(remainByte int64, gas int64, prior []byte) types.Tx
+	// must be less than remainBytes and remainGas, and with highest priority less
+	// than the priority of stater
+	GetNextTransaction(remainByte int64, gas int64, starter []byte) types.Tx
+
 	// Lock locks the mempool. The consensus must be able to hold lock to safely update.
 	Lock()
 
