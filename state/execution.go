@@ -14,6 +14,7 @@ import (
 	"github.com/tendermint/tendermint/libs/fail"
 	"github.com/tendermint/tendermint/libs/log"
 	mempl "github.com/tendermint/tendermint/mempool"
+	mpproto "github.com/tendermint/tendermint/proto/tendermint/mempool"
 	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	"github.com/tendermint/tendermint/proxy"
@@ -115,7 +116,9 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 			Height:              height,
 			LastCommitInfo:      lastCommitInfo,
 			ByzantineValidators: byzVals,
-			MempoolIter:         &abcix.MempoolIter{},
+			MempoolIter: &abcix.MempoolIter{
+				Mpcli: &mpproto.MempoolClient{MemAddres: fmt.Sprintf("%d", &blockExec.mempool)},
+			},
 		})
 		if err != nil {
 			panic(err)

@@ -33,3 +33,7 @@ service MempoolService {
   rpc GetNextTransaction(GetNextTransactionRequest)
     returns (GetNextTransactionResponse) {}
 }
+
+message MempoolClient {
+  string memAddres = 1;
+}
