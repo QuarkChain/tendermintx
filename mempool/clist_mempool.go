@@ -675,18 +675,17 @@ func checkCandidate(remainBytes int64, remainGas int64, localTx, starterTx *memp
 		if localTx.priority <= starterTx.priority {
 			return true
 		}
-		return false
 	}
+	return false
 }
 
-func (mem *CListMempool) GetNextTransaction(remainBytes int64, remainGas int64, Starter []byte) types.Tx {
+func (mem *CListMempool) GetNextTransaction(remainBytes int64, remainGas int64, starter []byte) types.Tx {
 	mem.updateMtx.RLock()
 	defer mem.updateMtx.RUnlock()
-	var s types.Tx
-	s = Starter
+	var s types.Tx = starter
 	StarterElement := mem.txs.Front()
 	var StarterTx *mempoolTx
-	if Starter == nil {
+	if starter == nil {
 		StarterElement = nil
 	} else {
 		// find out clist element related to Starter
@@ -703,13 +702,13 @@ func (mem *CListMempool) GetNextTransaction(remainBytes int64, remainGas int64, 
 
 	// iterate clist to find out required transaction
 	head := mem.txs.Front()
-	var candidate mempoolTx
+	var candidate *mempoolTx
 	for head != nil {
 		headTx := head.Value.(*mempoolTx)
 		if checkCandidate(remainBytes, remainGas, headTx, StarterTx) {
 			if headTx.priority >= candidate.priority {
 				// update candidate if meet higher priority
-				candidate = *headTx
+				candidate = headTx
 			}
 		}
 		head = head.Next()

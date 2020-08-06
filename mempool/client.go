@@ -15,11 +15,10 @@ func NewMempoolClient(mp Mempool) *mempoolClient {
 	return cli
 }
 
-
 func (cli *mempoolClient) GetNextTransaction(
 	req *mempoolproto.GetNextTransactionRequest) (*mempoolproto.GetNextTransactionResponse, error) {
 	// todo mempool check
-	tx := (cli.mp).GetNextTransaction(req.RemainingBytes,req.RemainingGas,req.Start)
+	tx := (cli.mp).GetNextTransaction(req.RemainingBytes, req.RemainingGas, req.Start)
 
 	msg := mempoolproto.Message{
 		Sum: &mempoolproto.Message_Tx{
@@ -34,5 +33,5 @@ func (cli *mempoolClient) GetNextTransaction(
 		Message: "TBD",
 	}
 
-	return &mempoolproto.GetNextTransactionResponse{&sts,&msg}, nil
+	return &mempoolproto.GetNextTransactionResponse{&sts, &msg}, nil
 }
