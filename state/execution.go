@@ -342,6 +342,7 @@ func execBlockOnProxyApp(
 	return abciResponses, nil
 }
 
+// TODO: In the future we may want to combine this part of code with BeginBlock
 func getCreateBlockValidatorInfo(
 	time time.Time,
 	height int64,
