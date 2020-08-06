@@ -8,8 +8,8 @@ type mempoolClient struct {
 	mp Mempool
 }
 
-func NewMempoolClient(mp Mempool) *mempoolClient {
-	cli := &mempoolClient{
+func NewMempoolClient(mp Mempool) mempoolClient {
+	cli := mempoolClient{
 		mp: mp,
 	}
 	return cli
@@ -33,5 +33,10 @@ func (cli *mempoolClient) GetNextTransaction(
 		Message: "TBD",
 	}
 
-	return &mempoolproto.GetNextTransactionResponse{&sts, &msg}, nil
+	resp := mempoolproto.GetNextTransactionResponse{
+		Status: &sts,
+		TxMsg:  &msg,
+	}
+
+	return &resp, nil
 }

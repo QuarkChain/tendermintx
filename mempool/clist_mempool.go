@@ -666,17 +666,16 @@ func checkCandidate(remainBytes int64, remainGas int64, localTx, starterTx *memp
 	if localTx.gasWanted > remainGas || int64(len(localTx.tx)) > remainBytes {
 		return false
 	}
-	if starterTx == nil {
-		return true
-	} else {
+	if starterTx != nil {
 		if !bytes.Equal(localTx.tx.Hash(), starterTx.tx.Hash()) {
 			return false
 		}
 		if localTx.priority <= starterTx.priority {
 			return true
 		}
+		return false
 	}
-	return false
+	return true
 }
 
 func (mem *CListMempool) GetNextTransaction(remainBytes int64, remainGas int64, starter []byte) types.Tx {
