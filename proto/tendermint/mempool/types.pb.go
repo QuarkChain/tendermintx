@@ -307,6 +307,9 @@ func (m *GetNextTransactionResponse) GetTxMsg() *Message {
 }
 
 type LocalClient struct {
+	// Here the pointer of the mempool was passed by its unint64 value, and will be
+	// translated back to mempool address in the client. This is an unsafe operation
+	// that the address may map to other location and break when doing the type casting.
 	MemAddress uint64 `protobuf:"varint,1,opt,name=mem_address,json=memAddress,proto3" json:"mem_address,omitempty"`
 }
 

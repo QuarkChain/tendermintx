@@ -3,8 +3,8 @@ package state
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
+	"unsafe"
 
 	abcix "github.com/tendermint/tendermint/abcix/types"
 
@@ -113,10 +113,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 			timestamp = MedianTime(commit, state.LastValidators)
 		}
 		lastCommitInfo, byzVals := getCreateBlockValidatorInfo(timestamp, height, commit, evidence, blockExec.db)
-		memInt, err := strconv.ParseUint(fmt.Sprintf("%d", &blockExec.mempool), 10, 64)
-		if err != nil {
-			panic(err)
-		}
+		memInt := uint64(uintptr(unsafe.Pointer(&blockExec.mempool))) // get uint64 value mempool address
 		resp, err := blockExec.proxyApp.CreateBlockSync(abcix.RequestCreateBlock{
 			Height:              height,
 			LastCommitInfo:      lastCommitInfo,
