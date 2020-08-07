@@ -344,7 +344,9 @@ message TxResult {
 
 // MempoolIter
 message MempoolIter {
-  tendermint.mempool.MempoolClient mpcli = 1;
+  oneof client {
+    tendermint.mempool.LocalClient mpcli = 1;
+  }
 }
 
 //----------------------------------------

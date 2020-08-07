@@ -3,6 +3,7 @@ package state
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	abcix "github.com/tendermint/tendermint/abcix/types"
@@ -14,7 +15,7 @@ import (
 	"github.com/tendermint/tendermint/libs/fail"
 	"github.com/tendermint/tendermint/libs/log"
 	mempl "github.com/tendermint/tendermint/mempool"
-	mpproto "github.com/tendermint/tendermint/proto/tendermint/mempool"
+	"github.com/tendermint/tendermint/proto/tendermint/mempool"
 	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	"github.com/tendermint/tendermint/proxy"
@@ -112,12 +113,20 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 			timestamp = MedianTime(commit, state.LastValidators)
 		}
 		lastCommitInfo, byzVals := getCreateBlockValidatorInfo(timestamp, height, commit, evidence, blockExec.db)
+		memInt, err := strconv.ParseUint(fmt.Sprintf("%d", &blockExec.mempool), 10, 64)
+		if err != nil {
+			panic(err)
+		}
 		resp, err := blockExec.proxyApp.CreateBlockSync(abcix.RequestCreateBlock{
 			Height:              height,
 			LastCommitInfo:      lastCommitInfo,
 			ByzantineValidators: byzVals,
 			MempoolIter: &abcix.MempoolIter{
-				Mpcli: &mpproto.MempoolClient{MemAddres: fmt.Sprintf("%d", &blockExec.mempool)},
+				Client: &abcix.MempoolIter_Mpcli{
+					Mpcli: &mempool.LocalClient{
+						MemAddress: memInt,
+					},
+				},
 			},
 		})
 		if err != nil {

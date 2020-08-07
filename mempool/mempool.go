@@ -32,7 +32,7 @@ type Mempool interface {
 	// GetNextTransaction will return transaction with condition that Bytes and Gas
 	// must be less than remainBytes and remainGas, and with highest priority less
 	// than the priority of stater
-	GetNextTransaction(remainByte int64, gas int64, starter []byte) types.Tx
+	GetNextTransaction(remainBytes int64, remainGas int64, starter []byte) types.Tx
 
 	// Lock locks the mempool. The consensus must be able to hold lock to safely update.
 	Lock()

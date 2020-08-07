@@ -705,12 +705,15 @@ func (mem *CListMempool) GetNextTransaction(remainBytes int64, remainGas int64, 
 	for head != nil {
 		headTx := head.Value.(*mempoolTx)
 		if checkCandidate(remainBytes, remainGas, headTx, StarterTx) {
-			if headTx.priority >= candidate.priority {
+			if candidate == nil || headTx.priority >= candidate.priority {
 				// update candidate if meet higher priority
 				candidate = headTx
 			}
 		}
 		head = head.Next()
+	}
+	if candidate == nil {
+		return nil
 	}
 	return candidate.tx
 }

@@ -1,19 +1,17 @@
 package mempool
 
 import (
-	"strconv"
 	"unsafe"
 
-	mpproto "github.com/tendermint/tendermint/proto/tendermint/mempool"
+	mempoolproto "github.com/tendermint/tendermint/proto/tendermint/mempool"
 )
 
 type Client struct {
 	mp Mempool
 }
 
-func NewMempoolClient(memAddress string) *Client {
-	ptrInt, _ := strconv.ParseUint(memAddress, 10, 64)
-	ptrVal := uintptr(ptrInt)
+func NewMempoolClient(memInt int64) *Client {
+	ptrVal := uintptr(memInt)
 	ptr := unsafe.Pointer(ptrVal)
 	memPtr := (*Mempool)(ptr)
 	cli := &Client{
@@ -23,24 +21,29 @@ func NewMempoolClient(memAddress string) *Client {
 }
 
 func (cli *Client) GetNextTransaction(
-	req *mpproto.GetNextTransactionRequest) (*mpproto.GetNextTransactionResponse, error) {
-	// todo mempool check
+	req *mempoolproto.GetNextTransactionRequest) (*mempoolproto.GetNextTransactionResponse, error) {
 	tx := (cli.mp).GetNextTransaction(req.RemainingBytes, req.RemainingGas, req.Start)
+	var errorCode int32 = 1
+	errorMessage := "Failed"
+	if tx == nil {
+		errorCode = 0
+		errorMessage = "Succeed"
+	}
 
-	msg := mpproto.Message{
-		Sum: &mpproto.Message_Tx{
-			Tx: &mpproto.Tx{
+	msg := mempoolproto.Message{
+		Sum: &mempoolproto.Message_Tx{
+			Tx: &mempoolproto.Tx{
 				Tx: []byte(tx),
 			},
 		},
 	}
 
-	sts := mpproto.Status{
-		Code:    0,
-		Message: "TBD",
+	sts := mempoolproto.Status{
+		Code:    errorCode,
+		Message: errorMessage,
 	}
 
-	resp := mpproto.GetNextTransactionResponse{
+	resp := mempoolproto.GetNextTransactionResponse{
 		Status: &sts,
 		TxMsg:  &msg,
 	}
