@@ -362,8 +362,8 @@ func (mem *CListMempool) reqResCb(
 
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
-func (mem *CListMempool) addTx(memTx *mempoolTx) {
-	e := mem.txs.PushBack(memTx)
+func (mem *CListMempool) addTx(memTx *mempoolTx, priority int64) {
+	e := mem.txs.PushBack(memTx, priority)
 	mem.txsMap.Store(TxKey(memTx.tx), e)
 	atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx)))
 	mem.metrics.TxSizeBytes.Observe(float64(len(memTx.tx)))
@@ -441,7 +441,7 @@ func (mem *CListMempool) resCbFirstTime(
 				tx:        tx,
 			}
 			memTx.senders.Store(peerID, true)
-			mem.addTx(memTx)
+			mem.addTx(memTx, 0) //TODO get priority from cb
 			mem.logger.Info("Added good transaction",
 				"tx", txID(tx),
 				"res", r,
@@ -662,7 +662,9 @@ func (mem *CListMempool) recheckTxs() {
 	mem.proxyAppConn.FlushAsync()
 }
 
-func checkCandidate(remainBytes int64, remainGas int64, localTx, starterTx *mempoolTx) bool {
+func checkCandidate(remainBytes int64, remainGas int64, local, starter *clist.CElement) bool {
+	localTx := local.Value.(*mempoolTx)
+	starterTx := starter.Value.(*mempoolTx)
 	if localTx.gasWanted > remainGas || int64(len(localTx.tx)) > remainBytes {
 		return false
 	}
@@ -670,7 +672,7 @@ func checkCandidate(remainBytes int64, remainGas int64, localTx, starterTx *memp
 		if !bytes.Equal(localTx.tx.Hash(), starterTx.tx.Hash()) {
 			return false
 		}
-		if localTx.priority <= starterTx.priority {
+		if local.Priority <= starter.Priority {
 			return true
 		}
 		return false
@@ -678,12 +680,11 @@ func checkCandidate(remainBytes int64, remainGas int64, localTx, starterTx *memp
 	return true
 }
 
-func (mem *CListMempool) GetNextTransaction(remainBytes int64, remainGas int64, starter []byte) types.Tx {
+func (mem *CListMempool) GetNextTransaction(remainBytes int64, remainGas int64, starter []byte) (types.Tx, error) {
 	mem.updateMtx.RLock()
 	defer mem.updateMtx.RUnlock()
 	var s types.Tx = starter
 	StarterElement := mem.txs.Front()
-	var StarterTx *mempoolTx
 	if starter == nil {
 		StarterElement = nil
 	} else {
@@ -692,30 +693,22 @@ func (mem *CListMempool) GetNextTransaction(remainBytes int64, remainGas int64, 
 			StarterElement = StarterElement.Next()
 		}
 	}
-	if StarterElement == nil {
-		// starter not provided or not found
-		StarterTx = nil
-	} else {
-		StarterTx = StarterElement.Value.(*mempoolTx)
-	}
-
 	// iterate clist to find out required transaction
 	head := mem.txs.Front()
-	var candidate *mempoolTx
+	var candidate *clist.CElement
 	for head != nil {
-		headTx := head.Value.(*mempoolTx)
-		if checkCandidate(remainBytes, remainGas, headTx, StarterTx) {
-			if candidate == nil || headTx.priority >= candidate.priority {
+		if checkCandidate(remainBytes, remainGas, head, StarterElement) {
+			if candidate == nil || head.Priority >= candidate.Priority {
 				// update candidate if meet higher priority
-				candidate = headTx
+				candidate = head
 			}
 		}
 		head = head.Next()
 	}
 	if candidate == nil {
-		return nil
+		return nil, nil
 	}
-	return candidate.tx
+	return candidate.Value.(*mempoolTx).tx, nil
 }
 
 //--------------------------------------------------------------------------------
@@ -724,7 +717,6 @@ func (mem *CListMempool) GetNextTransaction(remainBytes int64, remainGas int64, 
 type mempoolTx struct {
 	height    int64    // height that this tx had been validated in
 	gasWanted int64    // amount of gas this tx states it will require
-	priority  int64    // priority of this tx
 	tx        types.Tx //
 
 	// ids of peers who've sent us this tx (as a map for quick lookups).

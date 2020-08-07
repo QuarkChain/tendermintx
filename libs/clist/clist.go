@@ -50,6 +50,7 @@ type CElement struct {
 	nextWg     *sync.WaitGroup
 	nextWaitCh chan struct{}
 	removed    bool
+	Priority   int64
 
 	Value interface{} // immutable
 }
@@ -313,7 +314,7 @@ func (l *CList) WaitChan() <-chan struct{} {
 }
 
 // Panics if list grows beyond its max length.
-func (l *CList) PushBack(v interface{}) *CElement {
+func (l *CList) PushBack(v interface{}, priority int64) *CElement {
 	l.mtx.Lock()
 
 	// Construct a new element
@@ -325,6 +326,7 @@ func (l *CList) PushBack(v interface{}) *CElement {
 		nextWg:     waitGroup1(),
 		nextWaitCh: make(chan struct{}),
 		removed:    false,
+		Priority:   priority,
 		Value:      v,
 	}
 
