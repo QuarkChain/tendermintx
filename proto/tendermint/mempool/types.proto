@@ -35,5 +35,5 @@ service MempoolService {
 }
 
 message MempoolClient {
-  string memAddres = 1;
+  string mem_addres = 1;
 }
