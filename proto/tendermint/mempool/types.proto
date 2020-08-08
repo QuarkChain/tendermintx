@@ -33,10 +33,3 @@ service MempoolService {
   rpc GetNextTransaction(GetNextTransactionRequest)
     returns (GetNextTransactionResponse) {}
 }
-
-message LocalClient {
-  // Here the pointer of the mempool was passed by its unint64 value, and will be
-  // translated back to mempool address in the client. This is an unsafe operation
-  // that the address may map to other location and break when doing the type casting.
-  uint64 mem_address = 1;
-}
