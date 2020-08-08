@@ -9,7 +9,6 @@ import "tendermint/crypto/proof.proto";
 import "tendermint/types/types.proto";
 import "tendermint/crypto/keys.proto";
 import "tendermint/types/params.proto";
-import "tendermint/mempool/types.proto";
 import "google/protobuf/timestamp.proto";
 import "gogoproto/gogo.proto";
 
@@ -80,7 +79,6 @@ message RequestCreateBlock {
   int64             height                = 1;
   LastCommitInfo    last_commit_info      = 2 [(gogoproto.nullable) = false];
   repeated Evidence byzantine_validators  = 3 [(gogoproto.nullable) = false];
-  MempoolIter       mempool_iter          = 4;
 }
 
 message RequestBeginBlock {
@@ -366,13 +364,6 @@ message TxResult {
   uint32            index  = 2;
   bytes             tx     = 3;
   ResponseDeliverTx result = 4 [(gogoproto.nullable) = false];
-}
-
-// MempoolIter
-message MempoolIter {
-  oneof client {
-    tendermint.mempool.LocalClient mpcli = 1;
-  }
 }
 
 //----------------------------------------

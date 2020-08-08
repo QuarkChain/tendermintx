@@ -114,19 +114,11 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 			timestamp = MedianTime(commit, state.LastValidators)
 		}
 		lastCommitInfo, byzVals := getCreateBlockValidatorInfo(timestamp, height, commit, evidence, blockExec.db)
-		memInt := uint64(uintptr(unsafe.Pointer(&blockExec.mempool))) // get uint64 value mempool address
 		resp, err := blockExec.proxyApp.CreateBlockSync(abcix.RequestCreateBlock{
 			Height:              height,
 			LastCommitInfo:      lastCommitInfo,
 			ByzantineValidators: byzVals,
-			MempoolIter: &abcix.MempoolIter{
-				Client: &abcix.MempoolIter_Mpcli{
-					Mpcli: &mempoolproto.LocalClient{
-						MemAddress: memInt,
-					},
-				},
-			},
-		})
+		}, blockExec.mempool)
 		if err != nil {
 			panic(err)
 		}
