@@ -577,42 +577,7 @@ func TestMempoolRemoteAppConcurrency(t *testing.T) {
 }
 
 func TestCListMempool_GetNextTransaction(t *testing.T) {
-	app := kvstore.NewApplication()
-	cc := proxy.NewLocalClientCreator(app)
-	mempool, cleanup := newMempoolWithApp(cc)
-	defer cleanup()
 
-	// each table driven test creates numTxsToCreate txs with checkTx, and at the end clears all remaining txs.
-	// each tx has 20 bytes
-	tests := []struct {
-		numTxsToCreate int
-		maxBytes       int64
-		maxGas         int64
-		expectedNumTxs int
-	}{
-		{20, -1, -1, 20},
-		{20, -1, 0, 0},
-		{20, -1, 10, 10},
-		{20, -1, 30, 20},
-		{20, 0, -1, 0},
-		{20, 0, 10, 0},
-		{20, 10, 10, 0},
-		{20, 20, 10, 1},
-		{20, 100, 5, 5},
-		{20, 200, -1, 10},
-		{20, 200, 10, 10},
-		{20, 200, 15, 10},
-		{20, 20000, -1, 20},
-		{20, 20000, 5, 5},
-		{20, 20000, 30, 20},
-	}
-	for tcIndex, tt := range tests {
-		checkTxs(t, mempool, tt.numTxsToCreate, UnknownPeerID)
-		got := mempool.ReapMaxBytesMaxGas(tt.maxBytes, tt.maxGas)
-		assert.Equal(t, tt.expectedNumTxs, len(got), "Got %d txs, expected %d, tc #%d",
-			len(got), tt.expectedNumTxs, tcIndex)
-		mempool.Flush()
-	}
 }
 
 // caller must close server
