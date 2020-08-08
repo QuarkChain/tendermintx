@@ -577,7 +577,7 @@ func TestMempoolRemoteAppConcurrency(t *testing.T) {
 }
 
 func TestCListMempool_GetNextTransaction(t *testing.T) {
-
+	// TODO TBD
 }
 
 // caller must close server
