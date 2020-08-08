@@ -5,7 +5,7 @@ import "testing"
 func BenchmarkDetaching(b *testing.B) {
 	lst := New()
 	for i := 0; i < b.N+1; i++ {
-		lst.PushBack(i)
+		lst.PushBack(i, 0)
 	}
 	start := lst.Front()
 	nxt := start.Next()
@@ -24,7 +24,7 @@ func BenchmarkDetaching(b *testing.B) {
 func BenchmarkRemoved(b *testing.B) {
 	lst := New()
 	for i := 0; i < b.N+1; i++ {
-		lst.PushBack(i)
+		lst.PushBack(i, 0)
 	}
 	start := lst.Front()
 	nxt := start.Next()
@@ -41,6 +41,6 @@ func BenchmarkPushBack(b *testing.B) {
 	lst := New()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		lst.PushBack(i)
+		lst.PushBack(i, 0)
 	}
 }

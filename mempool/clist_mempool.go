@@ -662,51 +662,46 @@ func (mem *CListMempool) recheckTxs() {
 	mem.proxyAppConn.FlushAsync()
 }
 
+// Check if a element is suitable to be a candidate
 func checkCandidate(remainBytes int64, remainGas int64, local, starter *clist.CElement) bool {
 	localTx := local.Value.(*mempoolTx)
-	starterTx := starter.Value.(*mempoolTx)
+	// First check gas and bytes limit
 	if localTx.gasWanted > remainGas || int64(len(localTx.tx)) > remainBytes {
 		return false
+	} else if local.Priority <= starter.Priority && !bytes.Equal(localTx.tx.Hash(), starter.Value.(*mempoolTx).tx.Hash()) {
+		return true
 	}
-	if starterTx != nil {
-		if !bytes.Equal(localTx.tx.Hash(), starterTx.tx.Hash()) {
-			return false
-		}
-		if local.Priority <= starter.Priority {
-			return true
-		}
-		return false
-	}
-	return true
+	return false
 }
 
 func (mem *CListMempool) GetNextTransaction(remainBytes int64, remainGas int64, starter []byte) (types.Tx, error) {
 	mem.updateMtx.RLock()
 	defer mem.updateMtx.RUnlock()
-	var s types.Tx = starter
-	StarterElement := mem.txs.Front()
+	localElement := mem.txs.Front()
 	if starter == nil {
-		StarterElement = nil
+		localElement = nil
 	} else {
-		// find out clist element related to Starter
-		for StarterElement != nil && !bytes.Equal(StarterElement.Value.(*mempoolTx).tx.Hash(), s.Hash()) {
-			StarterElement = StarterElement.Next()
+		s := (types.Tx)(starter)
+		// 1st traversal find out local corresponding element from starter
+		for localElement != nil && !bytes.Equal(localElement.Value.(*mempoolTx).tx.Hash(), s.Hash()) {
+			localElement = localElement.Next()
 		}
 	}
-	// iterate clist to find out required transaction
 	head := mem.txs.Front()
 	var candidate *clist.CElement
+	// 2nd traversal find out the element with highest priority that fit the requirements
 	for head != nil {
-		if checkCandidate(remainBytes, remainGas, head, StarterElement) {
+		if checkCandidate(remainBytes, remainGas, head, localElement) {
+			// head is suitable, update candidate if head has higher priority
 			if candidate == nil || head.Priority >= candidate.Priority {
-				// update candidate if meet higher priority
 				candidate = head
 			}
 		}
 		head = head.Next()
 	}
+	// No candidate found
 	if candidate == nil {
-		return nil, nil
+		return nil, fmt.Errorf("can't find transaction with Bytes %d, Gas %d, starter %s", remainBytes, remainGas, starter)
 	}
 	return candidate.Value.(*mempoolTx).tx, nil
 }

@@ -17,18 +17,18 @@ func TestPanicOnMaxLength(t *testing.T) {
 
 	l := newWithMax(maxLength)
 	for i := 0; i < maxLength; i++ {
-		l.PushBack(1)
+		l.PushBack(1, 0)
 	}
 	assert.Panics(t, func() {
-		l.PushBack(1)
+		l.PushBack(1, 0)
 	})
 }
 
 func TestSmall(t *testing.T) {
 	l := New()
-	el1 := l.PushBack(1)
-	el2 := l.PushBack(2)
-	el3 := l.PushBack(3)
+	el1 := l.PushBack(1, 0)
+	el2 := l.PushBack(2, 0)
+	el3 := l.PushBack(3, 0)
 	if l.Len() != 3 {
 		t.Error("Expected len 3, got ", l.Len())
 	}
@@ -89,7 +89,7 @@ func _TestGCFifo(t *testing.T) {
 	for i := 0; i < numElements; i++ {
 		v := new(value)
 		v.Int = i
-		l.PushBack(v)
+		l.PushBack(v, 0)
 		runtime.SetFinalizer(v, func(v *value) {
 			atomic.AddUint64(gcCount, 1)
 		})
@@ -137,7 +137,7 @@ func _TestGCRandom(t *testing.T) {
 	for i := 0; i < numElements; i++ {
 		v := new(value)
 		v.Int = i
-		l.PushBack(v)
+		l.PushBack(v, 0)
 		runtime.SetFinalizer(v, func(v *value) {
 			gcCount++
 		})
@@ -174,7 +174,7 @@ func TestScanRightDeleteRandom(t *testing.T) {
 
 	els := make([]*CElement, numElements)
 	for i := 0; i < numElements; i++ {
-		el := l.PushBack(i)
+		el := l.PushBack(i, 0)
 		els[i] = el
 	}
 
@@ -214,7 +214,7 @@ func TestScanRightDeleteRandom(t *testing.T) {
 		//fmt.Print(".")
 
 		// Insert a new element
-		newEl := l.PushBack(-1*i - 1)
+		newEl := l.PushBack(-1*i-1, 0)
 		els[rmElIdx] = newEl
 
 		if i%100000 == 0 {
@@ -241,7 +241,7 @@ func TestWaitChan(t *testing.T) {
 	ch := l.WaitChan()
 
 	// 1) add one element to an empty list
-	go l.PushBack(1)
+	go l.PushBack(1, 0)
 	<-ch
 
 	// 2) and remove it
@@ -252,13 +252,13 @@ func TestWaitChan(t *testing.T) {
 	}
 
 	// 3) test iterating forward and waiting for Next (NextWaitChan and Next)
-	el = l.PushBack(0)
+	el = l.PushBack(0, 0)
 
 	done := make(chan struct{})
 	pushed := 0
 	go func() {
 		for i := 1; i < 100; i++ {
-			l.PushBack(i)
+			l.PushBack(i, 0)
 			pushed++
 			time.Sleep(time.Duration(tmrand.Intn(25)) * time.Millisecond)
 		}

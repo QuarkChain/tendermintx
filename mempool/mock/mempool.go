@@ -18,9 +18,11 @@ func (Mempool) Size() int { return 0 }
 func (Mempool) CheckTx(_ types.Tx, _ func(*abci.Response), _ mempl.TxInfo) error {
 	return nil
 }
-func (Mempool) ReapMaxBytesMaxGas(_, _ int64) types.Txs                { return types.Txs{} }
-func (Mempool) ReapMaxTxs(n int) types.Txs                             { return types.Txs{} }
-func (Mempool) GetNextTransaction(_ int64, _ int64, _ []byte) types.Tx { return types.Tx{} }
+func (Mempool) ReapMaxBytesMaxGas(_, _ int64) types.Txs { return types.Txs{} }
+func (Mempool) ReapMaxTxs(n int) types.Txs              { return types.Txs{} }
+func (Mempool) GetNextTransaction(_ int64, _ int64, _ []byte) (types.Tx, error) {
+	return types.Tx{}, nil
+}
 func (Mempool) Update(
 	_ int64,
 	_ types.Txs,

@@ -77,7 +77,7 @@ func NewPool(stateDB, evidenceDB dbm.DB, blockStore *store.BlockStore) (*Pool, e
 	// if pending evidence already in db, in event of prior failure, then load it back to the evidenceList
 	evList := pool.AllPendingEvidence()
 	for _, ev := range evList {
-		pool.evidenceList.PushBack(ev)
+		pool.evidenceList.PushBack(ev, 0)
 	}
 
 	return pool, nil
@@ -251,7 +251,7 @@ func (evpool *Pool) AddEvidence(evidence types.Evidence) error {
 		}
 
 		// 3) Add evidence to clist.
-		evpool.evidenceList.PushBack(ev)
+		evpool.evidenceList.PushBack(ev, 0)
 
 		evpool.logger.Info("Verified new evidence of byzantine behaviour", "evidence", ev)
 	}
@@ -701,7 +701,7 @@ func (evpool *Pool) handleInboundPotentialAmnesiaEvidence(pe *types.PotentialAmn
 		}
 
 		// add to the broadcast list so it can continue to be gossiped
-		evpool.evidenceList.PushBack(pe)
+		evpool.evidenceList.PushBack(pe, 0)
 	}
 
 	return nil
