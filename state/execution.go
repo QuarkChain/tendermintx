@@ -116,7 +116,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 			Height:              height,
 			LastCommitInfo:      lastCommitInfo,
 			ByzantineValidators: byzVals,
-		}, abcix.MempoolIter(blockExec.mempool))
+		}, blockExec.mempool)
 		if err != nil {
 			panic(err)
 		}
