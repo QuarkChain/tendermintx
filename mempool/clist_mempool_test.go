@@ -577,7 +577,11 @@ func TestMempoolRemoteAppConcurrency(t *testing.T) {
 }
 
 func TestCListMempool_GetNextTxBytes(t *testing.T) {
-	// TODO TBD
+	//app := kvstore.NewApplication()
+	//cc := proxy.NewLocalClientCreator(app)
+	//mempool, cleanup := newMempoolWithApp(cc)
+	//defer cleanup()
+	//checkTxs(t, mempool, 10, UnknownPeerID)
 }
 
 // caller must close server

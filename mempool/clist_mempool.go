@@ -664,7 +664,6 @@ func (mem *CListMempool) recheckTxs() {
 
 // GetNextTxBytes() finds satisfied tx with two iterations which cost O(N) time, will be optimized with balance tree
 // or other technics to reduce the time complexity to O(logN) or even O(1)
-
 func (mem *CListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
 
 	mem.updateMtx.RLock()
