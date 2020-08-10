@@ -2,6 +2,7 @@ package consensus
 
 import (
 	abci "github.com/tendermint/tendermint/abci/types"
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/libs/clist"
 	mempl "github.com/tendermint/tendermint/mempool"
 	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
@@ -19,7 +20,7 @@ var _ mempl.Mempool = emptyMempool{}
 func (emptyMempool) Lock()     {}
 func (emptyMempool) Unlock()   {}
 func (emptyMempool) Size() int { return 0 }
-func (emptyMempool) CheckTx(_ types.Tx, _ func(*abci.Response), _ mempl.TxInfo) error {
+func (emptyMempool) CheckTx(_ types.Tx, _ func(*abcix.Response), _ mempl.TxInfo) error {
 	return nil
 }
 func (emptyMempool) ReapMaxBytesMaxGas(_, _ int64) types.Txs { return types.Txs{} }

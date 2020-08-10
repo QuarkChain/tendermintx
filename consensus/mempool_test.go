@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	abcix "github.com/tendermint/tendermint/abcix/types"
+
 	"github.com/stretchr/testify/assert"
 
 	dbm "github.com/tendermint/tm-db"
@@ -154,7 +156,7 @@ func TestMempoolRmBadTx(t *testing.T) {
 		// Try to send the tx through the mempool.
 		// CheckTx should not err, but the app should return a bad abci code
 		// and the tx should get removed from the pool
-		err := assertMempool(cs.txNotifier).CheckTx(txBytes, func(r *abci.Response) {
+		err := assertMempool(cs.txNotifier).CheckTx(txBytes, func(r *abcix.Response) {
 			if r.GetCheckTx().Code != code.CodeTypeBadNonce {
 				t.Errorf("expected checktx to return bad nonce, got %v", r)
 				return

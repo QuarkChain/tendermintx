@@ -44,7 +44,8 @@ func newMempoolWithAppAndConfig(cc proxy.ClientCreator, config *cfg.Config) (*CL
 	if err != nil {
 		panic(err)
 	}
-	mempool := NewCListMempool(config.Mempool, appConnMem, 0)
+	proxyAppConnMem := proxy.NewAppConnMempool(appConnMem)
+	mempool := NewCListMempool(config.Mempool, proxyAppConnMem, 0)
 	mempool.SetLogger(log.TestingLogger())
 	return mempool, func() { os.RemoveAll(config.RootDir) }
 }

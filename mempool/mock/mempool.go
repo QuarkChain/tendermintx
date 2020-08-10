@@ -2,6 +2,7 @@ package mock
 
 import (
 	abci "github.com/tendermint/tendermint/abci/types"
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/libs/clist"
 	mempl "github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/types"
@@ -15,7 +16,7 @@ var _ mempl.Mempool = Mempool{}
 func (Mempool) Lock()     {}
 func (Mempool) Unlock()   {}
 func (Mempool) Size() int { return 0 }
-func (Mempool) CheckTx(_ types.Tx, _ func(*abci.Response), _ mempl.TxInfo) error {
+func (Mempool) CheckTx(_ types.Tx, _ func(*abcix.Response), _ mempl.TxInfo) error {
 	return nil
 }
 func (Mempool) ReapMaxBytesMaxGas(_, _ int64) types.Txs { return types.Txs{} }

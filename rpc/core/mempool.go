@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jinzhu/copier"
+	abcix "github.com/tendermint/tendermint/abcix/types"
+
 	abci "github.com/tendermint/tendermint/abci/types"
 	mempl "github.com/tendermint/tendermint/mempool"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
@@ -32,8 +35,8 @@ func BroadcastTxAsync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadca
 // DeliverTx result.
 // More: https://docs.tendermint.com/master/rpc/#/Tx/broadcast_tx_sync
 func BroadcastTxSync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
-	resCh := make(chan *abci.Response, 1)
-	err := env.Mempool.CheckTx(tx, func(res *abci.Response) {
+	resCh := make(chan *abcix.Response, 1)
+	err := env.Mempool.CheckTx(tx, func(res *abcix.Response) {
 		resCh <- res
 	}, mempl.TxInfo{})
 	if err != nil {
@@ -74,8 +77,8 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadc
 	defer env.EventBus.Unsubscribe(context.Background(), subscriber, q)
 
 	// Broadcast tx and wait for CheckTx result
-	checkTxResCh := make(chan *abci.Response, 1)
-	err = env.Mempool.CheckTx(tx, func(res *abci.Response) {
+	checkTxResCh := make(chan *abcix.Response, 1)
+	err = env.Mempool.CheckTx(tx, func(res *abcix.Response) {
 		checkTxResCh <- res
 	}, mempl.TxInfo{})
 	if err != nil {
@@ -84,9 +87,14 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadc
 	}
 	checkTxResMsg := <-checkTxResCh
 	checkTxRes := checkTxResMsg.GetCheckTx()
-	if checkTxRes.Code != abci.CodeTypeOK {
+
+	legacyCheckTxResp := &abci.ResponseCheckTx{}
+	if err = copier.Copy(legacyCheckTxResp, checkTxRes); err != nil {
+		panic(err) // TODO: should be removed as we fully migrated to ABCIx
+	}
+	if checkTxRes.Code != abcix.CodeTypeOK {
 		return &ctypes.ResultBroadcastTxCommit{
-			CheckTx:   *checkTxRes,
+			CheckTx:   *legacyCheckTxResp, // TODO: should broadcast new checkTxResp
 			DeliverTx: abci.ResponseDeliverTx{},
 			Hash:      tx.Hash(),
 		}, nil
@@ -97,7 +105,7 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadc
 	case msg := <-deliverTxSub.Out(): // The tx was included in a block.
 		deliverTxRes := msg.Data().(types.EventDataTx)
 		return &ctypes.ResultBroadcastTxCommit{
-			CheckTx:   *checkTxRes,
+			CheckTx:   *legacyCheckTxResp,
 			DeliverTx: deliverTxRes.Result,
 			Hash:      tx.Hash(),
 			Height:    deliverTxRes.Height,
@@ -112,7 +120,7 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadc
 		err = fmt.Errorf("deliverTxSub was cancelled (reason: %s)", reason)
 		env.Logger.Error("Error on broadcastTxCommit", "err", err)
 		return &ctypes.ResultBroadcastTxCommit{
-			CheckTx:   *checkTxRes,
+			CheckTx:   *legacyCheckTxResp,
 			DeliverTx: abci.ResponseDeliverTx{},
 			Hash:      tx.Hash(),
 		}, err
@@ -120,7 +128,7 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadc
 		err = errors.New("timed out waiting for tx to be included in a block")
 		env.Logger.Error("Error on broadcastTxCommit", "err", err)
 		return &ctypes.ResultBroadcastTxCommit{
-			CheckTx:   *checkTxRes,
+			CheckTx:   *legacyCheckTxResp,
 			DeliverTx: abci.ResponseDeliverTx{},
 			Hash:      tx.Hash(),
 		}, err

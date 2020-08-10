@@ -30,7 +30,7 @@ type AppConnMempool interface {
 	SetResponseCallback(abcicli.Callback)
 	Error() error
 
-	CheckTxAsync(types.RequestCheckTx) *abcicli.ReqRes
+	CheckTxAsync(xtypes.RequestCheckTx) *abcixcli.ReqRes
 	CheckTxSync(types.RequestCheckTx) (*types.ResponseCheckTx, error)
 
 	FlushAsync() *abcicli.ReqRes
@@ -114,7 +114,9 @@ func (app *appConnConsensus) DeliverBlockSync(req xtypes.RequestDeliverBlock) (*
 // Implements AppConnMempool (subset of abcicli.Client)
 
 type appConnMempool struct {
-	appConn abcicli.Client
+	// TODO: for now we use both clients from abci and abcix, in the future will only be abcix
+	xappConn abcixcli.Client
+	appConn  abcicli.Client
 }
 
 func NewAppConnMempool(appConn abcicli.Client) AppConnMempool {
@@ -139,8 +141,8 @@ func (app *appConnMempool) FlushSync() error {
 	return app.appConn.FlushSync()
 }
 
-func (app *appConnMempool) CheckTxAsync(req types.RequestCheckTx) *abcicli.ReqRes {
-	return app.appConn.CheckTxAsync(req)
+func (app *appConnMempool) CheckTxAsync(req xtypes.RequestCheckTx) *abcixcli.ReqRes {
+	return app.xappConn.CheckTxAsync(req)
 }
 
 func (app *appConnMempool) CheckTxSync(req types.RequestCheckTx) (*types.ResponseCheckTx, error) {

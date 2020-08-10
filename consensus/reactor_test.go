@@ -145,9 +145,10 @@ func TestReactorWithEvidence(t *testing.T) {
 		mtx := new(sync.Mutex)
 		proxyAppConnMem := abcicli.NewLocalClient(mtx, app)
 		proxyAppConnCon := abcicli.NewLocalClient(mtx, app)
+		appConnMem := proxy.NewAppConnMempool(proxyAppConnMem)
 
 		// Make Mempool
-		mempool := mempl.NewCListMempool(thisConfig.Mempool, proxyAppConnMem, 0)
+		mempool := mempl.NewCListMempool(thisConfig.Mempool, appConnMem, 0)
 		mempool.SetLogger(log.TestingLogger().With("module", "mempool"))
 		if thisConfig.Consensus.WaitForTxs() {
 			mempool.EnableTxsAvailable()

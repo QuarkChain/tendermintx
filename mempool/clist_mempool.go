@@ -8,7 +8,10 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/jinzhu/copier"
+
 	abci "github.com/tendermint/tendermint/abci/types"
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	cfg "github.com/tendermint/tendermint/config"
 	auto "github.com/tendermint/tendermint/libs/autofile"
 	"github.com/tendermint/tendermint/libs/clist"
@@ -238,7 +241,7 @@ func (mem *CListMempool) TxsWaitChan() <-chan struct{} {
 // CONTRACT: Either cb will get called, or err returned.
 //
 // Safe for concurrent use by multiple goroutines.
-func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo TxInfo) error {
+func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abcix.Response), txInfo TxInfo) error {
 	mem.updateMtx.RLock()
 	// use defer to unlock mutex because application (*local client*) might panic
 	defer mem.updateMtx.RUnlock()
@@ -300,7 +303,7 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 		return err
 	}
 
-	reqRes := mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{Tx: tx})
+	reqRes := mem.proxyAppConn.CheckTxAsync(abcix.RequestCheckTx{Tx: tx})
 	reqRes.SetCallback(mem.reqResCb(tx, txInfo.SenderID, txInfo.SenderP2PID, cb))
 
 	return nil
@@ -340,9 +343,9 @@ func (mem *CListMempool) reqResCb(
 	tx []byte,
 	peerID uint16,
 	peerP2PID p2p.ID,
-	externalCb func(*abci.Response),
-) func(res *abci.Response) {
-	return func(res *abci.Response) {
+	externalCb func(*abcix.Response),
+) func(res *abcix.Response) {
+	return func(res *abcix.Response) {
 		if mem.recheckCursor != nil {
 			// this should never happen
 			panic("recheck cursor is not nil in reqResCb")
@@ -417,13 +420,18 @@ func (mem *CListMempool) resCbFirstTime(
 	tx []byte,
 	peerID uint16,
 	peerP2PID p2p.ID,
-	res *abci.Response,
+	res *abcix.Response,
 ) {
 	switch r := res.Value.(type) {
-	case *abci.Response_CheckTx:
+	case *abcix.Response_CheckTx:
 		var postCheckErr error
 		if mem.postCheck != nil {
-			postCheckErr = mem.postCheck(tx, r.CheckTx)
+			legacyCheckTx := &abci.ResponseCheckTx{}
+			// TODO: use actual checkTx response
+			if err := copier.Copy(legacyCheckTx, r.CheckTx); err != nil {
+				panic(err)
+			}
+			postCheckErr = mem.postCheck(tx, legacyCheckTx)
 		}
 		if (r.CheckTx.Code == abci.CodeTypeOK) && postCheckErr == nil {
 			// Check mempool isn't full again to reduce the chance of exceeding the
@@ -653,9 +661,9 @@ func (mem *CListMempool) recheckTxs() {
 	// NOTE: globalCb may be called concurrently.
 	for e := mem.txs.Front(); e != nil; e = e.Next() {
 		memTx := e.Value.(*mempoolTx)
-		mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{
+		mem.proxyAppConn.CheckTxAsync(abcix.RequestCheckTx{
 			Tx:   memTx.tx,
-			Type: abci.CheckTxType_Recheck,
+			Type: abcix.CheckTxType_Recheck,
 		})
 	}
 
