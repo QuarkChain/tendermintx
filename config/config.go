@@ -236,7 +236,7 @@ func DefaultBaseConfig() BaseConfig {
 		FilterPeers:        false,
 		DBBackend:          "goleveldb",
 		DBPath:             "data",
-		DeliverBlock:       false,
+		DeliverBlock:       true,
 	}
 }
 
@@ -247,7 +247,7 @@ func TestBaseConfig() BaseConfig {
 	cfg.ProxyApp = "kvstore"
 	cfg.FastSyncMode = false
 	cfg.DBBackend = "memdb"
-	cfg.DeliverBlock = false
+	cfg.DeliverBlock = true
 	return cfg
 }
 
