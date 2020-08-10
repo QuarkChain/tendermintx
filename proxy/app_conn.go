@@ -83,7 +83,7 @@ func (app *appConnConsensus) CreateBlockSync(
 	req xtypes.RequestCreateBlock,
 	mempool *xtypes.MempoolIter,
 ) (*xtypes.ResponseCreateBlock, error) {
-	return app.xappConn.CreateBlockSync(req, *mempool)
+	return app.xappConn.CreateBlockSync(req, mempool)
 }
 
 func (app *appConnConsensus) InitChainSync(req types.RequestInitChain) (*types.ResponseInitChain, error) {

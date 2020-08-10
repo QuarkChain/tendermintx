@@ -273,12 +273,12 @@ func (app *localClient) CommitSync() (*types.ResponseCommit, error) {
 
 func (app *localClient) CreateBlockSync(
 	req types.RequestCreateBlock,
-	mempool types.MempoolIter,
+	mempool *types.MempoolIter,
 ) (*types.ResponseCreateBlock, error) {
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
 
-	res := app.Application.CreateBlock(req, mempool)
+	res := app.Application.CreateBlock(req, *mempool)
 	return &res, nil
 }
 

@@ -5,6 +5,7 @@ import (
 )
 
 type mempool interface {
+	// An embedded interface to access mempool.Mempool
 	GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error)
 }
 
@@ -17,12 +18,13 @@ func NewMempoolIter(mp mempool) *MempoolIter {
 	return &MempoolIter{mp: mp}
 }
 
-func (mps *MempoolIter) GetNextTransaction(remainBytes int64, remainGas int64) ([]byte, error) {
-	s, err := mps.mp.GetNextTxBytes(remainBytes, remainGas, mps.starter)
-	if s != nil {
-		mps.starter = s
+func (mi *MempoolIter) GetNextTransaction(remainBytes int64, remainGas int64) ([]byte, error) {
+	s, err := mi.mp.GetNextTxBytes(remainBytes, remainGas, mi.starter)
+	if err != nil {
+		return nil, err
 	}
-	return s, err
+	mi.starter = s
+	return s, nil
 }
 
 // Application is an interface that enables any finite, deterministic state machine

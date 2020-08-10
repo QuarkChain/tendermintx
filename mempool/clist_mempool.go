@@ -441,7 +441,7 @@ func (mem *CListMempool) resCbFirstTime(
 				tx:        tx,
 			}
 			memTx.senders.Store(peerID, true)
-			mem.addTx(memTx, 0) //TODO get priority from cb
+			mem.addTx(memTx, 0) // TODO get priority from cb
 			mem.logger.Info("Added good transaction",
 				"tx", txID(tx),
 				"res", r,
@@ -662,6 +662,9 @@ func (mem *CListMempool) recheckTxs() {
 	mem.proxyAppConn.FlushAsync()
 }
 
+// GetNextTxBytes() finds satisfied tx with two itrations, currently cost O(N) time, will be optimized with balance tree
+// in the future to reduce the time complexity to O(logN) or even O(1)
+
 func (mem *CListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
 
 	mem.updateMtx.RLock()
@@ -671,7 +674,7 @@ func (mem *CListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, star
 	var minPriority int64 = 0
 	if len(starter) > 0 {
 		for elem := mem.txs.Front(); elem != nil; elem = elem.Next() {
-			if bytes.Equal(elem.Value.(*mempoolTx).tx.Hash(), starter) {
+			if bytes.Equal(elem.Value.(*mempoolTx).tx, starter) {
 				lastElem = elem
 				minPriority = elem.Priority
 				break
@@ -690,7 +693,8 @@ func (mem *CListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, star
 		}
 	}
 	if candidate == nil {
-		return nil, fmt.Errorf("can't find transaction with Bytes %d, Gas %d, starter %s", remainBytes, remainGas, starter)
+		mem.logger.Error("failed to find transaction with Bytes %d, Gas %d, starter %s", remainBytes, remainGas, starter)
+		return nil, fmt.Errorf("could not find a transaction that meets the requirements")
 	}
 	return candidate.Value.(*mempoolTx).tx, nil
 }
