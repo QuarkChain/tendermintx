@@ -4,9 +4,25 @@ import (
 	context "golang.org/x/net/context"
 )
 
-type MempoolIter interface {
-	//mempool.Mempool
+type mempool interface {
 	GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error)
+}
+
+type MempoolIter struct {
+	starter []byte
+	mp      mempool
+}
+
+func NewMempoolIter(mp mempool) *MempoolIter {
+	return &MempoolIter{mp: mp}
+}
+
+func (mps *MempoolIter) GetNextTransaction(remainBytes int64, remainGas int64) ([]byte, error) {
+	s, err := mps.mp.GetNextTxBytes(remainBytes, remainGas, mps.starter)
+	if s != nil {
+		mps.starter = s
+	}
+	return s, err
 }
 
 // Application is an interface that enables any finite, deterministic state machine
