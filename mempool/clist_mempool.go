@@ -694,7 +694,7 @@ func (mem *CListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, star
 	}
 	if candidate == nil {
 		mem.logger.Error("failed to find transaction with Bytes %d, Gas %d, starter %s", remainBytes, remainGas, starter)
-		return nil, fmt.Errorf("could not find a transaction that meets the requirements")
+		return nil, fmt.Errorf("could not find transaction")
 	}
 	return candidate.Value.(*mempoolTx).tx, nil
 }
