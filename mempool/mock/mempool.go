@@ -20,7 +20,7 @@ func (Mempool) CheckTx(_ types.Tx, _ func(*abci.Response), _ mempl.TxInfo) error
 }
 func (Mempool) ReapMaxBytesMaxGas(_, _ int64) types.Txs { return types.Txs{} }
 func (Mempool) ReapMaxTxs(n int) types.Txs              { return types.Txs{} }
-func (Mempool) GetNextTransaction(_ int64, _ int64, _ []byte) (types.Tx, error) {
+func (Mempool) GetNextTxBytes(_ int64, _ int64, _ []byte) ([]byte, error) {
 	return types.Tx{}, nil
 }
 func (Mempool) Update(

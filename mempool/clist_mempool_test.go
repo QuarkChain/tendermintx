@@ -576,7 +576,7 @@ func TestMempoolRemoteAppConcurrency(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestCListMempool_GetNextTransaction(t *testing.T) {
+func TestCListMempool_GetNextTxBytes(t *testing.T) {
 	// TODO TBD
 }
 

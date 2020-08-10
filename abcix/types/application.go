@@ -5,7 +5,8 @@ import (
 )
 
 type MempoolIter interface {
-	// GetNextTransaction(remainBytes int64, remainGas int64, starter []byte) types.Tx
+	//mempool.Mempool
+	GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error)
 }
 
 // Application is an interface that enables any finite, deterministic state machine
