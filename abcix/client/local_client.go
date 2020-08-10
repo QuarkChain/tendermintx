@@ -278,7 +278,7 @@ func (app *localClient) CreateBlockSync(
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
 
-	res := app.Application.CreateBlock(req, *mempool)
+	res := app.Application.CreateBlock(req, mempool)
 	return &res, nil
 }
 

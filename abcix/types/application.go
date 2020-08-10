@@ -42,7 +42,7 @@ type Application interface {
 
 	// Consensus Connection
 	CreateBlock(RequestCreateBlock,
-		MempoolIter) ResponseCreateBlock // Create block and include tx by priority
+		*MempoolIter) ResponseCreateBlock // Create block and include tx by priority
 	InitChain(RequestInitChain) ResponseInitChain          // Init blockchain w validators/other info from TendermintCore
 	BeginBlock(RequestBeginBlock) ResponseBeginBlock       // Signals the beginning of a block
 	DeliverTx(RequestDeliverTx) ResponseDeliverTx          // Deliver a tx for full processing
@@ -93,7 +93,7 @@ func (BaseApplication) Query(req RequestQuery) ResponseQuery {
 	return ResponseQuery{Code: CodeTypeOK}
 }
 
-func (BaseApplication) CreateBlock(req RequestCreateBlock, mempool MempoolIter) ResponseCreateBlock {
+func (BaseApplication) CreateBlock(req RequestCreateBlock, mempool *MempoolIter) ResponseCreateBlock {
 	return ResponseCreateBlock{}
 }
 
