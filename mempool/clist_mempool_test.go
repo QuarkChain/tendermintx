@@ -576,27 +576,58 @@ func TestMempoolRemoteAppConcurrency(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func getTxsWithPriority(t *testing.T, priority_list []int64)(*CListMempool, cleanupFunc) {
-	app := kvstore.NewApplication()
-	cc := proxy.NewLocalClientCreator(app)
-	mempool, cleanup := newMempoolWithApp(cc)
-	l := len(priority_list)
+func getTxsWithPriority(t *testing.T, mempool *CListMempool, priorityList []int64, targetIndex int) []byte {
+	l := len(priorityList)
 	// Each tx has gas 1, bytes len 20, priority 9
 	checkTxs(t, mempool, l, UnknownPeerID)
+	var targetTx []byte
 	for front, i := mempool.TxsFront(), 0; front != nil; front, i = front.Next(), i+1 {
-		front.Priority = priority_list[i]
-		fmt.Printf("%dth transaction %x\n",i,front.Value)
+		front.Priority = priorityList[i]
+		if i == targetIndex {
+			targetTx = front.Value.(*mempoolTx).tx
+		}
 	}
-	return mempool, cleanup
+	return targetTx
 }
 
 func TestCListMempool_GetNextTxBytes(t *testing.T) {
-	txList := []int64{1,2,3,4,5}
-	mempool, cleanup := getTxsWithPriority(t,txList)
+	app := kvstore.NewApplication()
+	cc := proxy.NewLocalClientCreator(app)
+	mempool, cleanup := newMempoolWithApp(cc)
 	defer cleanup()
-	highest,err := mempool.GetNextTxBytes(20,1,nil)
-	if err == nil {
-		fmt.Printf("Found transaction %x",highest)
+
+	testCases := []struct {
+		txs      []int64
+		expIndex int
+		err      bool
+	}{
+		{
+			txs:      []int64{1, 2, 3, 4, 5},
+			expIndex: 4,
+			err:      false,
+		},
+		{
+			txs:      []int64{5, 4, 3, 2, 1},
+			expIndex: 0,
+			err:      false,
+		},
+		{
+			txs:      []int64{1, 3, 5, 2, 4},
+			expIndex: 2,
+			err:      false,
+		},
+	}
+
+	for i, testCase := range testCases {
+		expectTx := getTxsWithPriority(t, mempool, testCase.txs, testCase.expIndex)
+		resultTx, err := mempool.GetNextTxBytes(20, 1, nil)
+		if !testCase.err {
+			require.NoError(t, err, "Test cast %d returned unexpected error", i)
+		} else {
+			require.Error(t, err, "Test cast %d didn't return expected error", i)
+		}
+		require.Equal(t, expectTx, resultTx, "Test cast %d failed with wrong target", i)
+		mempool.Flush()
 	}
 }
 
