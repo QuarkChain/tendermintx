@@ -576,12 +576,28 @@ func TestMempoolRemoteAppConcurrency(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func getTxsWithPriority(t *testing.T, priority_list []int64)(*CListMempool, cleanupFunc) {
+	app := kvstore.NewApplication()
+	cc := proxy.NewLocalClientCreator(app)
+	mempool, cleanup := newMempoolWithApp(cc)
+	l := len(priority_list)
+	// Each tx has gas 1, bytes len 20, priority 9
+	checkTxs(t, mempool, l, UnknownPeerID)
+	for front, i := mempool.TxsFront(), 0; front != nil; front, i = front.Next(), i+1 {
+		front.Priority = priority_list[i]
+		fmt.Printf("%dth transaction %x\n",i,front.Value)
+	}
+	return mempool, cleanup
+}
+
 func TestCListMempool_GetNextTxBytes(t *testing.T) {
-	//app := kvstore.NewApplication()
-	//cc := proxy.NewLocalClientCreator(app)
-	//mempool, cleanup := newMempoolWithApp(cc)
-	//defer cleanup()
-	//checkTxs(t, mempool, 10, UnknownPeerID)
+	txList := []int64{1,2,3,4,5}
+	mempool, cleanup := getTxsWithPriority(t,txList)
+	defer cleanup()
+	highest,err := mempool.GetNextTxBytes(20,1,nil)
+	if err == nil {
+		fmt.Printf("Found transaction %x",highest)
+	}
 }
 
 // caller must close server
