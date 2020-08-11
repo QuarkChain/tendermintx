@@ -1,7 +1,6 @@
 package mock
 
 import (
-	abci "github.com/tendermint/tendermint/abci/types"
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/libs/clist"
 	mempl "github.com/tendermint/tendermint/mempool"
@@ -24,7 +23,7 @@ func (Mempool) ReapMaxTxs(n int) types.Txs              { return types.Txs{} }
 func (Mempool) Update(
 	_ int64,
 	_ types.Txs,
-	_ []*abci.ResponseDeliverTx,
+	_ []*abcix.ResponseDeliverTx,
 	_ mempl.PreCheckFunc,
 	_ mempl.PostCheckFunc,
 ) error {

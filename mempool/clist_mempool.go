@@ -8,7 +8,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	abci "github.com/tendermint/tendermint/abci/types"
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	cfg "github.com/tendermint/tendermint/config"
 	auto "github.com/tendermint/tendermint/libs/autofile"
@@ -426,7 +425,7 @@ func (mem *CListMempool) resCbFirstTime(
 		if mem.postCheck != nil {
 			postCheckErr = mem.postCheck(tx, r.CheckTx)
 		}
-		if (r.CheckTx.Code == abci.CodeTypeOK) && postCheckErr == nil {
+		if (r.CheckTx.Code == abcix.CodeTypeOK) && postCheckErr == nil {
 			// Check mempool isn't full again to reduce the chance of exceeding the
 			// limits.
 			if err := mem.isFull(len(tx)); err != nil {
@@ -482,7 +481,7 @@ func (mem *CListMempool) resCbRecheck(req *abcix.Request, res *abcix.Response) {
 		if mem.postCheck != nil {
 			postCheckErr = mem.postCheck(tx, r.CheckTx)
 		}
-		if (r.CheckTx.Code == abci.CodeTypeOK) && postCheckErr == nil {
+		if (r.CheckTx.Code == abcix.CodeTypeOK) && postCheckErr == nil {
 			// Good, nothing to do.
 		} else {
 			// Tx became invalidated due to newly committed block.
@@ -583,7 +582,7 @@ func (mem *CListMempool) ReapMaxTxs(max int) types.Txs {
 func (mem *CListMempool) Update(
 	height int64,
 	txs types.Txs,
-	deliverTxResponses []*abci.ResponseDeliverTx,
+	deliverTxResponses []*abcix.ResponseDeliverTx,
 	preCheck PreCheckFunc,
 	postCheck PostCheckFunc,
 ) error {
@@ -599,7 +598,7 @@ func (mem *CListMempool) Update(
 	}
 
 	for i, tx := range txs {
-		if deliverTxResponses[i].Code == abci.CodeTypeOK {
+		if deliverTxResponses[i].Code == abcix.CodeTypeOK {
 			// Add valid committed tx to the cache (if missing).
 			_ = mem.cache.Push(tx)
 		} else {

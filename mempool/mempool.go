@@ -3,7 +3,6 @@ package mempool
 import (
 	"fmt"
 
-	abci "github.com/tendermint/tendermint/abci/types"
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/types"
@@ -42,7 +41,7 @@ type Mempool interface {
 	Update(
 		blockHeight int64,
 		blockTxs types.Txs,
-		deliverTxResponses []*abci.ResponseDeliverTx,
+		deliverTxResponses []*abcix.ResponseDeliverTx,
 		newPreFn PreCheckFunc,
 		newPostFn PostCheckFunc,
 	) error

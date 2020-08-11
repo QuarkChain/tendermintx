@@ -572,10 +572,10 @@ func checksumFile(p string, t *testing.T) string {
 	return checksumIt(data)
 }
 
-func abciResponses(n int, code uint32) []*abci.ResponseDeliverTx {
-	responses := make([]*abci.ResponseDeliverTx, 0, n)
+func abciResponses(n int, code uint32) []*abcix.ResponseDeliverTx {
+	responses := make([]*abcix.ResponseDeliverTx, 0, n)
 	for i := 0; i < n; i++ {
-		responses = append(responses, &abci.ResponseDeliverTx{Code: code})
+		responses = append(responses, &abcix.ResponseDeliverTx{Code: code})
 	}
 	return responses
 }
