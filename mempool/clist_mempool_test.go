@@ -578,9 +578,10 @@ func TestMempoolRemoteAppConcurrency(t *testing.T) {
 
 func generateTxsWithPriority(t *testing.T, mempool *CListMempool, priorityList []int64) []types.Tx {
 	l := len(priorityList)
-	// Each tx has gas 1, bytes len 20, priority 9
+	// Each tx has default gas 1, bytes len 20, priority 0
 	checkTxs(t, mempool, l, UnknownPeerID)
 	var txs []types.Tx
+	// Add priority to each element
 	for front, i := mempool.TxsFront(), 0; front != nil; front, i = front.Next(), i+1 {
 		front.Priority = priorityList[i]
 		txs = append(txs, front.Value.(*mempoolTx).tx)
