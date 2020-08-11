@@ -606,47 +606,54 @@ func TestCListMempool_GetNextTxBytes(t *testing.T) {
 	defer cleanup()
 
 	testCases := []struct {
-		txs []int64
-		err bool
+		priorities []int64
+		order      []int
+		err        bool
 	}{
 		// error case by wrong gas/bytes limit
 		{
-			txs: []int64{0, 0, 0, 0, 0},
-			err: true,
+			priorities: []int64{0, 0, 0, 0, 0},
+			order:      []int{0, 1, 2, 3, 4},
+			err:        true,
 		},
 		// same priority would present as FIFO
 		{
-			txs: []int64{0, 0, 0, 0, 0},
+			priorities: []int64{0, 0, 0, 0, 0},
+			order:      []int{0, 1, 2, 3, 4},
 		},
 		{
-			txs: []int64{1, 2, 3, 4, 5},
+			priorities: []int64{1, 0, 1, 0, 1},
+			order:      []int{0, 3, 1, 4, 2},
+			err:        true,
 		},
 		{
-			txs: []int64{5, 4, 3, 2, 1},
+			priorities: []int64{1, 2, 3, 4, 5},
+			order:      []int{4, 3, 2, 1, 0},
 		},
 		{
-			txs: []int64{1, 3, 5, 4, 2},
+			priorities: []int64{5, 4, 3, 2, 1},
+			order:      []int{0, 1, 2, 3, 4},
+		},
+		{
+			priorities: []int64{1, 3, 5, 4, 2},
+			order:      []int{4, 2, 0, 1, 3},
 		},
 	}
 
 	for i, testCase := range testCases {
-		originalTxs := generateTxsWithPriority(t, mempool, testCase.txs)
+		originalTxs := generateTxsWithPriority(t, mempool, testCase.priorities)
 		remainBytes := 20
 		if testCase.err {
 			remainBytes = 10
 		}
 		orderedTxs := getTxswithPriority(mempool, int64(remainBytes))
 		if testCase.err {
-			require.Nil(t, orderedTxs, "Failed at testcase %d without error")
+			require.Nil(t, orderedTxs, "Failed at testcase %d", i)
 			mempool.Flush()
 			continue
 		}
-		for j, v := range testCase.txs {
-			expectIndex := len(testCase.txs) - int(v)
-			if v == 0 {
-				expectIndex = j
-			}
-			require.Equal(t, originalTxs[j], orderedTxs[expectIndex], "Failed at testcase %d tx %d compare", i, j)
+		for j, k := range testCase.order {
+			require.Equal(t, originalTxs[j], orderedTxs[k], "Failed at testcase %d", i)
 		}
 		mempool.Flush()
 	}
