@@ -66,7 +66,6 @@ var _ types.Application = (*Application)(nil)
 
 type Application struct {
 	types.BaseApplication
-
 	state        State
 	RetainBlocks int64 // blocks to retain after commit (via ResponseCommit.RetainHeight)
 }
@@ -86,8 +85,62 @@ func (app *Application) Info(req types.RequestInfo) (resInfo types.ResponseInfo)
 	}
 }
 
+func (app *Application) CheckTx(req types.RequestCheckTx) types.ResponseCheckTx {
+	// Customize priority by user
+	return types.ResponseCheckTx{Code: code.CodeTypeOK, GasWanted: 1, Priority: 1}
+}
+
+// Iterate txs from mempool ordered by priority and select the ones to be included in the next block
+func (app *Application) CreateBlock(
+	req types.RequestCreateBlock,
+	mempool *types.MempoolIter,
+) types.ResponseCreateBlock {
+	var txs [][]byte
+	var preSize int64
+
+	// e.g. remainGas = 100
+	for i := 100; i < 0; i-- {
+		tx, err := mempool.GetNextTransaction(int64(i), int64(i))
+		if err != nil {
+			panic("failed to get next tx from mempool")
+		}
+		txs = append(txs, tx)
+		preSize++
+	}
+
+	appHash := make([]byte, 8)
+	binary.PutVarint(appHash, preSize)
+
+	events := []types.Event{
+		{
+			Type: "create_block",
+			Attributes: []types.EventAttribute{
+				{Key: []byte("height"), Value: []byte{byte(req.Height)}},
+				{Key: []byte("valid tx"), Value: []byte{byte(len(txs))}},
+				{Key: []byte("invalid tx"), Value: []byte{byte(0)}},
+			},
+		},
+	}
+
+	return types.ResponseCreateBlock{Txs: txs, Hash: appHash, Events: events}
+}
+
+// Combination of ABCI.BeginBlock, []ABCI.DeliverTx, ABCI.EndBlock, and ABCI.Commit
+func (app *Application) DeliverBlock(req types.RequestDeliverBlock) types.ResponseDeliverBlock {
+	// ABCI.DeliverTx
+	deliverTxRes := make([]*types.ResponseDeliverTx, 0)
+	for _, tx := range req.Txs {
+		res := app.deliverTx(types.RequestDeliverTx{Tx: tx})
+		deliverTxRes = append(deliverTxRes, &res)
+	}
+
+	// ABCI.Commit
+	commitRes := app.commit()
+	return types.ResponseDeliverBlock{DeliverTxs: deliverTxRes, Data: commitRes.Data, RetainHeight: commitRes.RetainHeight}
+}
+
 // tx is either "key=value" or just arbitrary bytes
-func (app *Application) DeliverTx(req types.RequestDeliverTx) types.ResponseDeliverTx {
+func (app *Application) deliverTx(req types.RequestDeliverTx) types.ResponseDeliverTx {
 	var key, value []byte
 	parts := bytes.Split(req.Tx, []byte("="))
 	if len(parts) == 2 {
@@ -117,12 +170,7 @@ func (app *Application) DeliverTx(req types.RequestDeliverTx) types.ResponseDeli
 	return types.ResponseDeliverTx{Code: code.CodeTypeOK, Events: events}
 }
 
-func (app *Application) CheckTx(req types.RequestCheckTx) types.ResponseCheckTx {
-	// Customize priority by user
-	return types.ResponseCheckTx{Code: code.CodeTypeOK, GasWanted: 1, Priority: 1}
-}
-
-func (app *Application) Commit() types.ResponseCommit {
+func (app *Application) commit() types.ResponseCommit {
 	// Using a memdb - just return the big endian size of the db
 	appHash := make([]byte, 8)
 	binary.PutVarint(appHash, app.state.Size)
