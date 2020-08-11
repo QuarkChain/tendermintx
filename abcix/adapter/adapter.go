@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"github.com/jinzhu/copier"
+
 	abci "github.com/tendermint/tendermint/abci/types"
 	abcix "github.com/tendermint/tendermint/abcix/types"
 )
@@ -124,6 +125,12 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 	respEnd := app.abciApp.EndBlock(reqEnd)
 	events = append(events, respEnd.Events...)
 	if err := copier.Copy(&resp, &respEnd); err != nil {
+		// TODO: panic for debugging purposes. better error handling soon!
+		panic(err)
+	}
+
+	respCommit := app.abciApp.Commit()
+	if err := copier.Copy(&resp, &respCommit); err != nil {
 		// TODO: panic for debugging purposes. better error handling soon!
 		panic(err)
 	}
