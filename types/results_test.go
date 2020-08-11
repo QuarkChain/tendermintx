@@ -3,10 +3,10 @@ package types
 import (
 	"testing"
 
-	abcix "github.com/tendermint/tendermint/abcix/types"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	abcix "github.com/tendermint/tendermint/abcix/types"
 )
 
 func TestABCIResults(t *testing.T) {
