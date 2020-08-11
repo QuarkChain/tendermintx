@@ -10,8 +10,9 @@ type mempool interface {
 }
 
 type MempoolIter struct {
-	starter []byte
-	mp      mempool
+	starter  []byte
+	mp       mempool
+	finished bool
 }
 
 func NewMempoolIter(mp mempool) *MempoolIter {
@@ -24,7 +25,14 @@ func (mi *MempoolIter) GetNextTransaction(remainBytes int64, remainGas int64) ([
 		return nil, err
 	}
 	mi.starter = s
+	if len(s) == 0 {
+		mi.finished = true
+	}
 	return s, nil
+}
+
+func (mi *MempoolIter) HasNext() bool {
+	return !mi.finished
 }
 
 // Application is an interface that enables any finite, deterministic state machine
