@@ -1,8 +1,12 @@
 package proxy
 
 import (
+	"github.com/jinzhu/copier"
+
 	abcicli "github.com/tendermint/tendermint/abci/client"
 	"github.com/tendermint/tendermint/abci/types"
+	abcixcli "github.com/tendermint/tendermint/abcix/client"
+	xtypes "github.com/tendermint/tendermint/abcix/types"
 )
 
 //go:generate mockery -case underscore -name AppConnConsensus|AppConnMempool|AppConnQuery|AppConnSnapshot
@@ -128,6 +132,98 @@ func (app *legacyAppConnMempool) CheckTxAsync(req types.RequestCheckTx) *abcicli
 
 func (app *legacyAppConnMempool) CheckTxSync(req types.RequestCheckTx) (*types.ResponseCheckTx, error) {
 	return app.appConn.CheckTxSync(req)
+}
+
+// Helper struct to adapt legacy mempool app conn
+type adaptedLegacyAppConnMempool struct {
+	legacyApp LegacyAppConnMempool
+}
+
+func (app *adaptedLegacyAppConnMempool) SetResponseCallback(callback abcixcli.Callback) {
+	app.legacyApp.SetResponseCallback(func(req *types.Request, resp *types.Response) {
+		// Right now, global callback is only used for tx recheck, thus we only handle if it's checkTx
+		if _, ok := resp.Value.(*types.Response_CheckTx); !ok {
+			return
+		}
+
+		var checkTxReq xtypes.RequestCheckTx
+		if err := copier.Copy(&checkTxReq, req.GetCheckTx()); err != nil {
+			// TODO: panic for debugging purposes. better error handling soon!
+			panic(err)
+		}
+		newReq := xtypes.ToRequestCheckTx(checkTxReq)
+
+		var checkTxResp xtypes.ResponseCheckTx
+		if err := copier.Copy(&checkTxResp, resp.GetCheckTx()); err != nil {
+			// TODO: panic for debugging purposes. better error handling soon!
+			panic(err)
+		}
+		newResp := xtypes.ToResponseCheckTx(checkTxResp)
+
+		callback(newReq, newResp)
+	})
+}
+
+func (app *adaptedLegacyAppConnMempool) Error() error {
+	return app.legacyApp.Error()
+}
+
+func (app *adaptedLegacyAppConnMempool) CheckTxAsync(req xtypes.RequestCheckTx) *abcixcli.ReqRes {
+	legacyReq := types.RequestCheckTx{}
+	if err := copier.Copy(&legacyReq, &req); err != nil {
+		// TODO: panic for debugging purposes. better error handling soon!
+		panic(err)
+	}
+	legacyReqRes := app.legacyApp.CheckTxAsync(legacyReq)
+
+	reqRes := abcixcli.NewReqRes(xtypes.ToRequestCheckTx(req))
+	reqRes.WaitGroup = legacyReqRes.WaitGroup
+	// Note here we only adapt for local client, thus response should be ready already
+	if legacyReqRes.Response == nil || legacyReqRes.Response.GetCheckTx() == nil {
+		panic("unexpected legacy app checkTx async result, shouldn't have nil checkTx response")
+	}
+	var resp xtypes.ResponseCheckTx
+	if err := copier.Copy(&resp, legacyReqRes.Response.GetCheckTx()); err != nil {
+		// TODO: panic for debugging purposes. better error handling soon!
+		panic(err)
+	}
+	reqRes.Response = xtypes.ToResponseCheckTx(resp)
+	reqRes.SetDone()
+	return reqRes
+}
+
+func (app *adaptedLegacyAppConnMempool) CheckTxSync(req xtypes.RequestCheckTx) (*xtypes.ResponseCheckTx, error) {
+	legacyReq := types.RequestCheckTx{}
+	if err := copier.Copy(&legacyReq, &req); err != nil {
+		// TODO: panic for debugging purposes. better error handling soon!
+		panic(err)
+	}
+	abciResp, err := app.legacyApp.CheckTxSync(legacyReq)
+	if err != nil {
+		return nil, err
+	}
+	resp := &xtypes.ResponseCheckTx{}
+	if err := copier.Copy(resp, abciResp); err != nil {
+		// TODO: panic for debugging purposes. better error handling soon!
+		panic(err)
+	}
+	return resp, nil
+}
+
+func (app *adaptedLegacyAppConnMempool) FlushAsync() *abcixcli.ReqRes {
+	// Note here we only adapt for local client, which does nothing in this method
+	reqRes := abcixcli.NewReqRes(xtypes.ToRequestFlush())
+	reqRes.SetDone()
+	return reqRes
+}
+
+func (app *adaptedLegacyAppConnMempool) FlushSync() error {
+	return app.legacyApp.FlushSync()
+}
+
+// AdaptLegacy will convert a legacy mempool app conn to the one supporting ABCIx
+func AdaptLegacy(legacyApp LegacyAppConnMempool) AppConnMempool {
+	return &adaptedLegacyAppConnMempool{legacyApp: legacyApp}
 }
 
 //------------------------------------------------
