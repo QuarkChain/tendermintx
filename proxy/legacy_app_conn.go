@@ -59,41 +59,41 @@ type LegacyAppConnSnapshot interface {
 //-----------------------------------------------------------------------------------------
 // Implements AppConnConsensus (subset of abcicli.Client)
 
-type legacySppConnConsensus struct {
+type legacyAppConnConsensus struct {
 	appConn abcicli.Client
 }
 
 func NewLegacyAppConnConsensus(appConn abcicli.Client) LegacyAppConnConsensus {
-	return &legacySppConnConsensus{
+	return &legacyAppConnConsensus{
 		appConn: appConn,
 	}
 }
 
-func (app *legacySppConnConsensus) SetResponseCallback(cb abcicli.Callback) {
+func (app *legacyAppConnConsensus) SetResponseCallback(cb abcicli.Callback) {
 	app.appConn.SetResponseCallback(cb)
 }
 
-func (app *legacySppConnConsensus) Error() error {
+func (app *legacyAppConnConsensus) Error() error {
 	return app.appConn.Error()
 }
 
-func (app *legacySppConnConsensus) InitChainSync(req types.RequestInitChain) (*types.ResponseInitChain, error) {
+func (app *legacyAppConnConsensus) InitChainSync(req types.RequestInitChain) (*types.ResponseInitChain, error) {
 	return app.appConn.InitChainSync(req)
 }
 
-func (app *legacySppConnConsensus) BeginBlockSync(req types.RequestBeginBlock) (*types.ResponseBeginBlock, error) {
+func (app *legacyAppConnConsensus) BeginBlockSync(req types.RequestBeginBlock) (*types.ResponseBeginBlock, error) {
 	return app.appConn.BeginBlockSync(req)
 }
 
-func (app *legacySppConnConsensus) DeliverTxAsync(req types.RequestDeliverTx) *abcicli.ReqRes {
+func (app *legacyAppConnConsensus) DeliverTxAsync(req types.RequestDeliverTx) *abcicli.ReqRes {
 	return app.appConn.DeliverTxAsync(req)
 }
 
-func (app *legacySppConnConsensus) EndBlockSync(req types.RequestEndBlock) (*types.ResponseEndBlock, error) {
+func (app *legacyAppConnConsensus) EndBlockSync(req types.RequestEndBlock) (*types.ResponseEndBlock, error) {
 	return app.appConn.EndBlockSync(req)
 }
 
-func (app *legacySppConnConsensus) CommitSync() (*types.ResponseCommit, error) {
+func (app *legacyAppConnConsensus) CommitSync() (*types.ResponseCommit, error) {
 	return app.appConn.CommitSync()
 }
 

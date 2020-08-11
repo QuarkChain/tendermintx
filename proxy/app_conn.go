@@ -17,6 +17,7 @@ type AppConnConsensus interface {
 	CreateBlockSync(xtypes.RequestCreateBlock, xtypes.MempoolIter) (*xtypes.ResponseCreateBlock, error)
 	InitChainSync(xtypes.RequestInitChain) (*xtypes.ResponseInitChain, error)
 	DeliverBlockSync(xtypes.RequestDeliverBlock) (*xtypes.ResponseDeliverBlock, error)
+	CommitSync() (*xtypes.ResponseCommit, error)
 }
 
 type AppConnMempool interface {
@@ -81,6 +82,10 @@ func (app *appConnConsensus) InitChainSync(req xtypes.RequestInitChain) (*xtypes
 
 func (app *appConnConsensus) DeliverBlockSync(req xtypes.RequestDeliverBlock) (*xtypes.ResponseDeliverBlock, error) {
 	return app.appConn.DeliverBlockSync(req)
+}
+
+func (app *appConnConsensus) CommitSync() (*xtypes.ResponseCommit, error) {
+	return app.appConn.CommitSync()
 }
 
 //------------------------------------------------
