@@ -14,7 +14,6 @@ import (
 	dbm "github.com/tendermint/tm-db"
 
 	"github.com/tendermint/tendermint/abci/example/code"
-	abci "github.com/tendermint/tendermint/abci/types"
 	mempl "github.com/tendermint/tendermint/mempool"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
@@ -39,8 +38,11 @@ func TestMempoolNoProgressUntilTxsAvailable(t *testing.T) {
 	ensureNewEventOnChannel(newBlockCh) // first block gets committed
 	ensureNoNewEventOnChannel(newBlockCh)
 	deliverTxsRange(cs, 0, 1)
+	println("tagtag1")
 	ensureNewEventOnChannel(newBlockCh) // commit txs
+	println("tagtag2")
 	ensureNewEventOnChannel(newBlockCh) // commit updated app hash
+	println("tagtag3")
 	ensureNoNewEventOnChannel(newBlockCh)
 }
 
@@ -144,8 +146,10 @@ func TestMempoolRmBadTx(t *testing.T) {
 	txBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(txBytes, uint64(0))
 
-	resDeliver := app.DeliverTx(abci.RequestDeliverTx{Tx: txBytes})
-	assert.False(t, resDeliver.IsErr(), fmt.Sprintf("expected no error. got %v", resDeliver))
+	resDeliver := app.DeliverBlock(abcix.RequestDeliverBlock{
+		Txs: [][]byte{txBytes},
+	})
+	assert.False(t, resDeliver.DeliverTxs[0].IsErr(), fmt.Sprintf("expected no error. got %v", resDeliver))
 
 	resCommit := app.Commit()
 	assert.True(t, len(resCommit.Data) > 0)
@@ -202,7 +206,7 @@ func TestMempoolRmBadTx(t *testing.T) {
 
 // CounterApplication that maintains a mempool state and resets it upon commit
 type CounterApplication struct {
-	abci.BaseApplication
+	abcix.BaseApplication
 
 	txCount        int
 	mempoolTxCount int
@@ -212,30 +216,38 @@ func NewCounterApplication() *CounterApplication {
 	return &CounterApplication{}
 }
 
-func (app *CounterApplication) Info(req abci.RequestInfo) abci.ResponseInfo {
-	return abci.ResponseInfo{Data: fmt.Sprintf("txs:%v", app.txCount)}
+func (app *CounterApplication) Info(req abcix.RequestInfo) abcix.ResponseInfo {
+	return abcix.ResponseInfo{Data: fmt.Sprintf("txs:%v", app.txCount)}
 }
 
-func (app *CounterApplication) DeliverTx(req abci.RequestDeliverTx) abci.ResponseDeliverTx {
-	txValue := txAsUint64(req.Tx)
-	if txValue != uint64(app.txCount) {
-		return abci.ResponseDeliverTx{
-			Code: code.CodeTypeBadNonce,
-			Log:  fmt.Sprintf("Invalid nonce. Expected %v, got %v", app.txCount, txValue)}
+func (app *CounterApplication) DeliverBlock(req abcix.RequestDeliverBlock) abcix.ResponseDeliverBlock {
+	ret := abcix.ResponseDeliverBlock{}
+	for _, tx := range req.Txs {
+		txValue := txAsUint64(tx)
+		var txResp abcix.ResponseDeliverTx
+		if txValue != uint64(app.txCount) {
+			txResp = abcix.ResponseDeliverTx{
+				Code: code.CodeTypeBadNonce,
+				Log:  fmt.Sprintf("Invalid nonce. Expected %v, got %v", app.txCount, txValue),
+			}
+		} else {
+			txResp = abcix.ResponseDeliverTx{Code: code.CodeTypeOK}
+		}
+		ret.DeliverTxs = append(ret.DeliverTxs, &txResp)
+		app.txCount++
 	}
-	app.txCount++
-	return abci.ResponseDeliverTx{Code: code.CodeTypeOK}
+	return ret
 }
 
-func (app *CounterApplication) CheckTx(req abci.RequestCheckTx) abci.ResponseCheckTx {
+func (app *CounterApplication) CheckTx(req abcix.RequestCheckTx) abcix.ResponseCheckTx {
 	txValue := txAsUint64(req.Tx)
 	if txValue != uint64(app.mempoolTxCount) {
-		return abci.ResponseCheckTx{
+		return abcix.ResponseCheckTx{
 			Code: code.CodeTypeBadNonce,
 			Log:  fmt.Sprintf("Invalid nonce. Expected %v, got %v", app.mempoolTxCount, txValue)}
 	}
 	app.mempoolTxCount++
-	return abci.ResponseCheckTx{Code: code.CodeTypeOK}
+	return abcix.ResponseCheckTx{Code: code.CodeTypeOK}
 }
 
 func txAsUint64(tx []byte) uint64 {
@@ -244,12 +256,12 @@ func txAsUint64(tx []byte) uint64 {
 	return binary.BigEndian.Uint64(tx8)
 }
 
-func (app *CounterApplication) Commit() abci.ResponseCommit {
+func (app *CounterApplication) Commit() abcix.ResponseCommit {
 	app.mempoolTxCount = app.txCount
 	if app.txCount == 0 {
-		return abci.ResponseCommit{}
+		return abcix.ResponseCommit{}
 	}
 	hash := make([]byte, 8)
 	binary.BigEndian.PutUint64(hash, uint64(app.txCount))
-	return abci.ResponseCommit{Data: hash}
+	return abcix.ResponseCommit{Data: hash}
 }

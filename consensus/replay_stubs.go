@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	abci "github.com/tendermint/tendermint/abci/types"
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/libs/clist"
 	mempl "github.com/tendermint/tendermint/mempool"
@@ -28,7 +27,7 @@ func (emptyMempool) ReapMaxTxs(n int) types.Txs              { return types.Txs{
 func (emptyMempool) Update(
 	_ int64,
 	_ types.Txs,
-	_ []*abci.ResponseDeliverTx,
+	_ []*abcix.ResponseDeliverTx,
 	_ mempl.PreCheckFunc,
 	_ mempl.PostCheckFunc,
 ) error {
@@ -80,27 +79,18 @@ func newMockProxyApp(appHash []byte, abciResponses *tmstate.ABCIResponses) proxy
 }
 
 type mockProxyApp struct {
-	abci.BaseApplication
+	abcix.BaseApplication
 
 	appHash       []byte
 	txCount       int
 	abciResponses *tmstate.ABCIResponses
 }
 
-func (mock *mockProxyApp) DeliverTx(req abci.RequestDeliverTx) abci.ResponseDeliverTx {
-	r := mock.abciResponses.DeliverTxs[mock.txCount]
-	mock.txCount++
-	if r == nil {
-		return abci.ResponseDeliverTx{}
-	}
-	return *r
-}
-
-func (mock *mockProxyApp) EndBlock(req abci.RequestEndBlock) abci.ResponseEndBlock {
+func (mock *mockProxyApp) DeliverBlock(req abcix.RequestDeliverBlock) abcix.ResponseDeliverBlock {
 	mock.txCount = 0
-	return *mock.abciResponses.EndBlock
+	return *mock.abciResponses.DeliverBlock
 }
 
-func (mock *mockProxyApp) Commit() abci.ResponseCommit {
-	return abci.ResponseCommit{Data: mock.appHash}
+func (mock *mockProxyApp) Commit() abcix.ResponseCommit {
+	return abcix.ResponseCommit{Data: mock.appHash}
 }
