@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/jinzhu/copier"
-	abcix "github.com/tendermint/tendermint/abcix/types"
 
 	abci "github.com/tendermint/tendermint/abci/types"
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	mempl "github.com/tendermint/tendermint/mempool"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
