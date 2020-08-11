@@ -8,8 +8,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/jinzhu/copier"
-
 	abci "github.com/tendermint/tendermint/abci/types"
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	cfg "github.com/tendermint/tendermint/config"
@@ -318,7 +316,7 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abcix.Response), txInfo T
 //
 // When rechecking, we don't need the peerID, so the recheck callback happens
 // here.
-func (mem *CListMempool) globalCb(req *abci.Request, res *abci.Response) {
+func (mem *CListMempool) globalCb(req *abcix.Request, res *abcix.Response) {
 	if mem.recheckCursor == nil {
 		return
 	}
@@ -426,12 +424,7 @@ func (mem *CListMempool) resCbFirstTime(
 	case *abcix.Response_CheckTx:
 		var postCheckErr error
 		if mem.postCheck != nil {
-			legacyCheckTx := &abci.ResponseCheckTx{}
-			// TODO: use actual checkTx response
-			if err := copier.Copy(legacyCheckTx, r.CheckTx); err != nil {
-				panic(err)
-			}
-			postCheckErr = mem.postCheck(tx, legacyCheckTx)
+			postCheckErr = mem.postCheck(tx, r.CheckTx)
 		}
 		if (r.CheckTx.Code == abci.CodeTypeOK) && postCheckErr == nil {
 			// Check mempool isn't full again to reduce the chance of exceeding the
@@ -474,9 +467,9 @@ func (mem *CListMempool) resCbFirstTime(
 //
 // The case where the app checks the tx for the first time is handled by the
 // resCbFirstTime callback.
-func (mem *CListMempool) resCbRecheck(req *abci.Request, res *abci.Response) {
+func (mem *CListMempool) resCbRecheck(req *abcix.Request, res *abcix.Response) {
 	switch r := res.Value.(type) {
-	case *abci.Response_CheckTx:
+	case *abcix.Response_CheckTx:
 		tx := req.GetCheckTx().Tx
 		memTx := mem.recheckCursor.Value.(*mempoolTx)
 		if !bytes.Equal(tx, memTx.tx) {

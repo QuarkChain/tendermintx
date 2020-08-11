@@ -89,7 +89,7 @@ type PreCheckFunc func(types.Tx) error
 // PostCheckFunc is an optional filter executed after CheckTx and rejects
 // transaction if false is returned. An example would be to ensure a
 // transaction doesn't require more gas than available for the block.
-type PostCheckFunc func(types.Tx, *abci.ResponseCheckTx) error
+type PostCheckFunc func(types.Tx, *abcix.ResponseCheckTx) error
 
 // TxInfo are parameters that get passed when attempting to add a tx to the
 // mempool.
@@ -118,7 +118,7 @@ func PreCheckMaxBytes(maxBytes int64) PreCheckFunc {
 // PostCheckMaxGas checks that the wanted gas is smaller or equal to the passed
 // maxGas. Returns nil if maxGas is -1.
 func PostCheckMaxGas(maxGas int64) PostCheckFunc {
-	return func(tx types.Tx, res *abci.ResponseCheckTx) error {
+	return func(tx types.Tx, res *abcix.ResponseCheckTx) error {
 		if maxGas == -1 {
 			return nil
 		}
