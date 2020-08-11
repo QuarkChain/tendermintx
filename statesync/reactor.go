@@ -2,6 +2,8 @@ package statesync
 
 import (
 	"errors"
+	"github.com/jinzhu/copier"
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	"sort"
 	"sync"
 
@@ -158,11 +160,17 @@ func (r *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 		case *ssproto.ChunkRequest:
 			r.Logger.Debug("Received chunk request", "height", msg.Height, "format", msg.Format,
 				"chunk", msg.Index, "peer", src.ID())
-			resp, err := r.conn.LoadSnapshotChunkSync(abci.RequestLoadSnapshotChunk{
+			abciReq := abci.RequestLoadSnapshotChunk{
 				Height: msg.Height,
 				Format: msg.Format,
 				Chunk:  msg.Index,
-			})
+			}
+			var req abcix.RequestLoadSnapshotChunk
+			if err := copier.Copy(&req, &abciReq); err != nil {
+				// TODO: panic for debugging purposes. better error handling soon!
+				panic(err)
+			}
+			resp, err := r.conn.LoadSnapshotChunkSync(req)
 			if err != nil {
 				r.Logger.Error("Failed to load chunk", "height", msg.Height, "format", msg.Format,
 					"chunk", msg.Index, "err", err)
@@ -211,7 +219,13 @@ func (r *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 
 // recentSnapshots fetches the n most recent snapshots from the app
 func (r *Reactor) recentSnapshots(n uint32) ([]*snapshot, error) {
-	resp, err := r.conn.ListSnapshotsSync(abci.RequestListSnapshots{})
+	abciReq := abci.RequestListSnapshots{}
+	req := abcix.RequestListSnapshots{}
+	if err := copier.Copy(&req, &abciReq); err != nil {
+		// TODO: panic for debugging purposes. better error handling soon!
+		panic(err)
+	}
+	resp, err := r.conn.ListSnapshotsSync(req)
 	if err != nil {
 		return nil, err
 	}
