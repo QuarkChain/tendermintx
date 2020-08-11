@@ -342,7 +342,7 @@ func (c *Client) BlockResults(height *int64) (*ctypes.ResultBlockResults, error)
 	}
 
 	// Verify block results.
-	resX := []*abcix.ResponseDeliverTx{}
+	var resX []*abcix.ResponseDeliverTx
 	if err := copier.Copy(&resX, &res.TxsResults); err != nil {
 		// TODO: panic for debugging purposes. better error handling soon!
 		panic(err)
