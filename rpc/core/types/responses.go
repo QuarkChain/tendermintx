@@ -5,7 +5,6 @@ import (
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	"time"
 
-	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/libs/bytes"
 	"github.com/tendermint/tendermint/p2p"
@@ -205,7 +204,7 @@ type ResultUnconfirmedTxs struct {
 
 // Info abci msg
 type ResultABCIInfo struct {
-	Response abci.ResponseInfo `json:"response"`
+	Response abcix.ResponseInfo `json:"response"`
 }
 
 // Query abci msg
