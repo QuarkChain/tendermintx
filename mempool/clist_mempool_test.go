@@ -608,13 +608,12 @@ func TestCListMempool_GetNextTxBytes(t *testing.T) {
 	testCases := []struct {
 		priorities []int64
 		order      []int
-		err        bool
+		hasError   bool
 	}{
 		// error case by wrong gas/bytes limit
 		{
 			priorities: []int64{0, 0, 0, 0, 0},
-			order:      []int{0, 1, 2, 3, 4},
-			err:        true,
+			hasError:   true,
 		},
 		// same priority would present as FIFO
 		{
@@ -624,7 +623,6 @@ func TestCListMempool_GetNextTxBytes(t *testing.T) {
 		{
 			priorities: []int64{1, 0, 1, 0, 1},
 			order:      []int{0, 3, 1, 4, 2},
-			err:        true,
 		},
 		{
 			priorities: []int64{1, 2, 3, 4, 5},
@@ -643,11 +641,11 @@ func TestCListMempool_GetNextTxBytes(t *testing.T) {
 	for i, testCase := range testCases {
 		originalTxs := generateTxsWithPriority(t, mempool, testCase.priorities)
 		remainBytes := 20
-		if testCase.err {
+		if testCase.hasError {
 			remainBytes = 10
 		}
 		orderedTxs := getTxswithPriority(mempool, int64(remainBytes))
-		if testCase.err {
+		if testCase.hasError {
 			require.Nil(t, orderedTxs, "Failed at testcase %d", i)
 			mempool.Flush()
 			continue
