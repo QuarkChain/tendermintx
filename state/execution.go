@@ -318,7 +318,7 @@ func getCreateBlockValidatorInfo(
 		for i, val := range lastValSet.Validators {
 			commitSig := lastCommit.Signatures[i]
 			voteInfos[i] = abcix.VoteInfo{
-				Validator:       types.TM2PB.XValidator(val),
+				Validator:       types.TM2PB.Validator(val),
 				SignedLastBlock: !commitSig.Absent(),
 			}
 		}
@@ -330,7 +330,7 @@ func getCreateBlockValidatorInfo(
 		if err != nil {
 			panic(err)
 		}
-		byzVals[i] = types.TM2PB.XEvidence(ev, valset, time)
+		byzVals[i] = types.TM2PB.Evidence(ev, valset, time)
 	}
 
 	return abcix.LastCommitInfo{

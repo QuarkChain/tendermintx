@@ -71,14 +71,6 @@ func (tm2pb) Validator(val *Validator) abcix.Validator {
 	}
 }
 
-func (t *tm2pb) XValidator(val *Validator) abcix.Validator {
-	abciV := t.Validator(val)
-	return abcix.Validator{
-		Address: abciV.Address,
-		Power:   abciV.Power,
-	}
-}
-
 func (tm2pb) BlockID(blockID BlockID) tmproto.BlockID {
 	return tmproto.BlockID{
 		Hash:          blockID.Hash,
@@ -157,20 +149,6 @@ func (tm2pb) Evidence(ev Evidence, valSet *ValidatorSet, evTime time.Time) abcix
 		Height:           ev.Height(),
 		Time:             evTime,
 		TotalVotingPower: valSet.TotalVotingPower(),
-	}
-}
-
-// ABCIX Evidence includes information from the past that's not included in the evidence itself
-// so Evidence types stays compact.
-// XXX: panics on nil or unknown pubkey type
-func (t *tm2pb) XEvidence(ev Evidence, valSet *ValidatorSet, evTime time.Time) abcix.Evidence {
-	abciEV := t.Evidence(ev, valSet, evTime)
-	return abcix.Evidence{
-		Type:             abciEV.Type,
-		Validator:        abcix.Validator(abciEV.Validator),
-		Height:           abciEV.Height,
-		Time:             abciEV.Time,
-		TotalVotingPower: abciEV.TotalVotingPower,
 	}
 }
 
