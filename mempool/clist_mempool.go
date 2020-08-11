@@ -5,6 +5,7 @@ import (
 	"container/list"
 	"crypto/sha256"
 	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 
@@ -670,25 +671,34 @@ func (mem *CListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, star
 	defer mem.updateMtx.RUnlock()
 
 	var lastElem *clist.CElement
-	var minPriority int64 = 0
+	maxPriority := math.Inf(1)
 	if len(starter) > 0 {
 		for elem := mem.txs.Front(); elem != nil; elem = elem.Next() {
 			if bytes.Equal(elem.Value.(*mempoolTx).tx, starter) {
 				lastElem = elem
-				minPriority = elem.Priority
+				maxPriority = float64(elem.Priority)
 				break
 			}
 		}
 	}
 
 	var candidate *clist.CElement
+	passed := false
 	for elem := mem.txs.Front(); elem != nil; elem = elem.Next() {
 		mTx := elem.Value.(*mempoolTx)
-		if elem == lastElem || mTx.gasWanted > remainGas || int64(len(mTx.tx)) > remainBytes {
+		if elem == lastElem {
+			// have passed starter, now can mark element with same priority as candidate
+			passed = true
 			continue
 		}
-		if candidate == nil || (elem.Priority >= minPriority && elem.Priority > candidate.Priority) {
-			candidate = elem
+		if mTx.gasWanted > remainGas || int64(len(mTx.tx)) > remainBytes {
+			continue
+		}
+
+		if float64(elem.Priority) < maxPriority || (float64(elem.Priority) == maxPriority && passed) {
+			if candidate == nil || elem.Priority > candidate.Priority {
+				candidate = elem
+			}
 		}
 	}
 	if candidate == nil {

@@ -576,18 +576,26 @@ func TestMempoolRemoteAppConcurrency(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func getTxsWithPriority(t *testing.T, mempool *CListMempool, priorityList []int64, targetIndex int) []byte {
+func generateTxsWithPriority(t *testing.T, mempool *CListMempool, priorityList []int64) []types.Tx {
 	l := len(priorityList)
 	// Each tx has gas 1, bytes len 20, priority 9
 	checkTxs(t, mempool, l, UnknownPeerID)
-	var targetTx []byte
+	var txs []types.Tx
 	for front, i := mempool.TxsFront(), 0; front != nil; front, i = front.Next(), i+1 {
 		front.Priority = priorityList[i]
-		if i == targetIndex {
-			targetTx = front.Value.(*mempoolTx).tx
-		}
+		txs = append(txs, front.Value.(*mempoolTx).tx)
 	}
-	return targetTx
+	return txs
+}
+
+func getTxswithPriority(mempool *CListMempool, remainBytes int64) []types.Tx {
+	var txs []types.Tx
+	starter, _ := mempool.GetNextTxBytes(remainBytes, 1, nil)
+	for starter != nil {
+		txs = append(txs, starter)
+		starter, _ = mempool.GetNextTxBytes(remainBytes, 1, starter)
+	}
+	return txs
 }
 
 func TestCListMempool_GetNextTxBytes(t *testing.T) {
@@ -597,36 +605,48 @@ func TestCListMempool_GetNextTxBytes(t *testing.T) {
 	defer cleanup()
 
 	testCases := []struct {
-		txs      []int64
-		expIndex int
-		err      bool
+		txs []int64
+		err bool
 	}{
+		// error case by wrong gas/bytes limit
 		{
-			txs:      []int64{1, 2, 3, 4, 5},
-			expIndex: 4,
-			err:      false,
+			txs: []int64{0, 0, 0, 0, 0},
+			err: true,
+		},
+		// same priority would present as FIFO
+		{
+			txs: []int64{0, 0, 0, 0, 0},
 		},
 		{
-			txs:      []int64{5, 4, 3, 2, 1},
-			expIndex: 0,
-			err:      false,
+			txs: []int64{1, 2, 3, 4, 5},
 		},
 		{
-			txs:      []int64{1, 3, 5, 2, 4},
-			expIndex: 2,
-			err:      false,
+			txs: []int64{5, 4, 3, 2, 1},
+		},
+		{
+			txs: []int64{1, 3, 5, 4, 2},
 		},
 	}
 
 	for i, testCase := range testCases {
-		expectTx := getTxsWithPriority(t, mempool, testCase.txs, testCase.expIndex)
-		resultTx, err := mempool.GetNextTxBytes(20, 1, nil)
-		if !testCase.err {
-			require.NoError(t, err, "Test cast %d returned unexpected error", i)
-		} else {
-			require.Error(t, err, "Test cast %d didn't return expected error", i)
+		originalTxs := generateTxsWithPriority(t, mempool, testCase.txs)
+		remainBytes := 20
+		if testCase.err {
+			remainBytes = 10
 		}
-		require.Equal(t, expectTx, resultTx, "Test cast %d failed with wrong target", i)
+		orderedTxs := getTxswithPriority(mempool, int64(remainBytes))
+		if testCase.err {
+			require.Nil(t, orderedTxs, "Failed at testcase %d without error")
+			mempool.Flush()
+			continue
+		}
+		for j, v := range testCase.txs {
+			expectIndex := len(testCase.txs) - int(v)
+			if v == 0 {
+				expectIndex = j
+			}
+			require.Equal(t, originalTxs[j], orderedTxs[expectIndex], "Failed at testcase %d tx %d compare", i, j)
+		}
 		mempool.Flush()
 	}
 }
