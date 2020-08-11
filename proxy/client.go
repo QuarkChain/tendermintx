@@ -4,16 +4,14 @@ import (
 	"fmt"
 	"sync"
 
-	abcicli "github.com/tendermint/tendermint/abci/client"
-	"github.com/tendermint/tendermint/abci/example/counter"
-	"github.com/tendermint/tendermint/abci/example/kvstore"
-	"github.com/tendermint/tendermint/abci/types"
+	abcixcli "github.com/tendermint/tendermint/abcix/client"
+	abcix "github.com/tendermint/tendermint/abcix/types"
 )
 
 // ClientCreator creates new ABCI clients.
 type ClientCreator interface {
 	// NewABCIClient returns a new ABCI client.
-	NewABCIClient() (abcicli.Client, error)
+	NewABCIClient() (abcixcli.Client, error)
 }
 
 //----------------------------------------------------
@@ -21,20 +19,20 @@ type ClientCreator interface {
 
 type localClientCreator struct {
 	mtx *sync.Mutex
-	app types.Application
+	app abcix.Application
 }
 
 // NewLocalClientCreator returns a ClientCreator for the given app,
 // which will be running locally.
-func NewLocalClientCreator(app types.Application) ClientCreator {
+func NewLocalClientCreator(app abcix.Application) ClientCreator {
 	return &localClientCreator{
 		mtx: new(sync.Mutex),
 		app: app,
 	}
 }
 
-func (l *localClientCreator) NewABCIClient() (abcicli.Client, error) {
-	return abcicli.NewLocalClient(l.mtx, l.app), nil
+func (l *localClientCreator) NewABCIClient() (abcixcli.Client, error) {
+	return abcixcli.NewLocalClient(l.mtx, l.app), nil
 }
 
 //---------------------------------------------------------------
@@ -57,8 +55,8 @@ func NewRemoteClientCreator(addr, transport string, mustConnect bool) ClientCrea
 	}
 }
 
-func (r *remoteClientCreator) NewABCIClient() (abcicli.Client, error) {
-	remoteApp, err := abcicli.NewClient(r.addr, r.transport, r.mustConnect)
+func (r *remoteClientCreator) NewABCIClient() (abcixcli.Client, error) {
+	remoteApp, err := abcixcli.NewClient(r.addr, r.transport, r.mustConnect)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to proxy: %w", err)
 	}
@@ -68,18 +66,11 @@ func (r *remoteClientCreator) NewABCIClient() (abcicli.Client, error) {
 // DefaultClientCreator returns a default ClientCreator, which will create a
 // local client if addr is one of: 'counter', 'counter_serial', 'kvstore',
 // 'persistent_kvstore' or 'noop', otherwise - a remote client.
+// TODO: will implement some of existing ABCI apps in ABCIx later
 func DefaultClientCreator(addr, transport, dbDir string) ClientCreator {
 	switch addr {
-	case "counter":
-		return NewLocalClientCreator(counter.NewApplication(false))
-	case "counter_serial":
-		return NewLocalClientCreator(counter.NewApplication(true))
-	case "kvstore":
-		return NewLocalClientCreator(kvstore.NewApplication())
-	case "persistent_kvstore":
-		return NewLocalClientCreator(kvstore.NewPersistentKVStoreApplication(dbDir))
 	case "noop":
-		return NewLocalClientCreator(types.NewBaseApplication())
+		return NewLocalClientCreator(abcix.NewBaseApplication())
 	default:
 		mustConnect := false // loop retrying
 		return NewRemoteClientCreator(addr, transport, mustConnect)
