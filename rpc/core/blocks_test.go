@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,7 +10,6 @@ import (
 
 	dbm "github.com/tendermint/tm-db"
 
-	abci "github.com/tendermint/tendermint/abci/types"
 	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
@@ -71,13 +71,47 @@ func TestBlockchainInfo(t *testing.T) {
 
 func TestBlockResults(t *testing.T) {
 	results := &tmstate.ABCIResponses{
-		DeliverTxs: []*abci.ResponseDeliverTx{
-			{Code: 0, Data: []byte{0x01}, Log: "ok"},
-			{Code: 0, Data: []byte{0x02}, Log: "ok"},
-			{Code: 1, Log: "not ok"},
+		DeliverBlock: &abcix.ResponseDeliverBlock{
+			Code:                  0,
+			DeliverTxs:            []*abcix.ResponseDeliverTx{
+				{
+					Code:      0,
+					Data:      []byte{0x01},
+					Log:       "ok",
+					Info:      "",
+					GasWanted: 0,
+					GasUsed:   0,
+					Events:    nil,
+					Codespace: "",
+				},
+				{
+					Code:      0,
+					Data:      []byte{0x02},
+					Log:       "ok",
+					Info:      "",
+					GasWanted: 0,
+					GasUsed:   0,
+					Events:    nil,
+					Codespace: "",
+				},
+				{
+					Code:      1,
+					Data:      nil,
+					Log:       "",
+					Info:      "",
+					GasWanted: 0,
+					GasUsed:   0,
+					Events:    nil,
+					Codespace: "",
+				},
+			},
+			ValidatorUpdates:      nil,
+			ConsensusParamUpdates: nil,
+			Data:                  nil,
+			RetainHeight:          0,
+			Events:                nil,
+			Codespace:             "",
 		},
-		EndBlock:   &abci.ResponseEndBlock{},
-		BeginBlock: &abci.ResponseBeginBlock{},
 	}
 
 	env = &Environment{}
@@ -95,11 +129,10 @@ func TestBlockResults(t *testing.T) {
 		{101, true, nil},
 		{100, false, &ctypes.ResultBlockResults{
 			Height:                100,
-			TxsResults:            results.DeliverTxs,
-			BeginBlockEvents:      results.BeginBlock.Events,
-			EndBlockEvents:        results.EndBlock.Events,
-			ValidatorUpdates:      results.EndBlock.ValidatorUpdates,
-			ConsensusParamUpdates: results.EndBlock.ConsensusParamUpdates,
+			TxsResults:            results.DeliverBlock.DeliverTxs,
+			DeliverBlockEvents:    results.DeliverBlock.Events,
+			ValidatorUpdates:      results.DeliverBlock.ValidatorUpdates,
+			ConsensusParamUpdates: results.DeliverBlock.ConsensusParamUpdates,
 		}},
 	}
 
