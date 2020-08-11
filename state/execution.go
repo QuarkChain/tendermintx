@@ -3,6 +3,7 @@ package state
 import (
 	"errors"
 	"fmt"
+	"github.com/jinzhu/copier"
 	"time"
 
 	abci "github.com/tendermint/tendermint/abci/types"
@@ -294,7 +295,7 @@ func (blockExec *BlockExecutor) mempoolUpdate(
 	}
 	var deliverTxs []*abci.ResponseDeliverTx
 	for i, d := range deliverBlockResponses.DeliverTxs {
-		tmstate.CopyFields(deliverTxs[i], d)
+		copier.Copy(deliverTxs[i], d)
 	}
 	// Update mempool.
 	err = blockExec.mempool.Update(
@@ -356,10 +357,10 @@ func execBlockOnProxyApp(
 			txs = append(txs, tx)
 		}
 		var commitInfoX abcix.LastCommitInfo
-		tmstate.CopyFields(commitInfoX, commitInfo)
+		copier.Copy(&commitInfoX, &commitInfo)
 		var byzValsX []abcix.Evidence
 		for i, e := range byzVals {
-			tmstate.CopyFields(byzValsX[i], e)
+			copier.Copy(&(byzValsX[i]), &e)
 		}
 		abciResponses.DeliverBlock, err = proxyAppConn.DeliverBlockSync(abcix.RequestDeliverBlock{
 			Height:              block.Height,
