@@ -10,9 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jinzhu/copier"
-	abcix "github.com/tendermint/tendermint/abcix/types"
-
 	"github.com/tendermint/tendermint/crypto/merkle"
 	tmbytes "github.com/tendermint/tendermint/libs/bytes"
 	service "github.com/tendermint/tendermint/libs/service"
