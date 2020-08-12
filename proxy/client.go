@@ -70,7 +70,6 @@ func (r *remoteClientCreator) NewABCIClient() (abcixcli.Client, error) {
 // DefaultClientCreator returns a default ClientCreator, which will create a
 // local client if addr is one of: 'counter', 'counter_serial', 'kvstore',
 // 'persistent_kvstore' or 'noop', otherwise - a remote client.
-// TODO: will implement some of existing ABCI apps in ABCIx later
 func DefaultClientCreator(addr, transport, dbDir string) ClientCreator {
 	switch addr {
 	case "counter":
