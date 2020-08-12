@@ -82,13 +82,20 @@ type mockProxyApp struct {
 	abcix.BaseApplication
 
 	appHash       []byte
-	txCount       int
 	abciResponses *tmstate.ABCIResponses
 }
 
 func (mock *mockProxyApp) DeliverBlock(req abcix.RequestDeliverBlock) abcix.ResponseDeliverBlock {
-	mock.txCount = 0
-	return *mock.abciResponses.DeliverBlock
+	ret := abcix.ResponseDeliverBlock{}
+	// DeliverTx
+	for i := range req.Txs {
+		r := mock.abciResponses.DeliverBlock.DeliverTxs[i]
+		if r == nil {
+			r = &abcix.ResponseDeliverTx{}
+		}
+		ret.DeliverTxs = append(ret.DeliverTxs, r)
+	}
+	return ret
 }
 
 func (mock *mockProxyApp) Commit() abcix.ResponseCommit {
