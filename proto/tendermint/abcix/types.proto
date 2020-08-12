@@ -136,7 +136,6 @@ message Response {
     ResponseInitChain          init_chain           = 6;
     ResponseQuery              query                = 7;
     ResponseCheckTx            check_tx             = 9;
-    ResponseDeliverTx          deliver_tx           = 10;
     ResponseCommit             commit               = 12;
     ResponseDeliverBlock       deliver_block        = 20;
     ResponseListSnapshots      list_snapshots       = 13;
