@@ -327,7 +327,7 @@ func LoadABCIResponses(db dbm.DB, height int64) (*tmstate.ABCIResponses, error) 
 // Exposed for testing.
 func SaveABCIResponses(db dbm.DB, height int64, abciResponses *tmstate.ABCIResponses) {
 	var dtxs []*abcix.ResponseDeliverTx
-	//strip nil values,
+	// Strip nil values
 	for _, tx := range abciResponses.DeliverBlock.DeliverTxs {
 		if tx != nil {
 			dtxs = append(dtxs, tx)
