@@ -591,7 +591,7 @@ func TestHandshakeReplayNone(t *testing.T) {
 // Test mockProxyApp should not panic when app return ABCIResponses with some empty ResponseDeliverTx
 func TestMockProxyApp(t *testing.T) {
 	sim.CleanupFunc() //clean the test env created in TestSimulateValidatorsChange
-	var validTxs = 0
+	var validTxs, invalidTxs = 0, 0
 
 	assert.NotPanics(t, func() {
 		abciResWithEmptyDeliverTx := new(tmstate.ABCIResponses)
@@ -615,11 +615,16 @@ func TestMockProxyApp(t *testing.T) {
 		someTx := [][]byte{[]byte("tx")}
 		txRes, err := mock.DeliverBlockSync(abcix.RequestDeliverBlock{Txs: someTx})
 		require.NoError(t, err)
-		if txRes.Code == abcix.CodeTypeOK {
-			validTxs += len(txRes.DeliverTxs)
+		for _, tsRes := range txRes.DeliverTxs {
+			if tsRes.Code == abcix.CodeTypeOK {
+				validTxs++
+			} else {
+				invalidTxs++
+			}
 		}
 	})
 	assert.True(t, validTxs == 1)
+	assert.True(t, invalidTxs == 0)
 }
 
 func tempWALWithData(data []byte) string {
