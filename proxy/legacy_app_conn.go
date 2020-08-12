@@ -272,11 +272,13 @@ func (app *legacyAppConnSnapshot) Error() error {
 	return app.appConn.Error()
 }
 
-func (app *legacyAppConnSnapshot) ListSnapshotsSync(req types.RequestListSnapshots) (*types.ResponseListSnapshots, error) {
+func (app *legacyAppConnSnapshot) ListSnapshotsSync(
+	req types.RequestListSnapshots) (*types.ResponseListSnapshots, error) {
 	return app.appConn.ListSnapshotsSync(req)
 }
 
-func (app *legacyAppConnSnapshot) OfferSnapshotSync(req types.RequestOfferSnapshot) (*types.ResponseOfferSnapshot, error) {
+func (app *legacyAppConnSnapshot) OfferSnapshotSync(
+	req types.RequestOfferSnapshot) (*types.ResponseOfferSnapshot, error) {
 	return app.appConn.OfferSnapshotSync(req)
 }
 

@@ -18,13 +18,11 @@ import (
 
 	"github.com/tendermint/tendermint/abci/example/counter"
 	"github.com/tendermint/tendermint/abci/example/kvstore"
-	abciserver "github.com/tendermint/tendermint/abci/server"
 	abci "github.com/tendermint/tendermint/abci/types"
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/log"
 	tmrand "github.com/tendermint/tendermint/libs/rand"
-	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/proxy"
 	"github.com/tendermint/tendermint/types"
 )
@@ -541,25 +539,6 @@ func TestMempoolTxsBytes(t *testing.T) {
 
 }
 
-// caller must close server
-func newRemoteApp(
-	t *testing.T,
-	addr string,
-	app abci.Application,
-) (
-	clientCreator proxy.LegacyClientCreator,
-	server service.Service,
-) {
-	clientCreator = proxy.NewLegacyRemoteClientCreator(addr, "socket", true)
-
-	// Start server
-	server = abciserver.NewSocketServer(addr, app)
-	server.SetLogger(log.TestingLogger().With("module", "abci-server"))
-	if err := server.Start(); err != nil {
-		t.Fatalf("Error starting socket server: %v", err.Error())
-	}
-	return clientCreator, server
-}
 func checksumIt(data []byte) string {
 	h := sha256.New()
 	h.Write(data)

@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	abcix "github.com/tendermint/tendermint/abcix/types"
-
 	dbm "github.com/tendermint/tm-db"
 
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	tmrand "github.com/tendermint/tendermint/libs/rand"
@@ -245,7 +244,7 @@ func (app *testApp) DeliverBlock(req abcix.RequestDeliverBlock) abcix.ResponseDe
 	app.CommitVotes = req.LastCommitInfo.Votes
 	app.ByzantineValidators = req.ByzantineValidators
 	deliverTxResp := make([]*abcix.ResponseDeliverTx, 0, len(req.Txs))
-	for _ = range req.Txs {
+	for range req.Txs {
 		deliverTxResp = append(deliverTxResp, &abcix.ResponseDeliverTx{})
 	}
 
@@ -256,8 +255,7 @@ func (app *testApp) DeliverBlock(req abcix.RequestDeliverBlock) abcix.ResponseDe
 				AppVersion: 1,
 			},
 		},
-		DeliverTxs:   deliverTxResp,
-		RetainHeight: 1,
+		DeliverTxs: deliverTxResp,
 	}
 }
 

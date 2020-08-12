@@ -132,6 +132,7 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 	// Reform the events
 	resp.Events = make([]abcix.Event, len(events))
 	for i, oldEvent := range events {
+		oldEvent := oldEvent
 		var newEvent abcix.Event
 		if err := copier.Copy(&newEvent, &oldEvent); err != nil {
 			// TODO: panic for debugging purposes. better error handling soon!

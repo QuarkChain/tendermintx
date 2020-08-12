@@ -5,7 +5,6 @@ import (
 	"time"
 
 	abcix "github.com/tendermint/tendermint/abcix/types"
-	cfg "github.com/tendermint/tendermint/config"
 	cryptoenc "github.com/tendermint/tendermint/crypto/encoding"
 	"github.com/tendermint/tendermint/libs/fail"
 	"github.com/tendermint/tendermint/libs/log"
@@ -21,8 +20,6 @@ import (
 // BlockExecutor handles block execution and state updates.
 // It exposes ApplyBlock(), which validates & executes the block, updates state w/ ABCI responses,
 // then commits and updates the mempool atomically, then saves state.
-
-var config = cfg.DefaultBaseConfig()
 
 // BlockExecutor provides the context and accessories for properly executing a block.
 type BlockExecutor struct {
@@ -281,7 +278,7 @@ func execBlockOnProxyApp(
 	pbh := block.Header.ToProto()
 	var err error
 
-	var txs [][]byte
+	txs := make([][]byte, 0, len(block.Txs))
 	for _, tx := range block.Txs {
 		txs = append(txs, tx)
 	}
