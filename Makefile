@@ -86,12 +86,20 @@ proto-check-breaking-ci:
 ###############################################################################
 
 build_abci:
-	@go build -mod=readonly -i ./abcix/cmd/...
+	@go build -mod=readonly -i ./abci/cmd/...
 .PHONY: build_abci
 
 install_abci:
-	@go install -mod=readonly ./abcix/cmd/...
+	@go install -mod=readonly ./abci/cmd/...
 .PHONY: install_abci
+
+build_abcix:
+	@go build -mod=readonly -i ./abcix/cmd/...
+.PHONY: build_abcix
+
+install_abcix:
+	@go install -mod=readonly ./abcix/cmd/...
+.PHONY: install_abcix
 
 ###############################################################################
 ###                              Distribution                               ###
