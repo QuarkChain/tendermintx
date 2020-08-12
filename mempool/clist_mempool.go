@@ -683,18 +683,18 @@ func (mem *CListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, star
 	}
 
 	var candidate *clist.CElement
-	passed := false
+	samePriorityAvailable := false
 	for elem := mem.txs.Front(); elem != nil; elem = elem.Next() {
 		mTx := elem.Value.(*mempoolTx)
 		if elem == lastElem {
 			// Have passed starter, now can mark element with same priority as candidate
-			passed = true
+			samePriorityAvailable = true
 			continue
 		}
 		if mTx.gasWanted > remainGas || int64(len(mTx.tx)) > remainBytes {
 			continue
 		}
-		if float64(elem.Priority) < maxPriority || (float64(elem.Priority) == maxPriority && passed) {
+		if float64(elem.Priority) < maxPriority || (float64(elem.Priority) == maxPriority && samePriorityAvailable) {
 			if candidate == nil || elem.Priority > candidate.Priority {
 				candidate = elem
 			}
