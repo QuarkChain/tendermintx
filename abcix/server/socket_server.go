@@ -206,6 +206,13 @@ func (s *SocketServer) handleRequest(req *types.Request, responses chan<- *types
 	case *types.Request_CheckTx:
 		res := s.app.CheckTx(*r.CheckTx)
 		responses <- types.ToResponseCheckTx(res)
+	case *types.Request_CreateBlock:
+		// TODO: fix mempool iterator
+		res := s.app.CreateBlock(*r.CreateBlock, nil)
+		responses <- types.ToResponseCreateBlock(res)
+	case *types.Request_DeliverBlock:
+		res := s.app.DeliverBlock(*r.DeliverBlock)
+		responses <- types.ToResponseDeliverBlock(res)
 	case *types.Request_Commit:
 		res := s.app.Commit()
 		responses <- types.ToResponseCommit(res)

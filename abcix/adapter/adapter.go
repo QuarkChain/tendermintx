@@ -141,7 +141,7 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 		resp.Events[i] = newEvent
 	}
 
-	return
+	return resp
 }
 
 func (app *adaptedApp) Commit() (resp abcix.ResponseCommit) {

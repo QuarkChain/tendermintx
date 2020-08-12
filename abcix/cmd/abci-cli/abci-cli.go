@@ -542,6 +542,7 @@ func cmdQuery(cmd *cobra.Command, args []string) error {
 
 func cmdCounter(cmd *cobra.Command, args []string) error {
 	app := counter.NewApplication(flagSerial)
+	logger := log.NewTMLogger(log.NewSyncWriter(os.Stdout))
 
 	// Start the listener
 	srv, err := server.NewServer(flagAddress, flagAbci, adapter.AdaptToABCIx(app))

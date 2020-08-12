@@ -215,6 +215,12 @@ func ToResponseInitChain(res ResponseInitChain) *Response {
 	}
 }
 
+func ToResponseCreateBlock(res ResponseCreateBlock) *Response {
+	return &Response{
+		Value: &Response_CreateBlock{&res},
+	}
+}
+
 func ToResponseDeliverBlock(res ResponseDeliverBlock) *Response {
 	return &Response{
 		Value: &Response_DeliverBlock{&res},
