@@ -671,12 +671,12 @@ func (mem *CListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, star
 	defer mem.updateMtx.RUnlock()
 
 	var lastElem *clist.CElement
-	maxPriority := math.Inf(1)
+	var maxPriority uint64 = math.MaxUint64
 	if len(starter) > 0 {
 		for elem := mem.txs.Front(); elem != nil; elem = elem.Next() {
 			if bytes.Equal(elem.Value.(*mempoolTx).tx, starter) {
 				lastElem = elem
-				maxPriority = float64(elem.Priority)
+				maxPriority = elem.Priority
 				break
 			}
 		}
@@ -694,7 +694,7 @@ func (mem *CListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, star
 		if mTx.gasWanted > remainGas || int64(len(mTx.tx)) > remainBytes {
 			continue
 		}
-		if float64(elem.Priority) < maxPriority || (float64(elem.Priority) == maxPriority && samePriorityAvailable) {
+		if elem.Priority < maxPriority || (elem.Priority == maxPriority && samePriorityAvailable) {
 			if candidate == nil || elem.Priority > candidate.Priority {
 				candidate = elem
 			}
