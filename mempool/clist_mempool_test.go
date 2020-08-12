@@ -539,7 +539,7 @@ func TestMempoolTxsBytes(t *testing.T) {
 
 }
 
-func generateTxsWithPriority(t *testing.T, mempool *CListMempool, priorityList []int64) []types.Tx {
+func generateTxsWithPriority(t *testing.T, mempool *CListMempool, priorityList []uint64) []types.Tx {
 	l := len(priorityList)
 	// Each tx has default gas 1, bytes len 20, priority 0
 	checkTxs(t, mempool, l, UnknownPeerID)
@@ -569,34 +569,34 @@ func TestCListMempool_GetNextTxBytes(t *testing.T) {
 	defer cleanup()
 
 	testCases := []struct {
-		priorities []int64
+		priorities []uint64
 		order      []int
 		hasError   bool
 	}{
 		// error case by wrong gas/bytes limit
 		{
-			priorities: []int64{0, 0, 0, 0, 0},
+			priorities: []uint64{0, 0, 0, 0, 0},
 			hasError:   true,
 		},
 		// same priority would present as FIFO
 		{
-			priorities: []int64{0, 0, 0, 0, 0},
+			priorities: []uint64{0, 0, 0, 0, 0},
 			order:      []int{0, 1, 2, 3, 4},
 		},
 		{
-			priorities: []int64{1, 0, 1, 0, 1},
+			priorities: []uint64{1, 0, 1, 0, 1},
 			order:      []int{0, 3, 1, 4, 2},
 		},
 		{
-			priorities: []int64{1, 2, 3, 4, 5},
+			priorities: []uint64{1, 2, 3, 4, 5},
 			order:      []int{4, 3, 2, 1, 0},
 		},
 		{
-			priorities: []int64{5, 4, 3, 2, 1},
+			priorities: []uint64{5, 4, 3, 2, 1},
 			order:      []int{0, 1, 2, 3, 4},
 		},
 		{
-			priorities: []int64{1, 3, 5, 4, 2},
+			priorities: []uint64{1, 3, 5, 4, 2},
 			order:      []int{4, 2, 0, 1, 3},
 		},
 	}

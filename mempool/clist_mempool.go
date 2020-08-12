@@ -363,7 +363,7 @@ func (mem *CListMempool) reqResCb(
 
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
-func (mem *CListMempool) addTx(memTx *mempoolTx, priority int64) {
+func (mem *CListMempool) addTx(memTx *mempoolTx, priority uint64) {
 	e := mem.txs.PushBackWithPriority(memTx, priority)
 	mem.txsMap.Store(TxKey(memTx.tx), e)
 	atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx)))
@@ -442,7 +442,7 @@ func (mem *CListMempool) resCbFirstTime(
 				tx:        tx,
 			}
 			memTx.senders.Store(peerID, true)
-			mem.addTx(memTx, 0) // TODO get priority from cb
+			mem.addTx(memTx, r.CheckTx.Priority)
 			mem.logger.Info("Added good transaction",
 				"tx", txID(tx),
 				"res", r,
@@ -663,8 +663,8 @@ func (mem *CListMempool) recheckTxs() {
 	mem.proxyAppConn.FlushAsync()
 }
 
-// GetNextTxBytes() finds satisfied tx with two iterations which cost O(N) time, will be optimized with balance tree
-// or other technics to reduce the time complexity to O(logN) or even O(1)
+// GetNextTxBytes finds satisfied tx with two iterations which cost O(N) time, will be optimized with balance tree
+// or other techniques to reduce the time complexity to O(logN) or even O(1)
 func (mem *CListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
 
 	mem.updateMtx.RLock()
