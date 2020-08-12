@@ -38,11 +38,8 @@ func TestMempoolNoProgressUntilTxsAvailable(t *testing.T) {
 	ensureNewEventOnChannel(newBlockCh) // first block gets committed
 	ensureNoNewEventOnChannel(newBlockCh)
 	deliverTxsRange(cs, 0, 1)
-	println("tagtag1")
 	ensureNewEventOnChannel(newBlockCh) // commit txs
-	println("tagtag2")
 	ensureNewEventOnChannel(newBlockCh) // commit updated app hash
-	println("tagtag3")
 	ensureNoNewEventOnChannel(newBlockCh)
 }
 
