@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	abcix "github.com/tendermint/tendermint/abcix/types"
 	"net"
 	"net/http"
 	_ "net/http/pprof" // nolint: gosec // securely exposed on separate, optional port
@@ -18,6 +17,7 @@ import (
 
 	dbm "github.com/tendermint/tm-db"
 
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	bcv0 "github.com/tendermint/tendermint/blockchain/v0"
 	bcv1 "github.com/tendermint/tendermint/blockchain/v1"
 	bcv2 "github.com/tendermint/tendermint/blockchain/v2"

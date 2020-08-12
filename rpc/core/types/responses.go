@@ -2,9 +2,9 @@ package coretypes
 
 import (
 	"encoding/json"
-	abcix "github.com/tendermint/tendermint/abcix/types"
 	"time"
 
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/libs/bytes"
 	"github.com/tendermint/tendermint/p2p"

@@ -63,6 +63,10 @@ func (app *adaptedApp) Query(req abcix.RequestQuery) (resp abcix.ResponseQuery) 
 
 func (app *adaptedApp) CheckTx(req abcix.RequestCheckTx) (resp abcix.ResponseCheckTx) {
 	abciReq := abci.RequestCheckTx{}
+	if err := copier.Copy(&abciReq, &req); err != nil {
+		// TODO: panic for debugging purposes. better error handling soon!
+		panic(err)
+	}
 	abciResp := app.abciApp.CheckTx(abciReq)
 	if err := copier.Copy(&resp, &abciResp); err != nil {
 		// TODO: panic for debugging purposes. better error handling soon!

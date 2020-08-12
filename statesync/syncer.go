@@ -5,10 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	abcix "github.com/tendermint/tendermint/abcix/types"
 	"sync"
 	"time"
 
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
 	ssproto "github.com/tendermint/tendermint/proto/tendermint/statesync"

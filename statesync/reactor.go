@@ -2,10 +2,10 @@ package statesync
 
 import (
 	"errors"
-	abcix "github.com/tendermint/tendermint/abcix/types"
 	"sort"
 	"sync"
 
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/p2p"
 	ssproto "github.com/tendermint/tendermint/proto/tendermint/statesync"
 	"github.com/tendermint/tendermint/proxy"

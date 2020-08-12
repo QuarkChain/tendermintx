@@ -5,8 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/jinzhu/copier"
-	abcix "github.com/tendermint/tendermint/abcix/types"
 	"strings"
 	"time"
 
@@ -341,12 +339,7 @@ func (c *Client) BlockResults(height *int64) (*ctypes.ResultBlockResults, error)
 	}
 
 	// Verify block results.
-	var resX []*abcix.ResponseDeliverTx
-	if err := copier.Copy(&resX, &res.TxsResults); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-	results := types.NewResults(resX)
+	results := types.NewResults(res.TxsResults)
 	if rH, tH := results.Hash(), trustedHeader.LastResultsHash; !bytes.Equal(rH, tH) {
 		return nil, fmt.Errorf("last results %X does not match with trusted last results %X",
 			rH, tH)

@@ -52,7 +52,6 @@ func (a ABCIApp) BroadcastTxCommit(tx types.Tx) (*ctypes.ResultBroadcastTxCommit
 	if res.CheckTx.IsErr() {
 		return &res, nil
 	}
-	//res.DeliverTx = a.App.DeliverTx(abci.RequestDeliverTx{Tx: tx})
 	res.DeliverTx = *a.App.DeliverBlock(abcix.RequestDeliverBlock{Txs: [][]byte{tx}}).DeliverTxs[0]
 	res.Height = -1 // TODO
 	return &res, nil

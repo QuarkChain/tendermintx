@@ -3,14 +3,14 @@ package mock_test
 import (
 	"errors"
 	"fmt"
-	"github.com/tendermint/tendermint/abcix/adapter"
-	abcix "github.com/tendermint/tendermint/abcix/types"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/tendermint/abci/example/kvstore"
+	"github.com/tendermint/tendermint/abcix/adapter"
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/libs/bytes"
 	"github.com/tendermint/tendermint/rpc/client"
 	"github.com/tendermint/tendermint/rpc/client/mock"
