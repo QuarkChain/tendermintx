@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
+
 	"github.com/tendermint/tendermint/abcix/adapter"
 	abcix "github.com/tendermint/tendermint/abcix/types"
 
@@ -586,14 +588,10 @@ func TestHandshakeReplayNone(t *testing.T) {
 	}
 }
 
-// TODO: failed test
-/*
 // Test mockProxyApp should not panic when app return ABCIResponses with some empty ResponseDeliverTx
 func TestMockProxyApp(t *testing.T) {
 	sim.CleanupFunc() //clean the test env created in TestSimulateValidatorsChange
-	logger := log.TestingLogger()
 	var validTxs, invalidTxs = 0, 0
-	txIndex := 0
 
 	assert.NotPanics(t, func() {
 		abciResWithEmptyDeliverTx := new(tmstate.ABCIResponses)
@@ -614,36 +612,20 @@ func TestMockProxyApp(t *testing.T) {
 
 		mock := newMockProxyApp([]byte("mock_hash"), loadedAbciRes)
 
-		abciRes := new(tmstate.ABCIResponses)
-		abciRes.DeliverBlock = &abcix.ResponseDeliverBlock{
-			DeliverTxs: make([]*abcix.ResponseDeliverTx, len(loadedAbciRes.DeliverBlock.DeliverTxs)),
-		}
-		// Execute transactions and get hash.
-		proxyCb := func(req *abcix.Request, res *abcix.Response) {
-			if r, ok := res.Value.(*abcix.Response_DeliverTx); ok {
-				// TODO: make use of res.Log
-				// TODO: make use of this info
-				// Blocks may include invalid txs.
-				txRes := r.DeliverTx
-				if txRes.Code == abcix.CodeTypeOK {
-					validTxs++
-				} else {
-					logger.Debug("Invalid tx", "code", txRes.Code, "log", txRes.Log)
-					invalidTxs++
-				}
-				abciRes.DeliverBlock.DeliverTxs[txIndex] = txRes
-				txIndex++
+		someTx := [][]byte{[]byte("tx")}
+		txRes, err := mock.DeliverBlockSync(abcix.RequestDeliverBlock{Txs: someTx})
+		require.NoError(t, err)
+		for _, tsRes := range txRes.DeliverTxs {
+			if tsRes.Code == abcix.CodeTypeOK {
+				validTxs++
+			} else {
+				invalidTxs++
 			}
 		}
-		mock.SetResponseCallback(proxyCb)
-
-		someTx := []byte("tx")
-		mock.DeliverTxAsync(abci.RequestDeliverTx{Tx: someTx})
 	})
 	assert.True(t, validTxs == 1)
 	assert.True(t, invalidTxs == 0)
 }
-*/
 
 func tempWALWithData(data []byte) string {
 	walFile, err := ioutil.TempFile("", "wal")
