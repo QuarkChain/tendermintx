@@ -1,7 +1,6 @@
 package mock
 
 import (
-	abci "github.com/tendermint/tendermint/abci/types"
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/libs/bytes"
 	"github.com/tendermint/tendermint/proxy"
@@ -54,7 +53,7 @@ func (a ABCIApp) BroadcastTxCommit(tx types.Tx) (*ctypes.ResultBroadcastTxCommit
 		return &res, nil
 	}
 	//res.DeliverTx = a.App.DeliverTx(abci.RequestDeliverTx{Tx: tx})
-	res.DeliverTx = *a.App.DeliverBlock(abcix.RequestDeliverBlock{Txs: [][]byte{tx},}).DeliverTxs[0]
+	res.DeliverTx = *a.App.DeliverBlock(abcix.RequestDeliverBlock{Txs: [][]byte{tx}}).DeliverTxs[0]
 	res.Height = -1 // TODO
 	return &res, nil
 }
@@ -63,7 +62,7 @@ func (a ABCIApp) BroadcastTxAsync(tx types.Tx) (*ctypes.ResultBroadcastTx, error
 	c := a.App.CheckTx(abcix.RequestCheckTx{Tx: tx})
 	// and this gets written in a background thread...
 	if !c.IsErr() {
-		go func() { a.App.DeliverTx(abci.RequestDeliverTx{Tx: tx}) }()
+		go func() { a.App.DeliverBlock(abcix.RequestDeliverBlock{Txs: [][]byte{tx}}) }()
 	}
 	return &ctypes.ResultBroadcastTx{
 		Code:      c.Code,
@@ -78,7 +77,7 @@ func (a ABCIApp) BroadcastTxSync(tx types.Tx) (*ctypes.ResultBroadcastTx, error)
 	c := a.App.CheckTx(abcix.RequestCheckTx{Tx: tx})
 	// and this gets written in a background thread...
 	if !c.IsErr() {
-		go func() { a.App.DeliverTx(abci.RequestDeliverTx{Tx: tx}) }()
+		go func() { a.App.DeliverBlock(abcix.RequestDeliverBlock{Txs: [][]byte{tx}}) }()
 	}
 	return &ctypes.ResultBroadcastTx{
 		Code:      c.Code,

@@ -3,6 +3,8 @@ package mock_test
 import (
 	"errors"
 	"fmt"
+	"github.com/tendermint/tendermint/abcix/adapter"
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -36,8 +38,8 @@ func TestABCIMock(t *testing.T) {
 		BroadcastCommit: mock.Call{
 			Args: goodTx,
 			Response: &ctypes.ResultBroadcastTxCommit{
-				CheckTx:   abci.ResponseCheckTx{Data: bytes.HexBytes("stand")},
-				DeliverTx: abci.ResponseDeliverTx{Data: bytes.HexBytes("deliver")},
+				CheckTx:   abcix.ResponseCheckTx{Data: bytes.HexBytes("stand")},
+				DeliverTx: abcix.ResponseDeliverTx{Data: bytes.HexBytes("deliver")},
 			},
 			Error: errors.New("bad tx"),
 		},
@@ -156,7 +158,7 @@ func TestABCIRecorder(t *testing.T) {
 func TestABCIApp(t *testing.T) {
 	assert, require := assert.New(t), require.New(t)
 	app := kvstore.NewApplication()
-	m := mock.ABCIApp{app}
+	m := mock.ABCIApp{adapter.AdaptToABCIx(app)}
 
 	// get some info
 	info, err := m.ABCIInfo()
