@@ -185,12 +185,6 @@ func ToResponseSetOption(res ResponseSetOption) *Response {
 	}
 }
 
-func ToResponseDeliverTx(res ResponseDeliverTx) *Response {
-	return &Response{
-		Value: &Response_DeliverTx{&res},
-	}
-}
-
 func ToResponseCheckTx(res ResponseCheckTx) *Response {
 	return &Response{
 		Value: &Response_CheckTx{&res},
