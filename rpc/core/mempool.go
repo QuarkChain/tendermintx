@@ -6,9 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jinzhu/copier"
-
-	abci "github.com/tendermint/tendermint/abci/types"
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	mempl "github.com/tendermint/tendermint/mempool"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
@@ -88,14 +85,10 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadc
 	checkTxResMsg := <-checkTxResCh
 	checkTxRes := checkTxResMsg.GetCheckTx()
 
-	legacyCheckTxResp := &abci.ResponseCheckTx{}
-	if err = copier.Copy(legacyCheckTxResp, checkTxRes); err != nil {
-		panic(err) // TODO: should be removed as we fully migrated to ABCIx
-	}
 	if checkTxRes.Code != abcix.CodeTypeOK {
 		return &ctypes.ResultBroadcastTxCommit{
-			CheckTx:   *legacyCheckTxResp, // TODO: should broadcast new checkTxResp
-			DeliverTx: abci.ResponseDeliverTx{},
+			CheckTx:   *checkTxRes, // TODO: should broadcast new checkTxResp
+			DeliverTx: abcix.ResponseDeliverTx{},
 			Hash:      tx.Hash(),
 		}, nil
 	}
@@ -105,7 +98,7 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadc
 	case msg := <-deliverTxSub.Out(): // The tx was included in a block.
 		deliverTxRes := msg.Data().(types.EventDataTx)
 		return &ctypes.ResultBroadcastTxCommit{
-			CheckTx:   *legacyCheckTxResp,
+			CheckTx:   *checkTxRes,
 			DeliverTx: deliverTxRes.Result,
 			Hash:      tx.Hash(),
 			Height:    deliverTxRes.Height,
@@ -120,16 +113,16 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadc
 		err = fmt.Errorf("deliverTxSub was cancelled (reason: %s)", reason)
 		env.Logger.Error("Error on broadcastTxCommit", "err", err)
 		return &ctypes.ResultBroadcastTxCommit{
-			CheckTx:   *legacyCheckTxResp,
-			DeliverTx: abci.ResponseDeliverTx{},
+			CheckTx:   *checkTxRes,
+			DeliverTx: abcix.ResponseDeliverTx{},
 			Hash:      tx.Hash(),
 		}, err
 	case <-time.After(env.Config.TimeoutBroadcastTxCommit):
 		err = errors.New("timed out waiting for tx to be included in a block")
 		env.Logger.Error("Error on broadcastTxCommit", "err", err)
 		return &ctypes.ResultBroadcastTxCommit{
-			CheckTx:   *legacyCheckTxResp,
-			DeliverTx: abci.ResponseDeliverTx{},
+			CheckTx:   *checkTxRes,
+			DeliverTx: abcix.ResponseDeliverTx{},
 			Hash:      tx.Hash(),
 		}, err
 	}
@@ -163,7 +156,7 @@ func NumUnconfirmedTxs(ctx *rpctypes.Context) (*ctypes.ResultUnconfirmedTxs, err
 // be added to the mempool either.
 // More: https://docs.tendermint.com/master/rpc/#/Tx/check_tx
 func CheckTx(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultCheckTx, error) {
-	res, err := env.ProxyAppMempool.CheckTxSync(abci.RequestCheckTx{Tx: tx})
+	res, err := env.ProxyAppMempool.CheckTxSync(abcix.RequestCheckTx{Tx: tx})
 	if err != nil {
 		return nil, err
 	}
