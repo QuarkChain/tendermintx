@@ -118,6 +118,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		for _, txBytes := range resp.Txs {
 			txs = append(txs, txBytes)
 		}
+		blockExec.logger.Info("Created block", "height", height, "validTxs", len(txs), "invalidTxs", len(resp.InvalidTxs))
 	} else {
 		maxBytes := state.ConsensusParams.Block.MaxBytes
 		maxGas := state.ConsensusParams.Block.MaxGas
@@ -274,30 +275,11 @@ func execBlockOnProxyApp(
 	block *types.Block,
 	stateDB dbm.DB,
 ) (*tmstate.ABCIResponses, error) {
-	var validTxs, invalidTxs = 0, 0
-
 	abciResponses := new(tmstate.ABCIResponses)
 	dtxs := make([]*abcix.ResponseDeliverTx, len(block.Txs))
 	abciResponses.DeliverBlock = &abcix.ResponseDeliverBlock{
 		DeliverTxs: dtxs,
 	}
-
-	// Execute transactions and get hash.
-	proxyCb := func(req *abcix.Request, res *abcix.Response) {
-		if r, ok := res.Value.(*abcix.Response_DeliverTx); ok {
-			// TODO: make use of res.Log
-			// TODO: make use of this info
-			// Blocks may include invalid txs.
-			txRes := r.DeliverTx
-			if txRes.Code == abcix.CodeTypeOK {
-				validTxs++
-			} else {
-				logger.Debug("Invalid tx", "code", txRes.Code, "log", txRes.Log)
-				invalidTxs++
-			}
-		}
-	}
-	proxyAppConn.SetResponseCallback(proxyCb)
 
 	commitInfo, byzVals := getBeginBlockValidatorInfo(block, stateDB)
 	pbh := block.Header.ToProto()
@@ -319,7 +301,7 @@ func execBlockOnProxyApp(
 		logger.Error("Error in proxyAppConn.DeliverBlock", "err", err)
 	}
 
-	logger.Info("Executed block", "height", block.Height, "validTxs", validTxs, "invalidTxs", invalidTxs)
+	logger.Info("Executed block", "height", block.Height, "validTxs", len(txs))
 	return abciResponses, nil
 }
 

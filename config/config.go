@@ -850,7 +850,7 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		CreateEmptyBlocksInterval:   0 * time.Second,
 		PeerGossipSleepDuration:     100 * time.Millisecond,
 		PeerQueryMaj23SleepDuration: 2000 * time.Millisecond,
-		CreateBlockFromApp:          true,
+		CreateBlockFromApp:          false,
 	}
 }
 

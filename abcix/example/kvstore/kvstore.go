@@ -129,7 +129,7 @@ func (app *Application) CreateBlock(
 	return types.ResponseCreateBlock{Txs: txs, Hash: appHash, Events: events}
 }
 
-// Combination of ABCI.BeginBlock, []ABCI.DeliverTx, ABCI.EndBlock, and ABCI.Commit
+// Combination of ABCI.BeginBlock, []ABCI.DeliverTx, and ABCI.EndBlock
 func (app *Application) DeliverBlock(req types.RequestDeliverBlock) types.ResponseDeliverBlock {
 	ret := types.ResponseDeliverBlock{}
 	// ABCI.DeliverTx, tx is either "key=value" or just arbitrary bytes
