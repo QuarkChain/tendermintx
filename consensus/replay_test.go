@@ -590,7 +590,7 @@ func TestHandshakeReplayNone(t *testing.T) {
 
 // Test mockProxyApp should not panic when app return ABCIResponses with some empty ResponseDeliverTx
 func TestMockProxyApp(t *testing.T) {
-	//sim.CleanupFunc() //clean the test env created in TestSimulateValidatorsChange
+	sim.CleanupFunc() //clean the test env created in TestSimulateValidatorsChange
 	var validTxs = 0
 
 	assert.NotPanics(t, func() {
@@ -614,7 +614,8 @@ func TestMockProxyApp(t *testing.T) {
 
 		someTx := [][]byte{[]byte("tx")}
 		txRes, err := mock.DeliverBlockSync(abcix.RequestDeliverBlock{Txs: someTx})
-		assert.NoError(t, err)
+		require.NoError(t, err)
+		assert.Equal(t, txRes.Code, abcix.CodeTypeOK)
 		validTxs += len(txRes.DeliverTxs)
 	})
 	assert.True(t, validTxs == 1)
