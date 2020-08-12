@@ -240,12 +240,9 @@ message ResponseDeliverBlock {
   repeated        ValidatorUpdate   validator_updates       = 3
   [(gogoproto.nullable) = false];
   ConsensusParams                   consensus_param_updates = 4;
-  // commit
-  bytes                             data                    = 5;
-  int64                             retain_height           = 6;
-  repeated        Event             events                  = 7
+  repeated        Event             events                  = 5
   [(gogoproto.nullable) = false, (gogoproto.jsontag) = "events,omitempty"];
-  string                            codespace               = 8;
+  string                            codespace               = 6;
 }
 
 message ResponseListSnapshots {

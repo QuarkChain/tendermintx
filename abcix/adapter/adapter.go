@@ -129,12 +129,6 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 		panic(err)
 	}
 
-	respCommit := app.abciApp.Commit()
-	if err := copier.Copy(&resp, &respCommit); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-
 	// Reform the events
 	resp.Events = make([]abcix.Event, len(events))
 	for i, oldEvent := range events {

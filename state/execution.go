@@ -190,11 +190,10 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	// Lock mempool, commit app state, update mempoool.
 	var appHash []byte
 	var retainHeight int64
-	if err = blockExec.mempoolUpdate(state, block, abciResponses.DeliverBlock); err != nil {
+	appHash, retainHeight, err = blockExec.mempoolUpdate(state, block, abciResponses.DeliverBlock)
+	if err != nil {
 		return state, 0, fmt.Errorf("commit failed for application: %v", err)
 	}
-	appHash = abciResponses.DeliverBlock.Data
-	retainHeight = abciResponses.DeliverBlock.RetainHeight
 
 	// Update evpool with the block and state.
 	blockExec.evpool.Update(block, state)
@@ -222,7 +221,7 @@ func (blockExec *BlockExecutor) mempoolUpdate(
 	state State,
 	block *types.Block,
 	deliverBlockResponse *abcix.ResponseDeliverBlock,
-) error {
+) ([]byte, int64, error) {
 	blockExec.mempool.Lock()
 	defer blockExec.mempool.Unlock()
 
@@ -231,8 +230,19 @@ func (blockExec *BlockExecutor) mempoolUpdate(
 	err := blockExec.mempool.FlushAppConn()
 	if err != nil {
 		blockExec.logger.Error("Client error during mempool.FlushAppConn", "err", err)
-		return err
+		return nil, 0, err
 	}
+
+	// Commit block, get hash back
+	res, err := blockExec.proxyApp.CommitSync()
+	if err != nil {
+		blockExec.logger.Error(
+			"Client error during proxyAppConn.CommitSync",
+			"err", err,
+		)
+		return nil, 0, err
+	}
+
 	// Update mempool.
 	err = blockExec.mempool.Update(
 		block.Height,
@@ -242,7 +252,8 @@ func (blockExec *BlockExecutor) mempoolUpdate(
 		TxPostCheck(state),
 	)
 
-	return err
+	appHash, retainHeight := res.Data, res.RetainHeight
+	return appHash, retainHeight, err
 }
 
 //---------------------------------------------------------
