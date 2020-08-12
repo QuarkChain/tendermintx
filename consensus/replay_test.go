@@ -615,8 +615,9 @@ func TestMockProxyApp(t *testing.T) {
 		someTx := [][]byte{[]byte("tx")}
 		txRes, err := mock.DeliverBlockSync(abcix.RequestDeliverBlock{Txs: someTx})
 		require.NoError(t, err)
-		assert.Equal(t, txRes.Code, abcix.CodeTypeOK)
-		validTxs += len(txRes.DeliverTxs)
+		if txRes.Code == abcix.CodeTypeOK {
+			validTxs += len(txRes.DeliverTxs)
+		}
 	})
 	assert.True(t, validTxs == 1)
 }
