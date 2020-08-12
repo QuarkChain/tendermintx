@@ -190,7 +190,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	// Lock mempool, commit app state, update mempoool.
 	var appHash []byte
 	var retainHeight int64
-	appHash, retainHeight, err = blockExec.mempoolUpdate(state, block, abciResponses.DeliverBlock)
+	appHash, retainHeight, err = blockExec.Commit(state, block, abciResponses.DeliverBlock)
 	if err != nil {
 		return state, 0, fmt.Errorf("commit failed for application: %v", err)
 	}
@@ -214,10 +214,12 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	return state, retainHeight, nil
 }
 
-// MempoolUpdate locks the mempool and updates the mempool.
-// The Mempool must be locked during commit and old txs must be replayed against committed
-// state before new txs are run in the mempool, lest they be invalid.
-func (blockExec *BlockExecutor) mempoolUpdate(
+// Commit locks the mempool, runs the ABCI Commit message, and updates the
+// mempool.
+// It returns the result of calling abci.Commit (the AppHash) and the height to retain (if any).
+// The Mempool must be locked during commit and update because state is
+// typically reset on Commit and old txs must be replayed against committed
+func (blockExec *BlockExecutor) Commit(
 	state State,
 	block *types.Block,
 	deliverBlockResponse *abcix.ResponseDeliverBlock,
