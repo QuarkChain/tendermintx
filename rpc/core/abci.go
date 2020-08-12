@@ -26,9 +26,7 @@ func ABCIQuery(
 	if err != nil {
 		return nil, err
 	}
-
 	env.Logger.Info("ABCIQuery", "path", path, "data", data, "result", resQuery)
-
 	return &ctypes.ResultABCIQuery{Response: *resQuery}, nil
 }
 

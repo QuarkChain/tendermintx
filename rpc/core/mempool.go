@@ -85,10 +85,6 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadc
 	checkTxResMsg := <-checkTxResCh
 	checkTxRes := checkTxResMsg.GetCheckTx()
 
-	//legacyCheckTxResp := &abci.ResponseCheckTx{}
-	//if err = copier.Copy(legacyCheckTxResp, checkTxRes); err != nil {
-	//	panic(err) // TODO: should be removed as we fully migrated to ABCIx
-	//}
 	if checkTxRes.Code != abcix.CodeTypeOK {
 		return &ctypes.ResultBroadcastTxCommit{
 			CheckTx:   *checkTxRes, // TODO: should broadcast new checkTxResp

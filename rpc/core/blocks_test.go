@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	abcix "github.com/tendermint/tendermint/abcix/types"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,6 +9,7 @@ import (
 
 	dbm "github.com/tendermint/tm-db"
 
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
@@ -73,17 +73,9 @@ func TestBlockResults(t *testing.T) {
 	results := &tmstate.ABCIResponses{
 		DeliverBlock: &abcix.ResponseDeliverBlock{
 			DeliverTxs: []*abcix.ResponseDeliverTx{
-				{
-					Data: []byte{0x01},
-					Log:  "ok",
-				},
-				{
-					Data: []byte{0x02},
-					Log:  "ok",
-				},
-				{
-					Code: 1,
-				},
+				{Data: []byte{0x01}, Log: "ok"},
+				{Data: []byte{0x02}, Log: "ok"},
+				{Code: 1},
 			},
 		},
 	}
