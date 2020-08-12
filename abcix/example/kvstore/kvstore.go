@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/tendermint/tendermint/libs/rand"
+
 	"github.com/tendermint/tendermint/abcix/types"
 
 	dbm "github.com/tendermint/tm-db"
@@ -87,7 +89,7 @@ func (app *Application) Info(req types.RequestInfo) (resInfo types.ResponseInfo)
 
 func (app *Application) CheckTx(req types.RequestCheckTx) types.ResponseCheckTx {
 	// Customize priority by user
-	return types.ResponseCheckTx{Code: code.CodeTypeOK, GasWanted: 1, Priority: 1}
+	return types.ResponseCheckTx{Code: code.CodeTypeOK, GasWanted: 1, Priority: rand.Int64()}
 }
 
 // Iterate txs from mempool ordered by priority and select the ones to be included in the next block
@@ -99,15 +101,17 @@ func (app *Application) CreateBlock(
 	var preSize int64
 
 	// e.g. remainGas = 100
-	for i := 100; i < 0; i-- {
+	for i := 100; i > 0; i-- {
 		tx, err := mempool.GetNextTransaction(int64(i), int64(i))
 		if err != nil {
 			panic("failed to get next tx from mempool")
 		}
+		if tx == nil {
+			break
+		}
 		txs = append(txs, tx)
 		preSize++
 	}
-
 	appHash := make([]byte, 8)
 	binary.PutVarint(appHash, preSize)
 
@@ -127,50 +131,42 @@ func (app *Application) CreateBlock(
 
 // Combination of ABCI.BeginBlock, []ABCI.DeliverTx, ABCI.EndBlock, and ABCI.Commit
 func (app *Application) DeliverBlock(req types.RequestDeliverBlock) types.ResponseDeliverBlock {
-	// ABCI.DeliverTx
-	deliverTxRes := make([]*types.ResponseDeliverTx, 0)
+	ret := types.ResponseDeliverBlock{}
+	// ABCI.DeliverTx, tx is either "key=value" or just arbitrary bytes
 	for _, tx := range req.Txs {
-		res := app.deliverTx(types.RequestDeliverTx{Tx: tx})
-		deliverTxRes = append(deliverTxRes, &res)
-	}
+		var key, value []byte
+		var txResp types.ResponseDeliverTx
+		parts := bytes.Split(tx, []byte("="))
+		if len(parts) == 2 {
+			key, value = parts[0], parts[1]
+		} else {
+			key, value = tx, tx
+		}
 
-	// ABCI.Commit
-	commitRes := app.commit()
-	return types.ResponseDeliverBlock{DeliverTxs: deliverTxRes, Data: commitRes.Data, RetainHeight: commitRes.RetainHeight}
-}
+		err := app.state.db.Set(prefixKey(key), value)
+		if err != nil {
+			panic(err)
+		}
+		app.state.Size++
 
-// tx is either "key=value" or just arbitrary bytes
-func (app *Application) deliverTx(req types.RequestDeliverTx) types.ResponseDeliverTx {
-	var key, value []byte
-	parts := bytes.Split(req.Tx, []byte("="))
-	if len(parts) == 2 {
-		key, value = parts[0], parts[1]
-	} else {
-		key, value = req.Tx, req.Tx
-	}
-
-	err := app.state.db.Set(prefixKey(key), value)
-	if err != nil {
-		panic(err)
-	}
-	app.state.Size++
-
-	events := []types.Event{
-		{
-			Type: "app",
-			Attributes: []types.EventAttribute{
-				{Key: []byte("creator"), Value: []byte("Cosmoshi Netowoko"), Index: true},
-				{Key: []byte("key"), Value: key, Index: true},
-				{Key: []byte("index_key"), Value: []byte("index is working"), Index: true},
-				{Key: []byte("noindex_key"), Value: []byte("index is working"), Index: false},
+		events := []types.Event{
+			{
+				Type: "app",
+				Attributes: []types.EventAttribute{
+					{Key: []byte("creator"), Value: []byte("Cosmoshi Netowoko"), Index: true},
+					{Key: []byte("key"), Value: key, Index: true},
+					{Key: []byte("index_key"), Value: []byte("index is working"), Index: true},
+					{Key: []byte("noindex_key"), Value: []byte("index is working"), Index: false},
+				},
 			},
-		},
+		}
+		txResp = types.ResponseDeliverTx{Events: events}
+		ret.DeliverTxs = append(ret.DeliverTxs, &txResp)
 	}
-
-	return types.ResponseDeliverTx{Code: code.CodeTypeOK, Events: events}
+	return ret
 }
 
-func (app *Application) commit() types.ResponseCommit {
+func (app *Application) Commit() types.ResponseCommit {
 	// Using a memdb - just return the big endian size of the db
 	appHash := make([]byte, 8)
 	binary.PutVarint(appHash, app.state.Size)

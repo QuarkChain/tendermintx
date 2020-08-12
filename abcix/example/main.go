@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"syscall"
 
-	abci "github.com/tendermint/tendermint/abci/types"
+	abcix "github.com/tendermint/tendermint/abcix/types"
 
-	"github.com/tendermint/tendermint/abci/example/kvstore"
+	"github.com/tendermint/tendermint/abcix/example/kvstore"
 
 	"github.com/spf13/viper"
 
@@ -26,7 +26,7 @@ import (
 var configFile string
 
 func init() {
-	flag.StringVar(&configFile, "config", "$HOME/.tendermint/config/config.toml", "Path to config.toml")
+	flag.StringVar(&configFile, "config", "/Users/dexterdai/.tendermint/config/config.toml", "Path to config.toml")
 }
 
 func main() {
@@ -53,7 +53,7 @@ func main() {
 }
 
 // TODO: migrate ABCI to ABCIx
-func newTendermint(app abci.Application, configFile string) (*nm.Node, error) {
+func newTendermint(app abcix.Application, configFile string) (*nm.Node, error) {
 	// read config
 	config := cfg.DefaultConfig()
 	config.RootDir = filepath.Dir(filepath.Dir(configFile))
