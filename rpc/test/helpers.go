@@ -3,6 +3,7 @@ package rpctest
 import (
 	"context"
 	"fmt"
+	"github.com/tendermint/tendermint/abcix/adapter"
 	"os"
 	"path/filepath"
 	"strings"
@@ -160,7 +161,7 @@ func NewTendermint(app abci.Application, opts *Options) *nm.Node {
 	pvKeyFile := config.PrivValidatorKeyFile()
 	pvKeyStateFile := config.PrivValidatorStateFile()
 	pv := privval.LoadOrGenFilePV(pvKeyFile, pvKeyStateFile)
-	papp := proxy.NewLocalClientCreator(app)
+	papp := proxy.NewLocalClientCreator(adapter.AdaptToABCIx(app))
 	nodeKey, err := p2p.LoadOrGenNodeKey(config.NodeKeyFile())
 	if err != nil {
 		panic(err)

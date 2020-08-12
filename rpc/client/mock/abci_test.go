@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/tendermint/abci/example/kvstore"
-	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/bytes"
 	"github.com/tendermint/tendermint/rpc/client"
 	"github.com/tendermint/tendermint/rpc/client/mock"
@@ -29,7 +28,7 @@ func TestABCIMock(t *testing.T) {
 
 	m := mock.ABCIMock{
 		Info: mock.Call{Error: errors.New("foobar")},
-		Query: mock.Call{Response: abci.ResponseQuery{
+		Query: mock.Call{Response: abcix.ResponseQuery{
 			Key:    key,
 			Value:  value,
 			Height: height,
@@ -84,7 +83,7 @@ func TestABCIRecorder(t *testing.T) {
 
 	// This mock returns errors on everything but Query
 	m := mock.ABCIMock{
-		Info: mock.Call{Response: abci.ResponseInfo{
+		Info: mock.Call{Response: abcix.ResponseInfo{
 			Data:    "data",
 			Version: "v0.9.9",
 		}},
