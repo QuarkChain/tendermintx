@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/tendermint/tendermint/abci/example/counter"
+	"github.com/tendermint/tendermint/abci/example/kvstore"
+	"github.com/tendermint/tendermint/abcix/adapter"
+
 	abcixcli "github.com/tendermint/tendermint/abcix/client"
 	abcix "github.com/tendermint/tendermint/abcix/types"
 )
@@ -69,6 +73,14 @@ func (r *remoteClientCreator) NewABCIClient() (abcixcli.Client, error) {
 // TODO: will implement some of existing ABCI apps in ABCIx later
 func DefaultClientCreator(addr, transport, dbDir string) ClientCreator {
 	switch addr {
+	case "counter":
+		return NewLocalClientCreator(adapter.AdaptToABCIx(counter.NewApplication(false)))
+	case "counter_serial":
+		return NewLocalClientCreator(adapter.AdaptToABCIx(counter.NewApplication(true)))
+	case "kvstore":
+		return NewLocalClientCreator(adapter.AdaptToABCIx(kvstore.NewApplication()))
+	case "persistent_kvstore":
+		return NewLocalClientCreator(adapter.AdaptToABCIx(kvstore.NewPersistentKVStoreApplication(dbDir)))
 	case "noop":
 		return NewLocalClientCreator(abcix.NewBaseApplication())
 	default:
