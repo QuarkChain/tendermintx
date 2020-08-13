@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
 	"io"
 	"io/ioutil"
 	"os"
@@ -15,7 +14,7 @@ import (
 	"time"
 
 	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
-
+	
 	"github.com/tendermint/tendermint/abcix/adapter"
 	abcix "github.com/tendermint/tendermint/abcix/types"
 
