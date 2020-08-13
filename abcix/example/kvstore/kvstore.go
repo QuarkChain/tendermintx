@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tendermint/tendermint/libs/log"
-
 	"github.com/tendermint/tendermint/abci/example/code"
 	"github.com/tendermint/tendermint/abcix/types"
-	"github.com/tendermint/tendermint/libs/rand"
+	"github.com/tendermint/tendermint/libs/log"
+	types2 "github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/version"
 	dbm "github.com/tendermint/tm-db"
 )
@@ -21,6 +20,8 @@ var (
 	kvPairPrefixKey = []byte("kvPairKey:")
 
 	ProtocolVersion uint64 = 0x1
+	maxBytes        int64
+	maxGas          int64
 )
 
 type State struct {
@@ -28,7 +29,6 @@ type State struct {
 	Size    int64  `json:"size"`
 	Height  int64  `json:"height"`
 	AppHash []byte `json:"app_hash"`
-	txPool  map[string]uint64
 }
 
 func loadState(db dbm.DB) State {
@@ -75,7 +75,6 @@ type Application struct {
 
 func NewApplication() *Application {
 	state := loadState(dbm.NewMemDB())
-	state.txPool = make(map[string]uint64)
 	return &Application{state: state}
 }
 
@@ -90,18 +89,15 @@ func (app *Application) Info(req types.RequestInfo) (resInfo types.ResponseInfo)
 }
 
 func (app *Application) CheckTx(req types.RequestCheckTx) types.ResponseCheckTx {
-	var key string
-	// Priority can only be set by directly calling CheckTx, not by RecheckTx
-	if req.Type == types.CheckTxType_New {
-		priority := rand.Uint64() % 100
-		keyBytes, _ := getTxInfo(req.Tx)
-		if bytes.Equal(keyBytes, []byte("xunan")) {
-			priority = 100
-		}
-		key = string(keyBytes)
-		app.state.txPool[key] = priority
+	var priority uint64
+	// Customize priority by user
+	keyBytes := bytes.Split(req.Tx, []byte("="))[0]
+	if bytes.Equal(keyBytes, []byte("xunan")) {
+		priority = 2
+	} else if bytes.Equal(keyBytes, []byte("hanyun")) {
+		priority = 1
 	}
-	return types.ResponseCheckTx{Code: code.CodeTypeOK, GasWanted: 1, Priority: app.state.txPool[key]}
+	return types.ResponseCheckTx{Code: code.CodeTypeOK, GasWanted: 1, Priority: priority}
 }
 
 // Iterate txs from mempool ordered by priority and select the ones to be included in the next block
@@ -109,28 +105,31 @@ func (app *Application) CreateBlock(
 	req types.RequestCreateBlock,
 	mempool *types.MempoolIter,
 ) types.ResponseCreateBlock {
-	var txs [][]byte
+	var txs, invalidTxs [][]byte
 	var size int64
 	logger := log.NewTMLogger(log.NewSyncWriter(os.Stdout))
 
-	maxBytes := int64(22020096)
-	maxGas := int64(10)
+	maxBytes = types2.DefaultConsensusParams().Block.MaxBytes
+	maxGas = 10
 	for mempool.HasNext() {
-		tx, err := mempool.GetNextTransaction(maxBytes, maxGas)
+		tx, gasWanted, err := mempool.GetNextTransaction(maxBytes, maxGas)
 		if err != nil {
 			panic("failed to get next tx from mempool")
 		}
 		if tx == nil {
 			break
 		}
-		maxBytes -= int64(len(tx))
-		maxGas--
-
-		key, _ := getTxInfo(tx)
-		logger.Info("Tx list", "key", string(key), "priority", app.state.txPool[string(key)])
-		txs = append(txs, tx)
-		size++
+		size = executeTx(tx, gasWanted, size)
+		key, value := getTxInfo(tx)
+		if isValidTx(tx) {
+			txs = append(txs, tx)
+			logger.Info("valid tx", "key", string(key), "value", string(value))
+		} else {
+			invalidTxs = append(invalidTxs, tx)
+			logger.Info("invalid tx", "key", string(key), "value", string(value))
+		}
 	}
+
 	appHash := make([]byte, 8)
 	binary.PutVarint(appHash, size)
 
@@ -140,17 +139,18 @@ func (app *Application) CreateBlock(
 			Attributes: []types.EventAttribute{
 				{Key: []byte("height"), Value: []byte{byte(req.Height)}},
 				{Key: []byte("valid tx"), Value: []byte{byte(len(txs))}},
+				{Key: []byte("invalid tx"), Value: []byte{byte(len(invalidTxs))}},
 			},
 		},
 	}
 
-	return types.ResponseCreateBlock{Txs: txs, Hash: appHash, Events: events}
+	return types.ResponseCreateBlock{Txs: txs, InvalidTxs: invalidTxs, Hash: appHash, Events: events}
 }
 
 // Combination of ABCI.BeginBlock, []ABCI.DeliverTx, and ABCI.EndBlock
 func (app *Application) DeliverBlock(req types.RequestDeliverBlock) types.ResponseDeliverBlock {
 	ret := types.ResponseDeliverBlock{}
-	// ABCI.DeliverTx, tx is either "key=value" or just arbitrary bytes
+	// ABCI.DeliverTx, tx is "key=value"
 	for _, tx := range req.Txs {
 		key, value := getTxInfo(tx)
 		err := app.state.db.Set(prefixKey(key), value)
@@ -236,4 +236,18 @@ func getTxInfo(tx []byte) ([]byte, []byte) {
 		key, value = tx, tx
 	}
 	return key, value
+}
+
+func isValidTx(tx []byte) bool {
+	key, value := getTxInfo(tx)
+	return !bytes.Equal(key, value)
+}
+
+func executeTx(tx []byte, gasWanted, state int64) int64 {
+	maxBytes -= int64(len(tx))
+	maxGas -= gasWanted
+	if isValidTx(tx) {
+		state++
+	}
+	return state
 }

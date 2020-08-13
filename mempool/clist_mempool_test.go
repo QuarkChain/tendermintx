@@ -555,10 +555,10 @@ func generateTxsWithPriority(t *testing.T, mempool *CListMempool, priorityList [
 
 func getTxswithPriority(mempool *CListMempool, remainBytes int64) []types.Tx {
 	var txs []types.Tx
-	starter, _ := mempool.GetNextTxBytes(remainBytes, 1, nil)
+	starter, _, _ := mempool.GetNextTxBytes(remainBytes, 1, nil)
 	for starter != nil {
 		txs = append(txs, starter)
-		starter, _ = mempool.GetNextTxBytes(remainBytes, 1, starter)
+		starter, _, _ = mempool.GetNextTxBytes(remainBytes, 1, starter)
 	}
 	return txs
 }
