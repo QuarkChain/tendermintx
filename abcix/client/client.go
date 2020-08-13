@@ -8,6 +8,8 @@ import (
 	"github.com/tendermint/tendermint/libs/service"
 )
 
+//go:generate mockery -case underscore -name Client
+
 const (
 	dialRetryIntervalSeconds = 3
 	echoRetryIntervalSeconds = 1
