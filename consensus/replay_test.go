@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
 	"io"
 	"io/ioutil"
 	"os"
