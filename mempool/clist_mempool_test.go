@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -570,7 +571,7 @@ func TestCListMempool_GetNextTxBytes(t *testing.T) {
 
 	testCases := []struct {
 		priorities []uint64
-		order      []int
+		order      []uint64
 		hasError   bool
 	}{
 		// error case by wrong gas/bytes limit
@@ -581,23 +582,27 @@ func TestCListMempool_GetNextTxBytes(t *testing.T) {
 		// same priority would present as FIFO
 		{
 			priorities: []uint64{0, 0, 0, 0, 0},
-			order:      []int{0, 1, 2, 3, 4},
+			order:      []uint64{0, 1, 2, 3, 4},
 		},
 		{
 			priorities: []uint64{1, 0, 1, 0, 1},
-			order:      []int{0, 3, 1, 4, 2},
+			order:      []uint64{0, 3, 1, 4, 2},
 		},
 		{
 			priorities: []uint64{1, 2, 3, 4, 5},
-			order:      []int{4, 3, 2, 1, 0},
+			order:      []uint64{4, 3, 2, 1, 0},
 		},
 		{
 			priorities: []uint64{5, 4, 3, 2, 1},
-			order:      []int{0, 1, 2, 3, 4},
+			order:      []uint64{0, 1, 2, 3, 4},
 		},
 		{
 			priorities: []uint64{1, 3, 5, 4, 2},
-			order:      []int{4, 2, 0, 1, 3},
+			order:      []uint64{4, 2, 0, 1, 3},
+		},
+		{
+			priorities: []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
+			order:      []uint64{0, 1, 2, 3},
 		},
 	}
 

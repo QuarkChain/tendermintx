@@ -670,34 +670,27 @@ func (mem *CListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, star
 	mem.updateMtx.RLock()
 	defer mem.updateMtx.RUnlock()
 
-	var lastElem *clist.CElement
-	var maxPriority uint64 = math.MaxUint64
+	prevIdx, prevPriority := -1, uint64(math.MaxUint64)
 	if len(starter) > 0 {
-		for elem := mem.txs.Front(); elem != nil; elem = elem.Next() {
+		for elem, idx := mem.txs.Front(), 0; elem != nil; elem, idx = elem.Next(), idx+1 {
 			if bytes.Equal(elem.Value.(*mempoolTx).tx, starter) {
-				lastElem = elem
-				maxPriority = elem.Priority
+				prevIdx = idx
+				prevPriority = elem.Priority
 				break
 			}
 		}
 	}
 
 	var candidate *clist.CElement
-	samePriorityAvailable := false
-	for elem := mem.txs.Front(); elem != nil; elem = elem.Next() {
+	for elem, idx := mem.txs.Front(), 0; elem != nil; elem, idx = elem.Next(), idx+1 {
 		mTx := elem.Value.(*mempoolTx)
-		if elem == lastElem {
-			// Have passed starter, now can mark element with same priority as candidate
-			samePriorityAvailable = true
+		if (mTx.gasWanted > remainGas || int64(len(mTx.tx)) > remainBytes) || // tx requirement not met
+			(elem.Priority > prevPriority) || // higher priority should have been iterated before
+			(elem.Priority == prevPriority && idx <= prevIdx) { // equal priority but already sent
 			continue
 		}
-		if mTx.gasWanted > remainGas || int64(len(mTx.tx)) > remainBytes {
-			continue
-		}
-		if elem.Priority < maxPriority || (elem.Priority == maxPriority && samePriorityAvailable) {
-			if candidate == nil || elem.Priority > candidate.Priority {
-				candidate = elem
-			}
+		if candidate == nil || elem.Priority > candidate.Priority {
+			candidate = elem
 		}
 	}
 	if candidate == nil {
