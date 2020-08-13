@@ -442,7 +442,7 @@ func (mem *CListMempool) resCbFirstTime(
 				tx:        tx,
 			}
 			memTx.senders.Store(peerID, true)
-			mem.addTx(memTx, r.CheckTx.Priority) // TODO get priority from cb
+			mem.addTx(memTx, r.CheckTx.Priority)
 			mem.logger.Info("Added good transaction",
 				"tx", txID(tx),
 				"res", r,
@@ -663,41 +663,34 @@ func (mem *CListMempool) recheckTxs() {
 	mem.proxyAppConn.FlushAsync()
 }
 
-// GetNextTxBytes() finds satisfied tx with two iterations which cost O(N) time, will be optimized with balance tree
-// or other technics to reduce the time complexity to O(logN) or even O(1)
+// GetNextTxBytes finds satisfied tx with two iterations which cost O(N) time, will be optimized with balance tree
+// or other techniques to reduce the time complexity to O(logN) or even O(1)
 func (mem *CListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
 
 	mem.updateMtx.RLock()
 	defer mem.updateMtx.RUnlock()
 
-	var lastElem *clist.CElement
-	maxPriority := math.Inf(1)
+	prevIdx, prevPriority := -1, uint64(math.MaxUint64)
 	if len(starter) > 0 {
-		for elem := mem.txs.Front(); elem != nil; elem = elem.Next() {
+		for elem, idx := mem.txs.Front(), 0; elem != nil; elem, idx = elem.Next(), idx+1 {
 			if bytes.Equal(elem.Value.(*mempoolTx).tx, starter) {
-				lastElem = elem
-				maxPriority = float64(elem.Priority)
+				prevIdx = idx
+				prevPriority = elem.Priority
 				break
 			}
 		}
 	}
 
 	var candidate *clist.CElement
-	samePriorityAvailable := false
-	for elem := mem.txs.Front(); elem != nil; elem = elem.Next() {
+	for elem, idx := mem.txs.Front(), 0; elem != nil; elem, idx = elem.Next(), idx+1 {
 		mTx := elem.Value.(*mempoolTx)
-		if elem == lastElem {
-			// Have passed starter, now can mark element with same priority as candidate
-			samePriorityAvailable = true
+		if (mTx.gasWanted > remainGas || int64(len(mTx.tx)) > remainBytes) || // tx requirement not met
+			(elem.Priority > prevPriority) || // higher priority should have been iterated before
+			(elem.Priority == prevPriority && idx <= prevIdx) { // equal priority but already sent
 			continue
 		}
-		if mTx.gasWanted > remainGas || int64(len(mTx.tx)) > remainBytes {
-			continue
-		}
-		if float64(elem.Priority) < maxPriority || (float64(elem.Priority) == maxPriority && samePriorityAvailable) {
-			if candidate == nil || elem.Priority > candidate.Priority {
-				candidate = elem
-			}
+		if candidate == nil || elem.Priority > candidate.Priority {
+			candidate = elem
 		}
 	}
 	if candidate == nil {

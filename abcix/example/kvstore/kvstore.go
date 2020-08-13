@@ -5,25 +5,22 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"os"
 
-	"github.com/tendermint/tendermint/abcix/types"
-	"github.com/tendermint/tendermint/libs/rand"
-
-	dbm "github.com/tendermint/tm-db"
+	"github.com/tendermint/tendermint/libs/log"
 
 	"github.com/tendermint/tendermint/abci/example/code"
+	"github.com/tendermint/tendermint/abcix/types"
+	"github.com/tendermint/tendermint/libs/rand"
 	"github.com/tendermint/tendermint/version"
+	dbm "github.com/tendermint/tm-db"
 )
 
 var (
 	stateKey        = []byte("stateKey")
 	kvPairPrefixKey = []byte("kvPairKey:")
 
-	ProtocolVersion     uint64 = 0x1
-	MaxOverheadForBlock int64  = 11
-	MaxHeaderBytes      int64  = 626
-	MaxVoteBytes        int64  = 209
-	MaxEvidenceBytes    int64  = 444
+	ProtocolVersion uint64 = 0x1
 )
 
 type State struct {
@@ -113,24 +110,29 @@ func (app *Application) CreateBlock(
 	mempool *types.MempoolIter,
 ) types.ResponseCreateBlock {
 	var txs [][]byte
-	var preSize int64
+	var size int64
+	logger := log.NewTMLogger(log.NewSyncWriter(os.Stdout))
 
-	// e.g. remainBytes = maxBytes, remainGas = 10
-	for i := 10; i > 0; i-- {
-		tx, err := mempool.GetNextTransaction(22020096, int64(i))
+	maxBytes := int64(22020096)
+	maxGas := int64(10)
+	for mempool.HasNext() {
+		tx, err := mempool.GetNextTransaction(maxBytes, maxGas)
 		if err != nil {
 			panic("failed to get next tx from mempool")
 		}
 		if tx == nil {
 			break
 		}
+		maxBytes -= int64(len(tx))
+		maxGas--
+
 		key, _ := getTxInfo(tx)
-		fmt.Println("tagtag1", "tx: ", string(key), "priority:", app.state.txPool[string(key)])
+		logger.Info("Tx list", "key", string(key), "priority", app.state.txPool[string(key)])
 		txs = append(txs, tx)
-		preSize++
+		size++
 	}
 	appHash := make([]byte, 8)
-	binary.PutVarint(appHash, preSize)
+	binary.PutVarint(appHash, size)
 
 	events := []types.Event{
 		{
@@ -138,7 +140,6 @@ func (app *Application) CreateBlock(
 			Attributes: []types.EventAttribute{
 				{Key: []byte("height"), Value: []byte{byte(req.Height)}},
 				{Key: []byte("valid tx"), Value: []byte{byte(len(txs))}},
-				{Key: []byte("invalid tx"), Value: []byte{byte(0)}},
 			},
 		},
 	}

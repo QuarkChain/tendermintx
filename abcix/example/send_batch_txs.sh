@@ -3,7 +3,6 @@
 set -u;
 
 for i in {0..20}; do
-  string=$RANDOM
 	if [ "$i" = "0" ]; then
 			curl -s 'localhost:26657/broadcast_tx_commit?tx="xunan"' &
 	else

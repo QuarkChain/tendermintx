@@ -353,7 +353,6 @@ func (l *CList) PushBackWithPriority(v interface{}, priority uint64) *CElement {
 	return e
 }
 
-// Panics if list grows beyond its max length.
 func (l *CList) PushBack(v interface{}) *CElement {
 	return l.PushBackWithPriority(v, 0)
 }

@@ -8,12 +8,9 @@ import (
 	"path/filepath"
 	"syscall"
 
-	abcix "github.com/tendermint/tendermint/abcix/types"
-
-	"github.com/tendermint/tendermint/abcix/example/kvstore"
-
 	"github.com/spf13/viper"
-
+	"github.com/tendermint/tendermint/abcix/example/kvstore"
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	cfg "github.com/tendermint/tendermint/config"
 	tmflags "github.com/tendermint/tendermint/libs/cli/flags"
 	"github.com/tendermint/tendermint/libs/log"
