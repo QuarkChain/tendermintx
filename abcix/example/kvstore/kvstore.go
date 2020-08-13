@@ -28,10 +28,10 @@ var (
 
 type State struct {
 	db      dbm.DB
-	Size    int64             `json:"size"`
-	Height  int64             `json:"height"`
-	AppHash []byte            `json:"app_hash"`
-	txPool  map[string]uint64 `json:"txPool"`
+	Size    int64  `json:"size"`
+	Height  int64  `json:"height"`
+	AppHash []byte `json:"app_hash"`
+	txPool  map[string]uint64
 }
 
 func loadState(db dbm.DB) State {
@@ -115,7 +115,7 @@ func (app *Application) CreateBlock(
 	var txs [][]byte
 	var preSize int64
 
-	// e.g. remainGas = 100
+	// e.g. remainBytes = maxBytes, remainGas = 10
 	for i := 10; i > 0; i-- {
 		tx, err := mempool.GetNextTransaction(22020096, int64(i))
 		if err != nil {
