@@ -6,9 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/tendermint/tendermint/libs/rand"
-
 	"github.com/tendermint/tendermint/abcix/types"
+	"github.com/tendermint/tendermint/libs/rand"
 
 	dbm "github.com/tendermint/tm-db"
 
@@ -20,14 +19,19 @@ var (
 	stateKey        = []byte("stateKey")
 	kvPairPrefixKey = []byte("kvPairKey:")
 
-	ProtocolVersion uint64 = 0x1
+	ProtocolVersion     uint64 = 0x1
+	MaxOverheadForBlock int64  = 11
+	MaxHeaderBytes      int64  = 626
+	MaxVoteBytes        int64  = 209
+	MaxEvidenceBytes    int64  = 444
 )
 
 type State struct {
 	db      dbm.DB
-	Size    int64  `json:"size"`
-	Height  int64  `json:"height"`
-	AppHash []byte `json:"app_hash"`
+	Size    int64             `json:"size"`
+	Height  int64             `json:"height"`
+	AppHash []byte            `json:"app_hash"`
+	txPool  map[string]uint64 `json:"txPool"`
 }
 
 func loadState(db dbm.DB) State {
@@ -74,6 +78,7 @@ type Application struct {
 
 func NewApplication() *Application {
 	state := loadState(dbm.NewMemDB())
+	state.txPool = make(map[string]uint64)
 	return &Application{state: state}
 }
 
@@ -88,8 +93,18 @@ func (app *Application) Info(req types.RequestInfo) (resInfo types.ResponseInfo)
 }
 
 func (app *Application) CheckTx(req types.RequestCheckTx) types.ResponseCheckTx {
-	// Customize priority by user
-	return types.ResponseCheckTx{Code: code.CodeTypeOK, GasWanted: 1, Priority: rand.Int64()}
+	var key string
+	// Priority can only be set by directly calling CheckTx, not by RecheckTx
+	if req.Type == types.CheckTxType_New {
+		priority := rand.Uint64() % 100
+		keyBytes, _ := getTxInfo(req.Tx)
+		if bytes.Equal(keyBytes, []byte("xunan")) {
+			priority = 100
+		}
+		key = string(keyBytes)
+		app.state.txPool[key] = priority
+	}
+	return types.ResponseCheckTx{Code: code.CodeTypeOK, GasWanted: 1, Priority: app.state.txPool[key]}
 }
 
 // Iterate txs from mempool ordered by priority and select the ones to be included in the next block
@@ -101,14 +116,16 @@ func (app *Application) CreateBlock(
 	var preSize int64
 
 	// e.g. remainGas = 100
-	for i := 100; i > 0; i-- {
-		tx, err := mempool.GetNextTransaction(int64(i), int64(i))
+	for i := 10; i > 0; i-- {
+		tx, err := mempool.GetNextTransaction(22020096, int64(i))
 		if err != nil {
 			panic("failed to get next tx from mempool")
 		}
 		if tx == nil {
 			break
 		}
+		key, _ := getTxInfo(tx)
+		fmt.Println("tagtag1", "tx: ", string(key), "priority:", app.state.txPool[string(key)])
 		txs = append(txs, tx)
 		preSize++
 	}
@@ -134,15 +151,7 @@ func (app *Application) DeliverBlock(req types.RequestDeliverBlock) types.Respon
 	ret := types.ResponseDeliverBlock{}
 	// ABCI.DeliverTx, tx is either "key=value" or just arbitrary bytes
 	for _, tx := range req.Txs {
-		var key, value []byte
-		var txResp types.ResponseDeliverTx
-		parts := bytes.Split(tx, []byte("="))
-		if len(parts) == 2 {
-			key, value = parts[0], parts[1]
-		} else {
-			key, value = tx, tx
-		}
-
+		key, value := getTxInfo(tx)
 		err := app.state.db.Set(prefixKey(key), value)
 		if err != nil {
 			panic(err)
@@ -160,7 +169,7 @@ func (app *Application) DeliverBlock(req types.RequestDeliverBlock) types.Respon
 				},
 			},
 		}
-		txResp = types.ResponseDeliverTx{Events: events}
+		txResp := types.ResponseDeliverTx{Events: events}
 		ret.DeliverTxs = append(ret.DeliverTxs, &txResp)
 	}
 	return ret
@@ -215,4 +224,15 @@ func (app *Application) Query(reqQuery types.RequestQuery) (resQuery types.Respo
 	resQuery.Height = app.state.Height
 
 	return resQuery
+}
+
+func getTxInfo(tx []byte) ([]byte, []byte) {
+	var key, value []byte
+	parts := bytes.Split(tx, []byte("="))
+	if len(parts) == 2 {
+		key, value = parts[0], parts[1]
+	} else {
+		key, value = tx, tx
+	}
+	return key, value
 }

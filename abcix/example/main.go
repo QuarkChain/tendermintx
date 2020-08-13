@@ -52,7 +52,6 @@ func main() {
 	os.Exit(0)
 }
 
-// TODO: migrate ABCI to ABCIx
 func newTendermint(app abcix.Application, configFile string) (*nm.Node, error) {
 	// read config
 	config := cfg.DefaultConfig()
@@ -67,6 +66,9 @@ func newTendermint(app abcix.Application, configFile string) (*nm.Node, error) {
 	if err := config.ValidateBasic(); err != nil {
 		return nil, fmt.Errorf("config is invalid: %w", err)
 	}
+
+	// enable createBlock
+	config.Consensus.CreateBlockFromApp = true
 
 	// create logger
 	logger := log.NewTMLogger(log.NewSyncWriter(os.Stdout))

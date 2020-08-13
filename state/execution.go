@@ -275,6 +275,8 @@ func execBlockOnProxyApp(
 	block *types.Block,
 	stateDB dbm.DB,
 ) (*tmstate.ABCIResponses, error) {
+	var validTxs, invalidTxs = 0, 0
+
 	abciResponses := new(tmstate.ABCIResponses)
 	dtxs := make([]*abcix.ResponseDeliverTx, len(block.Txs))
 	abciResponses.DeliverBlock = &abcix.ResponseDeliverBlock{
@@ -301,7 +303,15 @@ func execBlockOnProxyApp(
 		logger.Error("Error in proxyAppConn.DeliverBlock", "err", err)
 	}
 
-	logger.Info("Executed block", "height", block.Height, "validTxs", len(txs))
+	for _, txRes := range abciResponses.DeliverBlock.DeliverTxs {
+		if txRes.Code == abcix.CodeTypeOK {
+			validTxs++
+		} else {
+			invalidTxs++
+		}
+	}
+
+	logger.Info("Executed block", "height", block.Height, "validTxs", validTxs, "invalidTxs", invalidTxs)
 	return abciResponses, nil
 }
 
