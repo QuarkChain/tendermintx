@@ -601,8 +601,8 @@ func TestCListMempool_GetNextTxBytes(t *testing.T) {
 			order:      []uint64{4, 2, 0, 1, 3},
 		},
 		{
-			priorities: []uint64{uint64(math.MaxUint64), uint64(math.MaxUint64), uint64(math.MaxUint64)},
-			order:      []uint64{0, 1, 2},
+			priorities: []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
+			order:      []uint64{0, 1, 2, 3},
 		},
 	}
 
