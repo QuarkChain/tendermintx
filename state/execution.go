@@ -294,6 +294,13 @@ func execBlockOnProxyApp(
 		logger.Error("Error in proxyAppConn.DeliverBlock", "err", err)
 	}
 
+	for _, txRes := range abciResponses.DeliverBlock.DeliverTxs {
+		if txRes.Code != abcix.CodeTypeOK {
+			// Consensus failure, because invalid tx should already be thrown away when creating block
+			panic("invalid tx found in block")
+		}
+	}
+
 	logger.Info("Executed block", "height", block.Height, "validTxs", validTxs, "invalidTxs", invalidTxs)
 	return abciResponses, nil
 }
