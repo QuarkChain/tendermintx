@@ -23,7 +23,7 @@ import (
 var configFile string
 
 func init() {
-	flag.StringVar(&configFile, "config", "/Users/dexterdai/.tendermint/config/config.toml", "Path to config.toml")
+	flag.StringVar(&configFile, "config", "/Users/hejunjia1911/.tendermint/config/config.toml", "Path to config.toml")
 }
 
 func main() {

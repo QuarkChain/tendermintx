@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	dbm "github.com/tendermint/tm-db"
+
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	cryptoenc "github.com/tendermint/tendermint/crypto/encoding"
 	"github.com/tendermint/tendermint/libs/fail"
@@ -13,7 +15,6 @@ import (
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	"github.com/tendermint/tendermint/proxy"
 	"github.com/tendermint/tendermint/types"
-	dbm "github.com/tendermint/tm-db"
 )
 
 //-----------------------------------------------------------------------------
@@ -167,11 +168,12 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	fail.Fail() // XXX
 
 	// validate the validator updates and convert to tendermint types
-	err = validateValidatorUpdates(abciResponses.DeliverBlock.ValidatorUpdates, state.ConsensusParams.Validator)
+	abciValUpdates := abciResponses.DeliverBlock.ValidatorUpdates
+	err = validateValidatorUpdates(abciValUpdates, state.ConsensusParams.Validator)
 	if err != nil {
 		return state, 0, fmt.Errorf("error in validator updates: %v", err)
 	}
-	validatorUpdates, err := types.PB2TM.ValidatorUpdates(abciResponses.DeliverBlock.ValidatorUpdates)
+	validatorUpdates, err := types.PB2TM.ValidatorUpdates(abciValUpdates)
 	if err != nil {
 		return state, 0, err
 	}
@@ -186,9 +188,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	}
 
 	// Lock mempool, commit app state, update mempoool.
-	var appHash []byte
-	var retainHeight int64
-	appHash, retainHeight, err = blockExec.Commit(state, block, abciResponses.DeliverBlock)
+	appHash, retainHeight, err := blockExec.Commit(state, block, abciResponses.DeliverBlock)
 	if err != nil {
 		return state, 0, fmt.Errorf("commit failed for application: %v", err)
 	}
@@ -200,7 +200,6 @@ func (blockExec *BlockExecutor) ApplyBlock(
 
 	// Update the app hash and save the state.
 	state.AppHash = appHash
-
 	SaveState(blockExec.db, state)
 
 	fail.Fail() // XXX
@@ -217,6 +216,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 // It returns the result of calling abci.Commit (the AppHash) and the height to retain (if any).
 // The Mempool must be locked during commit and update because state is
 // typically reset on Commit and old txs must be replayed against committed
+// state before new txs are run in the mempool, lest they be invalid.
 func (blockExec *BlockExecutor) Commit(
 	state State,
 	block *types.Block,
@@ -260,8 +260,7 @@ func (blockExec *BlockExecutor) Commit(
 		TxPostCheck(state),
 	)
 
-	appHash, retainHeight := res.Data, res.RetainHeight
-	return appHash, retainHeight, err
+	return res.Data, res.RetainHeight, err
 }
 
 //---------------------------------------------------------
