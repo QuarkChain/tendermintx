@@ -665,7 +665,7 @@ func (mem *CListMempool) recheckTxs() {
 
 // GetNextTxBytes finds satisfied tx with two iterations which cost O(N) time, will be optimized with balance tree
 // or other techniques to reduce the time complexity to O(logN) or even O(1)
-func (mem *CListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, int64, error) {
+func (mem *CListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
 
 	mem.updateMtx.RLock()
 	defer mem.updateMtx.RUnlock()
@@ -695,9 +695,9 @@ func (mem *CListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, star
 	}
 	if candidate == nil {
 		// Target tx not found
-		return nil, 0, nil
+		return nil, nil
 	}
-	return candidate.Value.(*mempoolTx).tx, candidate.Value.(*mempoolTx).gasWanted, nil
+	return candidate.Value.(*mempoolTx).tx, nil
 }
 
 //--------------------------------------------------------------------------------

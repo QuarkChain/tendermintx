@@ -6,7 +6,7 @@ import (
 
 type mempool interface {
 	// An embedded interface to access mempool.Mempool
-	GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, int64, error)
+	GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error)
 }
 
 type MempoolIter struct {
@@ -19,16 +19,16 @@ func NewMempoolIter(mp mempool) *MempoolIter {
 	return &MempoolIter{mp: mp}
 }
 
-func (mi *MempoolIter) GetNextTransaction(remainBytes int64, remainGas int64) ([]byte, int64, error) {
-	s, gasWanted, err := mi.mp.GetNextTxBytes(remainBytes, remainGas, mi.starter)
+func (mi *MempoolIter) GetNextTransaction(remainBytes int64, remainGas int64) ([]byte, error) {
+	s, err := mi.mp.GetNextTxBytes(remainBytes, remainGas, mi.starter)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	mi.starter = s
 	if len(s) == 0 {
 		mi.finished = true
 	}
-	return s, gasWanted, nil
+	return s, nil
 }
 
 func (mi *MempoolIter) HasNext() bool {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -20,8 +21,8 @@ var (
 	kvPairPrefixKey = []byte("kvPairKey:")
 
 	ProtocolVersion uint64 = 0x1
-	maxBytes        int64
-	maxGas          int64
+	maxBytes               = types2.DefaultConsensusParams().Block.MaxBytes
+	maxGas          int64  = 10
 )
 
 type State struct {
@@ -91,10 +92,10 @@ func (app *Application) Info(req types.RequestInfo) (resInfo types.ResponseInfo)
 func (app *Application) CheckTx(req types.RequestCheckTx) types.ResponseCheckTx {
 	var priority uint64
 	// Customize priority by user
-	keyBytes := bytes.Split(req.Tx, []byte("="))[0]
-	if bytes.Equal(keyBytes, []byte("xunan")) {
+	key, _ := getTxInfo(req.Tx)
+	if bytes.Equal(key, []byte("xunan")) {
 		priority = 2
-	} else if bytes.Equal(keyBytes, []byte("hanyun")) {
+	} else if bytes.Equal(key, []byte("hanyun")) {
 		priority = 1
 	}
 	return types.ResponseCheckTx{Code: code.CodeTypeOK, GasWanted: 1, Priority: priority}
@@ -106,28 +107,28 @@ func (app *Application) CreateBlock(
 	mempool *types.MempoolIter,
 ) types.ResponseCreateBlock {
 	var txs, invalidTxs [][]byte
-	var size int64
-	logger := log.NewTMLogger(log.NewSyncWriter(os.Stdout))
+	var size, gasUsed int64
 
-	maxBytes = types2.DefaultConsensusParams().Block.MaxBytes
-	maxGas = 10
+	logger := log.NewTMLogger(log.NewSyncWriter(os.Stdout))
+	remainBytes, remainGas := maxBytes, maxGas
 	for mempool.HasNext() {
-		tx, gasWanted, err := mempool.GetNextTransaction(maxBytes, maxGas)
+		tx, err := mempool.GetNextTransaction(remainBytes, remainGas)
 		if err != nil {
 			panic("failed to get next tx from mempool")
 		}
 		if tx == nil {
 			break
 		}
-		size = executeTx(tx, gasWanted, size)
 		key, value := getTxInfo(tx)
-		if isValidTx(tx) {
-			txs = append(txs, tx)
-			logger.Info("valid tx", "key", string(key), "value", string(value))
-		} else {
+		size, gasUsed, err = executeTx(tx, size)
+		if err != nil {
 			invalidTxs = append(invalidTxs, tx)
-			logger.Info("invalid tx", "key", string(key), "value", string(value))
+			logger.Error(err.Error(), "key", string(key), "value", string(value))
+		} else {
+			txs = append(txs, tx)
 		}
+		remainBytes -= int64(len(tx))
+		remainGas -= gasUsed
 	}
 
 	appHash := make([]byte, 8)
@@ -143,21 +144,24 @@ func (app *Application) CreateBlock(
 			},
 		},
 	}
-
 	return types.ResponseCreateBlock{Txs: txs, InvalidTxs: invalidTxs, Hash: appHash, Events: events}
 }
 
 // Combination of ABCI.BeginBlock, []ABCI.DeliverTx, and ABCI.EndBlock
 func (app *Application) DeliverBlock(req types.RequestDeliverBlock) types.ResponseDeliverBlock {
+	var err error
 	ret := types.ResponseDeliverBlock{}
 	// ABCI.DeliverTx, tx is "key=value"
 	for _, tx := range req.Txs {
+		app.state.Size, _, err = executeTx(tx, app.state.Size)
+		if err != nil {
+			panic(err)
+		}
 		key, value := getTxInfo(tx)
 		err := app.state.db.Set(prefixKey(key), value)
 		if err != nil {
 			panic(err)
 		}
-		app.state.Size++
 
 		events := []types.Event{
 			{
@@ -207,7 +211,6 @@ func (app *Application) Query(reqQuery types.RequestQuery) (resQuery types.Respo
 		resQuery.Key = reqQuery.Data
 		resQuery.Value = value
 		resQuery.Height = app.state.Height
-
 		return
 	}
 
@@ -223,7 +226,6 @@ func (app *Application) Query(reqQuery types.RequestQuery) (resQuery types.Respo
 	}
 	resQuery.Value = value
 	resQuery.Height = app.state.Height
-
 	return resQuery
 }
 
@@ -243,11 +245,11 @@ func isValidTx(tx []byte) bool {
 	return !bytes.Equal(key, value)
 }
 
-func executeTx(tx []byte, gasWanted, state int64) int64 {
-	maxBytes -= int64(len(tx))
-	maxGas -= gasWanted
+func executeTx(tx []byte, state int64) (int64, int64, error) {
 	if isValidTx(tx) {
 		state++
+	} else {
+		return state, 1, errors.New("invalid tx, key=value")
 	}
-	return state
+	return state, 1, nil
 }
