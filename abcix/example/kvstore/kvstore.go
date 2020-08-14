@@ -14,7 +14,7 @@ import (
 	"github.com/tendermint/tendermint/abcix/example/code"
 	"github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/libs/log"
-	types2 "github.com/tendermint/tendermint/types"
+	tdtypes "github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/version"
 )
 
@@ -22,7 +22,7 @@ var (
 	kvPairPrefixKey = []byte("kvPairKey:")
 
 	ProtocolVersion uint64 = 0x1
-	maxBytes               = types2.DefaultConsensusParams().Block.MaxBytes
+	maxBytes               = tdtypes.DefaultConsensusParams().Block.MaxBytes
 	maxGas          int64  = 10
 )
 
