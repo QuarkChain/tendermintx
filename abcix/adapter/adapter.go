@@ -1,6 +1,9 @@
 package adapter
 
 import (
+	"errors"
+	"reflect"
+
 	"github.com/jinzhu/copier"
 
 	abci "github.com/tendermint/tendermint/abci/types"
@@ -19,17 +22,51 @@ func (app *adaptedApp) OriginalApp() abci.Application {
 	return app.abciApp
 }
 
+var typeRegistry = make(map[string]reflect.Type)
+
+func registerType(s string, i interface{}) {
+	typeRegistry[s] = reflect.TypeOf(i)
+}
+
+func newStruct(name string) (interface{}, bool) {
+	elem, ok := typeRegistry[name]
+	if !ok {
+		return nil, false
+	}
+	return reflect.New(elem).Interface(), true
+}
+
+func Apply(f interface{}, args ...interface{}) reflect.Value {
+	fun := reflect.ValueOf(f)
+	in := make([]reflect.Value, len(args))
+	for k, arg := range args {
+		in[k] = reflect.ValueOf(arg).Elem()
+	}
+	r := fun.Call(in)
+	return r[0]
+}
+
+func adaptGeneralization(req interface{}, resp interface{}, abciReq string, f interface{}) error {
+	abcireq, ok := newStruct(abciReq)
+	if !ok {
+		return errors.New("fail")
+	}
+	if err := copier.Copy(abcireq, req); err != nil {
+		// TODO: panic for debugging purposes. better error handling soon!
+		panic(err)
+	}
+
+	abciResp := Apply(f, abcireq).Interface().(abci.ResponseInfo)
+	if err := copier.Copy(resp, &abciResp); err != nil {
+		// TODO: panic for debugging purposes. better error handling soon!
+		panic(err)
+	}
+	return nil
+}
+
 func (app *adaptedApp) Info(req abcix.RequestInfo) (resp abcix.ResponseInfo) {
-	abciReq := abci.RequestInfo{}
-	if err := copier.Copy(&abciReq, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-	abciResp := app.abciApp.Info(abciReq)
-	if err := copier.Copy(&resp, &abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
+	registerType("abci.RequestInfo", abci.RequestInfo{})
+	adaptGeneralization(&req, &resp, "abci.RequestInfo", app.abciApp.Info)
 	return
 }
 
