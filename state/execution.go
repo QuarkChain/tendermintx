@@ -119,6 +119,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		for _, txBytes := range resp.Txs {
 			txs = append(txs, txBytes)
 		}
+		blockExec.logger.Info("Created block", "height", height, "validTxs", len(txs), "invalidTxs", len(resp.InvalidTxs))
 	} else {
 		maxBytes := state.ConsensusParams.Block.MaxBytes
 		maxGas := state.ConsensusParams.Block.MaxGas
@@ -273,8 +274,6 @@ func execBlockOnProxyApp(
 	block *types.Block,
 	stateDB dbm.DB,
 ) (*tmstate.ABCIResponses, error) {
-	var validTxs, invalidTxs = 0, 0
-
 	abciResponses := new(tmstate.ABCIResponses)
 	dtxs := make([]*abcix.ResponseDeliverTx, len(block.Txs))
 	abciResponses.DeliverBlock = &abcix.ResponseDeliverBlock{
@@ -308,7 +307,7 @@ func execBlockOnProxyApp(
 		}
 	}
 
-	logger.Info("Executed block", "height", block.Height, "validTxs", validTxs, "invalidTxs", invalidTxs)
+	logger.Info("Executed block", "height", block.Height)
 	return abciResponses, nil
 }
 
