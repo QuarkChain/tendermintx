@@ -2,9 +2,22 @@ package adapter
 
 import (
 	"github.com/jinzhu/copier"
+	tdypes "github.com/tendermint/tendermint/types"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	abcix "github.com/tendermint/tendermint/abcix/types"
+)
+
+var (
+	maxBytes                  = tdypes.DefaultConsensusParams().Block.MaxBytes
+	maxGas              int64 = 1<<(64-1) - 1
+	maxOverheadForBlock       = tdypes.MaxOverheadForBlock
+	// MaxHeaderBytes is a maximum header size.
+	maxHeaderBytes = tdypes.MaxHeaderBytes
+	// MaxVoteBytes is a maximum vote size (including amino overhead).
+	maxVoteBytes = tdypes.MaxVoteBytes
+	// MaxEvidenceBytes is a maximum size of any evidence (including amino overhead).
+	maxEvidenceBytes = tdypes.MaxEvidenceBytes
 )
 
 type adaptedApp struct {
@@ -75,9 +88,28 @@ func (app *adaptedApp) CheckTx(req abcix.RequestCheckTx) (resp abcix.ResponseChe
 	return
 }
 
-func (app *adaptedApp) CreateBlock(req abcix.RequestCreateBlock, iter *abcix.MempoolIter) abcix.ResponseCreateBlock {
-	// TODO: defer to consensus engine for now
-	panic("implement me")
+func (app *adaptedApp) CreateBlock(
+	req abcix.RequestCreateBlock,
+	iter *abcix.MempoolIter,
+) (resp abcix.ResponseCreateBlock) {
+	// Update remainBytes based on previous block
+	remainBytes := maxBytes -
+		maxOverheadForBlock -
+		maxHeaderBytes -
+		int64(len(req.LastCommitInfo.Votes))*maxVoteBytes -
+		int64(len(req.ByzantineValidators))*maxEvidenceBytes
+
+	for iter.HasNext() {
+		tx, err := iter.GetNextTransaction(remainBytes, maxGas)
+		if err != nil {
+			panic("failed to get next tx from mempool")
+		}
+		if len(tx) == 0 {
+			break
+		}
+		resp.Txs = append(resp.Txs, tx)
+	}
+	return
 }
 
 func (app *adaptedApp) InitChain(req abcix.RequestInitChain) (resp abcix.ResponseInitChain) {

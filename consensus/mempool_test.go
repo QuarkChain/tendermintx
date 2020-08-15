@@ -217,6 +217,45 @@ func (app *CounterApplication) Info(req abcix.RequestInfo) abcix.ResponseInfo {
 	return abcix.ResponseInfo{Data: fmt.Sprintf("txs:%v", app.txCount)}
 }
 
+func (app *CounterApplication) CreateBlock(
+	req abcix.RequestCreateBlock,
+	iter *abcix.MempoolIter,
+) abcix.ResponseCreateBlock {
+	ret := abcix.ResponseCreateBlock{}
+
+	remainBytes := types.DefaultConsensusParams().Block.MaxBytes -
+		types.MaxOverheadForBlock -
+		types.MaxHeaderBytes -
+		int64(len(req.LastCommitInfo.Votes))*types.MaxVoteBytes -
+		int64(len(req.ByzantineValidators))*types.MaxEvidenceBytes
+	remainGas := int64(1<<(64-1) - 1)
+	count := app.txCount
+
+	for iter.HasNext() {
+		tx, err := iter.GetNextTransaction(remainBytes, remainGas)
+		if err != nil {
+			panic(err)
+		}
+		if len(tx) == 0 {
+			break
+		}
+		txValue := txAsUint64(tx)
+		if txValue != uint64(count) {
+			ret.InvalidTxs = append(ret.InvalidTxs, tx)
+			continue
+		}
+		ret.Txs = append(ret.Txs, tx)
+		count++
+		remainBytes -= int64(len(tx))
+		remainGas--
+	}
+
+	hash := make([]byte, 8)
+	binary.BigEndian.PutUint64(hash, uint64(count))
+	ret.Hash = hash
+	return ret
+}
+
 func (app *CounterApplication) DeliverBlock(req abcix.RequestDeliverBlock) abcix.ResponseDeliverBlock {
 	ret := abcix.ResponseDeliverBlock{}
 	for _, tx := range req.Txs {
