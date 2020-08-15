@@ -98,9 +98,10 @@ func (app *adaptedApp) CreateBlock(
 		maxHeaderBytes -
 		int64(len(req.LastCommitInfo.Votes))*maxVoteBytes -
 		int64(len(req.ByzantineValidators))*maxEvidenceBytes
+	remainGas := maxGas
 
 	for iter.HasNext() {
-		tx, err := iter.GetNextTransaction(remainBytes, maxGas)
+		tx, err := iter.GetNextTransaction(remainBytes, remainGas)
 		if err != nil {
 			panic("failed to get next tx from mempool")
 		}
@@ -108,6 +109,8 @@ func (app *adaptedApp) CreateBlock(
 			break
 		}
 		resp.Txs = append(resp.Txs, tx)
+		remainBytes -= int64(len(tx))
+		remainGas--
 	}
 	return
 }
