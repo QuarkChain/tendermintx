@@ -9,9 +9,9 @@ import (
 )
 
 var (
-	maxBytes                  = tdypes.DefaultConsensusParams().Block.MaxBytes
-	maxGas              int64 = 1<<(64-1) - 1
-	maxOverheadForBlock       = tdypes.MaxOverheadForBlock
+	maxBytes            = tdypes.DefaultConsensusParams().Block.MaxBytes
+	maxGas              = tdypes.DefaultConsensusParams().Block.MaxGas
+	maxOverheadForBlock = tdypes.MaxOverheadForBlock
 	// MaxHeaderBytes is a maximum header size.
 	maxHeaderBytes = tdypes.MaxHeaderBytes
 	// MaxVoteBytes is a maximum vote size (including amino overhead).
@@ -92,6 +92,9 @@ func (app *adaptedApp) CreateBlock(
 	req abcix.RequestCreateBlock,
 	iter *abcix.MempoolIter,
 ) (resp abcix.ResponseCreateBlock) {
+	if maxGas < 0 {
+		maxGas = 1<<(64-1) - 1
+	}
 	// Update remainBytes based on previous block
 	remainBytes := maxBytes -
 		maxOverheadForBlock -

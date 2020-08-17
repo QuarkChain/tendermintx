@@ -152,7 +152,7 @@ jobs:
         run: make install install_abcix
         if: "env.GIT_DIFF != ''"
 
-# TODO: enable socket & grpc abci test after implement CreateBlock
+# TODO: enable socket & grpc abci test after implement CreateBlock, also we should implement an abcix kvstore testing script
 #      - name: test_apps
 #        run: test/app/test.sh
 #        shell: bash
