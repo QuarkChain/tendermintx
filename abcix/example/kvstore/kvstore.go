@@ -100,7 +100,7 @@ func (app *Application) CreateBlock(
 	var size int64
 
 	remainBytes, remainGas := maxBytes, maxGas
-	for mempool.HasNext() {
+	for {
 		tx, err := mempool.GetNextTransaction(remainBytes, remainGas)
 		if err != nil {
 			panic("failed to get next tx from mempool")
