@@ -1,5 +1,7 @@
 package llrb
 
+import "time"
+
 const (
 	NullValue = uint64(0xFFFFFFFFFFFFFFFF)
 )
@@ -9,10 +11,31 @@ type llrb struct {
 	root *Node
 }
 
+type NodeKey struct {
+	priority uint64
+	ts       time.Time
+}
+
 type Node struct {
-	Value       uint64
+	Key         NodeKey
 	Left, Right *Node
 	Black       bool
+}
+
+func (a NodeKey) Compare(b NodeKey) int {
+	if a.priority > b.priority {
+		return 1
+	}
+	if a.priority < b.priority {
+		return -1
+	}
+	if a.ts.Before(b.ts) {
+		return 1
+	}
+	if a.ts.After(b.ts) {
+		return -1
+	}
+	return 0
 }
 
 // Size returns the number of nodes in the tree.
@@ -143,7 +166,6 @@ func (t *llrb) delete(h *Node, value uint64) (*Node, uint64) {
 
 	return t.fixUp(h), deleted
 }
-
 
 func (t *llrb) rotateLeft(h *Node) *Node {
 	x := h.Right
