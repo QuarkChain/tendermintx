@@ -56,8 +56,8 @@ func adaptGeneralization(req interface{}, resp interface{}, abciReq string, f in
 		panic(err)
 	}
 
-	abciResp := Apply(f, abcireq).Interface().(abci.ResponseInfo)
-	if err := copier.Copy(resp, &abciResp); err != nil {
+	abciResp := Apply(f, abcireq).Interface()
+	if err := copier.Copy(resp, abciResp); err != nil {
 		// TODO: panic for debugging purposes. better error handling soon!
 		panic(err)
 	}
@@ -71,30 +71,14 @@ func (app *adaptedApp) Info(req abcix.RequestInfo) (resp abcix.ResponseInfo) {
 }
 
 func (app *adaptedApp) SetOption(req abcix.RequestSetOption) (resp abcix.ResponseSetOption) {
-	abciReq := abci.RequestSetOption{}
-	if err := copier.Copy(&abciReq, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-	abciResp := app.abciApp.SetOption(abciReq)
-	if err := copier.Copy(&resp, &abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
+	registerType("abci.RequestSetOption", abci.RequestSetOption{})
+	adaptGeneralization(&req, &resp, "abci.RequestSetOption", app.abciApp.SetOption)
 	return
 }
 
 func (app *adaptedApp) Query(req abcix.RequestQuery) (resp abcix.ResponseQuery) {
-	abciReq := abci.RequestQuery{}
-	if err := copier.Copy(&abciReq, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-	abciResp := app.abciApp.Query(abciReq)
-	if err := copier.Copy(&resp, &abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
+	registerType("abci.RequestQuery", abci.RequestQuery{})
+	adaptGeneralization(&req, &resp, "abci.RequestQuery", app.abciApp.Query)
 	return
 }
 
@@ -118,16 +102,8 @@ func (app *adaptedApp) CreateBlock(req abcix.RequestCreateBlock, iter *abcix.Mem
 }
 
 func (app *adaptedApp) InitChain(req abcix.RequestInitChain) (resp abcix.ResponseInitChain) {
-	abciReq := abci.RequestInitChain{}
-	if err := copier.Copy(&abciReq, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-	abciResp := app.abciApp.InitChain(abciReq)
-	if err := copier.Copy(&resp, &abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
+	registerType("abci.RequestInitChain", abci.RequestInitChain{})
+	adaptGeneralization(&req, &resp, "abci.RequestInitChain", app.abciApp.InitChain)
 	return
 }
 
@@ -196,58 +172,26 @@ func (app *adaptedApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseChe
 }
 
 func (app *adaptedApp) ListSnapshots(req abcix.RequestListSnapshots) (resp abcix.ResponseListSnapshots) {
-	abciReq := abci.RequestListSnapshots{}
-	if err := copier.Copy(&abciReq, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-	abciResp := app.abciApp.ListSnapshots(abciReq)
-	if err := copier.Copy(&resp, &abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
+	registerType("abci.RequestListSnapshots", abci.RequestListSnapshots{})
+	adaptGeneralization(&req, &resp, "abci.RequestListSnapshots", app.abciApp.ListSnapshots)
 	return
 }
 
 func (app *adaptedApp) OfferSnapshot(req abcix.RequestOfferSnapshot) (resp abcix.ResponseOfferSnapshot) {
-	abciReq := abci.RequestOfferSnapshot{}
-	if err := copier.Copy(&abciReq, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-	abciResp := app.abciApp.OfferSnapshot(abciReq)
-	if err := copier.Copy(&resp, &abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
+	registerType("abci.RequestOfferSnapshot", abci.RequestOfferSnapshot{})
+	adaptGeneralization(&req, &resp, "abci.RequestOfferSnapshot", app.abciApp.OfferSnapshot)
 	return
 }
 
 func (app *adaptedApp) LoadSnapshotChunk(req abcix.RequestLoadSnapshotChunk) (resp abcix.ResponseLoadSnapshotChunk) {
-	abciReq := abci.RequestLoadSnapshotChunk{}
-	if err := copier.Copy(&abciReq, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-	abciResp := app.abciApp.LoadSnapshotChunk(abciReq)
-	if err := copier.Copy(&resp, &abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
+	registerType("abci.RequestLoadSnapshotChunk", abci.RequestLoadSnapshotChunk{})
+	adaptGeneralization(&req, &resp, "abci.RequestLoadSnapshotChunk", app.abciApp.LoadSnapshotChunk)
 	return
 }
 
 func (app *adaptedApp) ApplySnapshotChunk(req abcix.RequestApplySnapshotChunk) (resp abcix.ResponseApplySnapshotChunk) {
-	abciReq := abci.RequestApplySnapshotChunk{}
-	if err := copier.Copy(&abciReq, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-	abciResp := app.abciApp.ApplySnapshotChunk(abciReq)
-	if err := copier.Copy(&resp, &abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
+	registerType("abci.RequestApplySnapshotChunk", abci.RequestApplySnapshotChunk{})
+	adaptGeneralization(&req, &resp, "abci.RequestApplySnapshotChunk", app.abciApp.ApplySnapshotChunk)
 	return
 }
 
