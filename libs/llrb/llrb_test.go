@@ -42,7 +42,7 @@ func TestRandomReplace(t *testing.T) {
 	}
 	perm = rand.Perm(n)
 	for i := 0; i < n; i++ {
-		if replaced := tree.Insert(uint64(perm[i])); replaced == Null_Value || replaced != uint64(perm[i]) {
+		if replaced := tree.Insert(uint64(perm[i])); replaced == NullValue || replaced != uint64(perm[i]) {
 			t.Errorf("error replacing")
 		}
 	}
@@ -67,21 +67,21 @@ func TestRandomInsertDeleteNonExistent(t *testing.T) {
 	for i := 0; i < n; i++ {
 		tree.Insert(uint64(perm[i]))
 	}
-	if tree.Delete(uint64(200)) != Null_Value {
+	if tree.Delete(uint64(200)) != NullValue {
 		t.Errorf("deleted non-existent item")
 	}
-	if tree.Delete(uint64(2000)) != Null_Value {
+	if tree.Delete(uint64(2000)) != NullValue {
 		t.Errorf("deleted non-existent item")
 	}
 	for i := 0; i < n; i++ {
-		if u := tree.Delete(uint64(i)); u == Null_Value || u != uint64(i) {
+		if u := tree.Delete(uint64(i)); u == NullValue || u != uint64(i) {
 			t.Errorf("delete failed")
 		}
 	}
-	if tree.Delete(uint64(200)) != Null_Value {
+	if tree.Delete(uint64(200)) != NullValue {
 		t.Errorf("deleted non-existent item")
 	}
-	if tree.Delete(uint64(2000)) != Null_Value {
+	if tree.Delete(uint64(2000)) != NullValue {
 		t.Errorf("deleted non-existent item")
 	}
 }

@@ -1,7 +1,7 @@
 package llrb
 
 const (
-	Null_Value = uint64(0xFFFFFFFFFFFFFFFF)
+	NullValue = uint64(0xFFFFFFFFFFFFFFFF)
 )
 
 type llrb struct {
@@ -52,9 +52,8 @@ func (t *llrb) getByIndex(h *Node, idx int) *Node {
 	}
 	if idx < h.Index {
 		return t.getByIndex(h.Left, idx)
-	} else {
-		return t.getByIndex(h.Right, idx-h.Index-1)
 	}
+	return t.getByIndex(h.Right, idx-h.Index-1)
 }
 
 // Insert inserts value into the tree.
@@ -62,7 +61,7 @@ func (t *llrb) Insert(value uint64) uint64 {
 	var replaced uint64
 	t.root, replaced = t.insert(t.root, value)
 	t.root.Black = true
-	if replaced == Null_Value {
+	if replaced == NullValue {
 		t.size++
 	}
 	return replaced
@@ -70,18 +69,20 @@ func (t *llrb) Insert(value uint64) uint64 {
 
 func (t *llrb) insert(h *Node, value uint64) (*Node, uint64) {
 	if h == nil {
-		return &Node{Value: value}, Null_Value
+		return &Node{Value: value}, NullValue
 	}
 
 	var replaced uint64
-	if value < h.Value {
+
+	switch {
+	case value < h.Value:
 		h.Left, replaced = t.insert(h.Left, value)
-		if replaced == Null_Value {
+		if replaced == NullValue {
 			h.Index++
 		}
-	} else if h.Value < value {
+	case value > h.Value:
 		h.Right, replaced = t.insert(h.Right, value)
-	} else {
+	default:
 		replaced, h.Value = h.Value, value
 	}
 
@@ -102,7 +103,7 @@ func (t *llrb) insert(h *Node, value uint64) (*Node, uint64) {
 
 func (t *llrb) deleteMin(h *Node) (*Node, uint64) {
 	if h == nil {
-		return nil, Null_Value
+		return nil, NullValue
 	}
 	if h.Left == nil {
 		return nil, h.Value
@@ -120,14 +121,14 @@ func (t *llrb) deleteMin(h *Node) (*Node, uint64) {
 }
 
 // Delete deletes a value from the tree whose value equals key.
-// The deleted value is return, otherwise Null_Value is returned.
+// The deleted value is return, otherwise NullValue is returned.
 func (t *llrb) Delete(key uint64) uint64 {
 	var deleted uint64
 	t.root, deleted = t.delete(t.root, key)
 	if t.root != nil {
 		t.root.Black = true
 	}
-	if deleted != Null_Value {
+	if deleted != NullValue {
 		t.size--
 	}
 
@@ -137,17 +138,17 @@ func (t *llrb) Delete(key uint64) uint64 {
 func (t *llrb) delete(h *Node, value uint64) (*Node, uint64) {
 	var deleted uint64
 	if h == nil {
-		return nil, Null_Value
+		return nil, NullValue
 	}
 	if value < h.Value {
 		if h.Left == nil {
-			return h, Null_Value
+			return h, NullValue
 		}
 		if !isRed(h.Left) && !isRed(h.Left.Left) {
 			h = t.moveRedLeft(h)
 		}
 		h.Left, deleted = t.delete(h.Left, value)
-		if deleted != Null_Value {
+		if deleted != NullValue {
 			h.Index--
 		}
 	} else {
@@ -172,14 +173,14 @@ func (t *llrb) delete(h *Node, value uint64) (*Node, uint64) {
 }
 
 // DeleteAt deletes a value from the tree whose index equals idx.
-// The deleted value is return, otherwise Null_Value is returned.
+// The deleted value is return, otherwise NullValue is returned.
 func (t *llrb) DeleteAt(idx int) uint64 {
 	var deleted uint64
 	t.root, deleted = t.deleteAt(t.root, idx)
 	if t.root != nil {
 		t.root.Black = true
 	}
-	if deleted != Null_Value {
+	if deleted != NullValue {
 		t.size--
 	}
 
@@ -189,7 +190,7 @@ func (t *llrb) DeleteAt(idx int) uint64 {
 func (t *llrb) deleteAt(h *Node, idx int) (*Node, uint64) {
 	var deleted uint64
 	if h == nil {
-		return nil, Null_Value
+		return nil, NullValue
 	}
 	if idx < h.Index {
 		if h.Left == nil {
