@@ -24,10 +24,6 @@ import (
 // TxKeySize is the size of the transaction key index
 const TxKeySize = sha256.Size
 
-type LLRBMempool struct {
-	CListMempool
-}
-
 //--------------------------------------------------------------------------------
 
 // CListMempool is an ordered in-memory pool for transactions before they are
