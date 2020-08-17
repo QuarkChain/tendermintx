@@ -5,9 +5,8 @@ const (
 )
 
 type llrb struct {
-	size          int
-	root          *Node
-	rotationStats [4]uint64
+	size int
+	root *Node
 }
 
 type Node struct {
@@ -222,16 +221,6 @@ func (t *llrb) deleteAt(h *Node, idx int) (*Node, uint64) {
 	return t.fixUp(h), deleted
 }
 
-func (t *llrb) GetRotationStats() [4]uint64 {
-	return t.rotationStats
-}
-
-func (t *llrb) ResetRotationStats() {
-	for i := 0; i < len(t.rotationStats); i++ {
-		t.rotationStats[i] = uint64(0)
-	}
-}
-
 func (t *llrb) rotateLeft(h *Node) *Node {
 	x := h.Right
 	if x.Black {
@@ -242,16 +231,6 @@ func (t *llrb) rotateLeft(h *Node) *Node {
 	x.Black = h.Black
 	h.Black = false
 	x.Index += (h.Index + 1)
-	c := uint64(0)
-	for i := 0; i < len(t.rotationStats); i++ {
-		nc := uint64(1)
-		if t.rotationStats[i]&(uint64(1)<<63) == 0 {
-			nc = 0
-		}
-		t.rotationStats[i] = (t.rotationStats[i] << 1) ^ c
-		c = nc
-	}
-	t.rotationStats[0] = t.rotationStats[0] ^ c
 	return x
 }
 
@@ -265,16 +244,6 @@ func (t *llrb) rotateRight(h *Node) *Node {
 	x.Black = h.Black
 	h.Black = false
 	h.Index -= (x.Index + 1)
-	c := uint64(1)
-	for i := 0; i < len(t.rotationStats); i++ {
-		nc := uint64(1)
-		if t.rotationStats[i]&(uint64(1)<<63) == 0 {
-			nc = 0
-		}
-		t.rotationStats[i] = (t.rotationStats[i] << 1) ^ c
-		c = nc
-	}
-	t.rotationStats[0] = t.rotationStats[0] ^ c
 	return x
 }
 
