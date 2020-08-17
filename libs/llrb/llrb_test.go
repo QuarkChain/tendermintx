@@ -1,6 +1,7 @@
 package llrb
 
 import (
+	"bytes"
 	"math/rand"
 	"testing"
 	"time"
@@ -22,13 +23,15 @@ func getNodeKeys(count int) []NodeKey {
 func TestCases(t *testing.T) {
 	tree := new(llrb)
 	nks := getNodeKeys(1)
-	tree.Insert(nks[0])
-	tree.Insert(nks[0])
+	txBytes := make([]byte, 20)
+	rand.Read(txBytes)
+	tree.Insert(nks[0], txBytes)
+	tree.Insert(nks[0], txBytes)
 	if tree.Size() != 1 {
 		t.Errorf("expecting len 1")
 	}
-	if tree.Get(&nks[0]) == nil {
-		t.Errorf("expecting to find key")
+	if !bytes.Equal(tree.Get(&nks[0]),txBytes) {
+		t.Errorf("expecting same transaction bytes")
 	}
 
 	tree.Delete(&nks[0])
@@ -47,6 +50,7 @@ func TestCases(t *testing.T) {
 		t.Errorf("not expecting to find key")
 	}
 }
+
 //
 //func TestRandomReplace(t *testing.T) {
 //	tree := new(llrb)

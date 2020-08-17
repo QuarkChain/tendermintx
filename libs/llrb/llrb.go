@@ -17,6 +17,7 @@ type NodeKey struct {
 
 type Node struct {
 	Key         NodeKey
+	Data        []byte
 	Left, Right *Node
 	Black       bool
 }
@@ -41,7 +42,7 @@ func (a NodeKey) Compare(b NodeKey) int {
 func (t *llrb) Size() int { return t.size }
 
 // Get retrieves an element from the tree whose value is the same as key.
-func (t *llrb) Get(key *NodeKey) *Node {
+func (t *llrb) Get(key *NodeKey) []byte {
 	h := t.root
 	for h != nil {
 		switch comp := key.Compare(h.Key); comp {
@@ -50,7 +51,7 @@ func (t *llrb) Get(key *NodeKey) *Node {
 		case 1:
 			h = h.Right
 		default:
-			return h
+			return h.Data
 		}
 	}
 
@@ -58,9 +59,9 @@ func (t *llrb) Get(key *NodeKey) *Node {
 }
 
 // Insert inserts value into the tree.
-func (t *llrb) Insert(key NodeKey) error {
+func (t *llrb) Insert(key NodeKey, data []byte) error {
 	var err error
-	t.root, err = t.insert(t.root, key)
+	t.root, err = t.insert(t.root, key, data)
 	t.root.Black = true
 	if err != nil {
 		t.size++
@@ -68,18 +69,18 @@ func (t *llrb) Insert(key NodeKey) error {
 	return err
 }
 
-func (t *llrb) insert(h *Node, key NodeKey) (*Node, error) {
+func (t *llrb) insert(h *Node, key NodeKey, data []byte) (*Node, error) {
 	if h == nil {
-		return &Node{Key: key}, nil
+		return &Node{Key: key, Data: data}, nil
 	}
 
 	var err error
 
 	switch comp := key.Compare(h.Key); comp {
 	case -1:
-		h.Left, err = t.insert(h.Left, key)
+		h.Left, err = t.insert(h.Left, key, data)
 	case 1:
-		h.Right, err = t.insert(h.Right, key)
+		h.Right, err = t.insert(h.Right, key, data)
 	default:
 		err = fmt.Errorf("key conflict")
 	}
