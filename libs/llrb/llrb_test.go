@@ -30,7 +30,7 @@ func TestCases(t *testing.T) {
 	if tree.Size() != 1 {
 		t.Errorf("expecting len 1")
 	}
-	if !bytes.Equal(tree.Get(&nks[0]),txBytes) {
+	if !bytes.Equal(tree.Get(&nks[0]), txBytes) {
 		t.Errorf("expecting same transaction bytes")
 	}
 
