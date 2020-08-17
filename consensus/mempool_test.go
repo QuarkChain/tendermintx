@@ -231,7 +231,7 @@ func (app *CounterApplication) CreateBlock(
 	remainGas := int64(1<<(64-1) - 1)
 	count := app.txCount
 
-	for iter.HasNext() {
+	for {
 		tx, err := iter.GetNextTransaction(remainBytes, remainGas)
 		if err != nil {
 			panic(err)

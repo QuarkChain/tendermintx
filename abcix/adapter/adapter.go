@@ -103,8 +103,9 @@ func (app *adaptedApp) CreateBlock(
 		int64(len(req.ByzantineValidators))*maxEvidenceBytes
 	remainGas := maxGas
 
-	for iter.HasNext() {
+	for {
 		tx, err := iter.GetNextTransaction(remainBytes, remainGas)
+		// TODO: this in real world may never happen, and in the future we may need to handle this error more elegantly
 		if err != nil {
 			panic("failed to get next tx from mempool")
 		}
