@@ -103,67 +103,68 @@ func (t *llrb) insert(h *Node, key NodeKey) (*Node, error) {
 	return h, err
 }
 
-func (t *llrb) deleteMin(h *Node) (*Node, uint64) {
+func (t *llrb) deleteMin(h *Node) (*Node, *NodeKey) {
 	if h == nil {
-		return nil, NullValue
+		return nil, nil
 	}
 	if h.Left == nil {
-		return nil, h.Value
+		return nil, &h.Key
 	}
 
 	if !isRed(h.Left) && !isRed(h.Left.Left) {
 		h = t.moveRedLeft(h)
 	}
 
-	var deleted uint64
+	var deleted *NodeKey
 	h.Left, deleted = t.deleteMin(h.Left)
 
 	return t.fixUp(h), deleted
 }
 
 // Delete deletes a value from the tree whose value equals key.
-// The deleted value is return, otherwise NullValue is returned.
-func (t *llrb) Delete(key uint64) uint64 {
-	var deleted uint64
+// The deleted value is return, otherwise nil is returned.
+func (t *llrb) Delete(key *NodeKey) *NodeKey {
+	var deleted *NodeKey
 	t.root, deleted = t.delete(t.root, key)
 	if t.root != nil {
 		t.root.Black = true
 	}
-	if deleted != NullValue {
+	if deleted != nil {
 		t.size--
 	}
 
 	return deleted
 }
 
-func (t *llrb) delete(h *Node, value uint64) (*Node, uint64) {
-	var deleted uint64
+func (t *llrb) delete(h *Node, key *NodeKey) (*Node, *NodeKey) {
+	var deleted *NodeKey
 	if h == nil {
-		return nil, NullValue
+		return nil, nil
 	}
-	if value < h.Value {
+	if key.Compare(h.Key) == -1 {
 		if h.Left == nil {
-			return h, NullValue
+			return h, nil
 		}
 		if !isRed(h.Left) && !isRed(h.Left.Left) {
 			h = t.moveRedLeft(h)
 		}
-		h.Left, deleted = t.delete(h.Left, value)
+		h.Left, deleted = t.delete(h.Left, key)
 	} else {
 		if isRed(h.Left) {
 			h = t.rotateRight(h)
 		}
-		if h.Value == value && h.Right == nil {
-			return nil, h.Value
+		if key.Compare(h.Key) == 0 && h.Right == nil {
+			return nil, &h.Key
 		}
 		if h.Right != nil && !isRed(h.Right) && !isRed(h.Right.Left) {
 			h = t.moveRedRight(h)
 		}
-		if h.Value == value {
-			deleted = h.Value
-			h.Right, h.Value = t.deleteMin(h.Right)
+		if key.Compare(h.Key) == 0 {
+			deleted = &h.Key
+			r,k := t.deleteMin(h.Right)
+			h.Right, h.Key = r, *k
 		} else {
-			h.Right, deleted = t.delete(h.Right, value)
+			h.Right, deleted = t.delete(h.Right, key)
 		}
 	}
 
