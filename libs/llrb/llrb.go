@@ -5,10 +5,6 @@ import (
 	"time"
 )
 
-const (
-	NullValue = uint64(0xFFFFFFFFFFFFFFFF)
-)
-
 type llrb struct {
 	size int
 	root *Node
@@ -45,7 +41,7 @@ func (a NodeKey) Compare(b NodeKey) int {
 func (t *llrb) Size() int { return t.size }
 
 // Get retrieves an element from the tree whose value is the same as key.
-func (t *llrb) Get(key NodeKey) *Node {
+func (t *llrb) Get(key *NodeKey) *Node {
 	h := t.root
 	for h != nil {
 		switch comp := key.Compare(h.Key); comp {
@@ -85,7 +81,7 @@ func (t *llrb) insert(h *Node, key NodeKey) (*Node, error) {
 	case 1:
 		h.Right, err = t.insert(h.Right, key)
 	default:
-		err = fmt.Errorf("Key conflict!")
+		err = fmt.Errorf("key conflict")
 	}
 
 	if isRed(h.Right) && !isRed(h.Left) {
@@ -161,7 +157,7 @@ func (t *llrb) delete(h *Node, key *NodeKey) (*Node, *NodeKey) {
 		}
 		if key.Compare(h.Key) == 0 {
 			deleted = &h.Key
-			r,k := t.deleteMin(h.Right)
+			r, k := t.deleteMin(h.Right)
 			h.Right, h.Key = r, *k
 		} else {
 			h.Right, deleted = t.delete(h.Right, key)
