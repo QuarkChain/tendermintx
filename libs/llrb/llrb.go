@@ -1,6 +1,9 @@
 package llrb
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 const (
 	NullValue = uint64(0xFFFFFFFFFFFFFFFF)
@@ -42,13 +45,13 @@ func (a NodeKey) Compare(b NodeKey) int {
 func (t *llrb) Size() int { return t.size }
 
 // Get retrieves an element from the tree whose value is the same as key.
-func (t *llrb) Get(key uint64) *Node {
+func (t *llrb) Get(key NodeKey) *Node {
 	h := t.root
 	for h != nil {
-		switch {
-		case key < h.Value:
+		switch comp := key.Compare(h.Key); comp {
+		case -1:
 			h = h.Left
-		case key > h.Value:
+		case 1:
 			h = h.Right
 		default:
 			return h
@@ -59,30 +62,30 @@ func (t *llrb) Get(key uint64) *Node {
 }
 
 // Insert inserts value into the tree.
-func (t *llrb) Insert(value uint64) uint64 {
-	var replaced uint64
-	t.root, replaced = t.insert(t.root, value)
+func (t *llrb) Insert(key NodeKey) error {
+	var err error
+	t.root, err = t.insert(t.root, key)
 	t.root.Black = true
-	if replaced == NullValue {
+	if err != nil {
 		t.size++
 	}
-	return replaced
+	return err
 }
 
-func (t *llrb) insert(h *Node, value uint64) (*Node, uint64) {
+func (t *llrb) insert(h *Node, key NodeKey) (*Node, error) {
 	if h == nil {
-		return &Node{Value: value}, NullValue
+		return &Node{Key: key}, nil
 	}
 
-	var replaced uint64
+	var err error
 
-	switch {
-	case value < h.Value:
-		h.Left, replaced = t.insert(h.Left, value)
-	case value > h.Value:
-		h.Right, replaced = t.insert(h.Right, value)
+	switch comp := key.Compare(h.Key); comp {
+	case -1:
+		h.Left, err = t.insert(h.Left, key)
+	case 1:
+		h.Right, err = t.insert(h.Right, key)
 	default:
-		replaced, h.Value = h.Value, value
+		err = fmt.Errorf("Key conflict!")
 	}
 
 	if isRed(h.Right) && !isRed(h.Left) {
@@ -97,7 +100,7 @@ func (t *llrb) insert(h *Node, value uint64) (*Node, uint64) {
 		flip(h)
 	}
 
-	return h, replaced
+	return h, err
 }
 
 func (t *llrb) deleteMin(h *Node) (*Node, uint64) {
