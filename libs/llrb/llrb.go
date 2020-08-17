@@ -11,7 +11,6 @@ type llrb struct {
 
 type Node struct {
 	Value       uint64
-	Index       int
 	Left, Right *Node
 	Black       bool
 }
@@ -36,26 +35,6 @@ func (t *llrb) Get(key uint64) *Node {
 	return nil
 }
 
-// GetByIndex retrieves an element from the tree whose index is the same as that of idx.
-func (t *llrb) GetByIndex(idx int) *Node {
-	if t.root == nil || idx >= t.size {
-		return nil
-	}
-
-	h := t.root
-	return t.getByIndex(h, idx)
-}
-
-func (t *llrb) getByIndex(h *Node, idx int) *Node {
-	if idx == h.Index {
-		return h
-	}
-	if idx < h.Index {
-		return t.getByIndex(h.Left, idx)
-	}
-	return t.getByIndex(h.Right, idx-h.Index-1)
-}
-
 // Insert inserts value into the tree.
 func (t *llrb) Insert(value uint64) uint64 {
 	var replaced uint64
@@ -77,9 +56,6 @@ func (t *llrb) insert(h *Node, value uint64) (*Node, uint64) {
 	switch {
 	case value < h.Value:
 		h.Left, replaced = t.insert(h.Left, value)
-		if replaced == NullValue {
-			h.Index++
-		}
 	case value > h.Value:
 		h.Right, replaced = t.insert(h.Right, value)
 	default:
@@ -115,7 +91,6 @@ func (t *llrb) deleteMin(h *Node) (*Node, uint64) {
 
 	var deleted uint64
 	h.Left, deleted = t.deleteMin(h.Left)
-	h.Index--
 
 	return t.fixUp(h), deleted
 }
@@ -148,9 +123,6 @@ func (t *llrb) delete(h *Node, value uint64) (*Node, uint64) {
 			h = t.moveRedLeft(h)
 		}
 		h.Left, deleted = t.delete(h.Left, value)
-		if deleted != NullValue {
-			h.Index--
-		}
 	} else {
 		if isRed(h.Left) {
 			h = t.rotateRight(h)
@@ -172,55 +144,6 @@ func (t *llrb) delete(h *Node, value uint64) (*Node, uint64) {
 	return t.fixUp(h), deleted
 }
 
-// DeleteAt deletes a value from the tree whose index equals idx.
-// The deleted value is return, otherwise NullValue is returned.
-func (t *llrb) DeleteAt(idx int) uint64 {
-	var deleted uint64
-	t.root, deleted = t.deleteAt(t.root, idx)
-	if t.root != nil {
-		t.root.Black = true
-	}
-	if deleted != NullValue {
-		t.size--
-	}
-
-	return deleted
-}
-
-func (t *llrb) deleteAt(h *Node, idx int) (*Node, uint64) {
-	var deleted uint64
-	if h == nil {
-		return nil, NullValue
-	}
-	if idx < h.Index {
-		if h.Left == nil {
-			panic("Left should exist")
-		}
-		if !isRed(h.Left) && !isRed(h.Left.Left) {
-			h = t.moveRedLeft(h)
-		}
-		h.Left, deleted = t.deleteAt(h.Left, idx)
-		h.Index--
-	} else {
-		if isRed(h.Left) {
-			h = t.rotateRight(h)
-		}
-		if h.Index == idx && h.Right == nil {
-			return nil, h.Value
-		}
-		if h.Right != nil && !isRed(h.Right) && !isRed(h.Right.Left) {
-			h = t.moveRedRight(h)
-		}
-		if h.Index == idx {
-			deleted = h.Value
-			h.Right, h.Value = t.deleteMin(h.Right)
-		} else {
-			h.Right, deleted = t.deleteAt(h.Right, idx-h.Index-1)
-		}
-	}
-
-	return t.fixUp(h), deleted
-}
 
 func (t *llrb) rotateLeft(h *Node) *Node {
 	x := h.Right
@@ -231,7 +154,6 @@ func (t *llrb) rotateLeft(h *Node) *Node {
 	x.Left = h
 	x.Black = h.Black
 	h.Black = false
-	x.Index += (h.Index + 1)
 	return x
 }
 
@@ -244,7 +166,6 @@ func (t *llrb) rotateRight(h *Node) *Node {
 	x.Right = h
 	x.Black = h.Black
 	h.Black = false
-	h.Index -= (x.Index + 1)
 	return x
 }
 
