@@ -129,6 +129,7 @@ case "$1" in
     ;;
 *)
     echo "Running all"
+# TODO: these tests would fail because we haven't implemented socket/grpc API for CreateBlock API, and we may do it in the future
 #    kvstore_over_socket
 #    echo ""
 #    kvstore_over_socket_reorder
