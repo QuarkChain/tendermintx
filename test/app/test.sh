@@ -139,6 +139,6 @@ case "$1" in
 #    counter_over_grpc
 #    echo ""
 #    counter_over_grpc_grpc
-		kvstore_over_local
+    kvstore_over_local
 esac
 
