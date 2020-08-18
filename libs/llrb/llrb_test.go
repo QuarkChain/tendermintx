@@ -2,6 +2,7 @@ package llrb
 
 import (
 	"bytes"
+	cr "crypto/rand"
 	"math/rand"
 	"testing"
 	"time"
@@ -24,7 +25,7 @@ func TestCases(t *testing.T) {
 	tree := new(llrb)
 	nks := getNodeKeys(1)
 	txBytes := make([]byte, 20)
-	rand.Read(txBytes)
+	cr.Read(txBytes)
 	tree.Insert(nks[0], txBytes)
 	tree.Insert(nks[0], txBytes)
 	if tree.Size() != 1 {
