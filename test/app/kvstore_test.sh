@@ -21,7 +21,7 @@ echo ""
 
 
 ###########################
-# test using the abci-cli
+# test using the abcix-cli
 ###########################
 
 echo "... testing query with abci-cli"
