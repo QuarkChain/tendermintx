@@ -36,14 +36,8 @@ jobs:
         run: |
           echo "::add-path::$(go env GOPATH)/bin"
       - name: install
-        run: make install install_abcix || make install install_abci
+        run: make install install_abci
         if: "env.GIT_DIFF != ''"
-      - name: install ABCI
-        run: make install_abci
-        if: "env.ABCIX == ''"
-      - name: install ABCIx
-        run: make install_abcix
-        if: "env.ABCIX == 1"
       - uses: actions/cache@v1
         with:
           path: ~/go/pkg/mod
@@ -129,8 +123,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: Build
     timeout-minutes: 5
-    env:
-      ABCIX: 1
     steps:
       - uses: actions/checkout@v2
       - uses: technote-space/get-diff-action@v1
