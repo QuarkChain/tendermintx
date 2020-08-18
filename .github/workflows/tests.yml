@@ -30,13 +30,14 @@ jobs:
             .go
             .mod
             .sum
+            .sh
           SET_ENV_NAME_INSERTIONS: 1
           SET_ENV_NAME_LINES: 1
       - name: Set GOBIN
         run: |
           echo "::add-path::$(go env GOPATH)/bin"
       - name: install
-        run: make install install_abci
+        run: make install install_abci install_abcix
         if: "env.GIT_DIFF != ''"
       - uses: actions/cache@v1
         with:
@@ -64,6 +65,7 @@ jobs:
             .go
             .mod
             .sum
+            .sh
           SET_ENV_NAME_INSERTIONS: 1
           SET_ENV_NAME_LINES: 1
       - name: Set GOBIN
@@ -98,6 +100,7 @@ jobs:
             .go
             .mod
             .sum
+            .sh
           SET_ENV_NAME_INSERTIONS: 1
           SET_ENV_NAME_LINES: 1
       - name: Set GOBIN
@@ -131,6 +134,7 @@ jobs:
             .go
             .mod
             .sum
+            .sh
           SET_ENV_NAME_INSERTIONS: 1
           SET_ENV_NAME_LINES: 1
       - name: Set GOBIN
