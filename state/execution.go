@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	dbm "github.com/tendermint/tm-db"
+
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	cryptoenc "github.com/tendermint/tendermint/crypto/encoding"
 	"github.com/tendermint/tendermint/libs/fail"
@@ -13,7 +15,6 @@ import (
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	"github.com/tendermint/tendermint/proxy"
 	"github.com/tendermint/tendermint/types"
-	dbm "github.com/tendermint/tm-db"
 )
 
 //-----------------------------------------------------------------------------
@@ -95,35 +96,27 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	height int64,
 	state State, commit *types.Commit,
 	proposerAddr []byte,
-	createBlockFromApp bool,
 ) (*types.Block, *types.PartSet) {
 	var txs types.Txs
 	var timestamp time.Time
 	evidence := blockExec.evpool.PendingEvidence(state.ConsensusParams.Evidence.MaxNum)
-	if createBlockFromApp {
-		if height == 1 {
-			timestamp = state.LastBlockTime // genesis time
-		} else {
-			timestamp = MedianTime(commit, state.LastValidators)
-		}
-		lastCommitInfo, byzVals := getCreateBlockValidatorInfo(timestamp, height, commit, evidence, blockExec.db)
-		resp, err := blockExec.proxyApp.CreateBlockSync(abcix.RequestCreateBlock{
-			Height:              height,
-			LastCommitInfo:      lastCommitInfo,
-			ByzantineValidators: byzVals,
-		}, abcix.NewMempoolIter(blockExec.mempool))
-		if err != nil {
-			panic(err)
-		}
-		for _, txBytes := range resp.Txs {
-			txs = append(txs, txBytes)
-		}
+
+	if height == 1 {
+		timestamp = state.LastBlockTime // genesis time
 	} else {
-		maxBytes := state.ConsensusParams.Block.MaxBytes
-		maxGas := state.ConsensusParams.Block.MaxGas
-		// Fetch a limited amount of valid txs
-		maxDataBytes := types.MaxDataBytes(maxBytes, state.Validators.Size(), len(evidence))
-		txs = blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
+		timestamp = MedianTime(commit, state.LastValidators)
+	}
+	lastCommitInfo, byzVals := getBlockValidatorInfo(timestamp, height, commit, evidence, blockExec.db)
+	resp, err := blockExec.proxyApp.CreateBlockSync(abcix.RequestCreateBlock{
+		Height:              height,
+		LastCommitInfo:      lastCommitInfo,
+		ByzantineValidators: byzVals,
+	}, abcix.NewMempoolIter(blockExec.mempool))
+	if err != nil {
+		panic(err)
+	}
+	for _, txBytes := range resp.Txs {
+		txs = append(txs, txBytes)
 	}
 	return state.MakeBlock(height, txs, commit, evidence, proposerAddr)
 }
@@ -166,11 +159,12 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	fail.Fail() // XXX
 
 	// validate the validator updates and convert to tendermint types
-	err = validateValidatorUpdates(abciResponses.DeliverBlock.ValidatorUpdates, state.ConsensusParams.Validator)
+	abciValUpdates := abciResponses.DeliverBlock.ValidatorUpdates
+	err = validateValidatorUpdates(abciValUpdates, state.ConsensusParams.Validator)
 	if err != nil {
 		return state, 0, fmt.Errorf("error in validator updates: %v", err)
 	}
-	validatorUpdates, err := types.PB2TM.ValidatorUpdates(abciResponses.DeliverBlock.ValidatorUpdates)
+	validatorUpdates, err := types.PB2TM.ValidatorUpdates(abciValUpdates)
 	if err != nil {
 		return state, 0, err
 	}
@@ -185,9 +179,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	}
 
 	// Lock mempool, commit app state, update mempoool.
-	var appHash []byte
-	var retainHeight int64
-	appHash, retainHeight, err = blockExec.Commit(state, block, abciResponses.DeliverBlock)
+	appHash, retainHeight, err := blockExec.Commit(state, block, abciResponses.DeliverBlock)
 	if err != nil {
 		return state, 0, fmt.Errorf("commit failed for application: %v", err)
 	}
@@ -199,7 +191,6 @@ func (blockExec *BlockExecutor) ApplyBlock(
 
 	// Update the app hash and save the state.
 	state.AppHash = appHash
-
 	SaveState(blockExec.db, state)
 
 	fail.Fail() // XXX
@@ -216,6 +207,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 // It returns the result of calling abci.Commit (the AppHash) and the height to retain (if any).
 // The Mempool must be locked during commit and update because state is
 // typically reset on Commit and old txs must be replayed against committed
+// state before new txs are run in the mempool, lest they be invalid.
 func (blockExec *BlockExecutor) Commit(
 	state State,
 	block *types.Block,
@@ -241,6 +233,14 @@ func (blockExec *BlockExecutor) Commit(
 		)
 		return nil, 0, err
 	}
+	// ResponseCommit has no error code - just data
+
+	blockExec.logger.Info(
+		"Committed state",
+		"height", block.Height,
+		"txs", len(block.Txs),
+		"appHash", fmt.Sprintf("%X", res.Data),
+	)
 
 	// Update mempool.
 	err = blockExec.mempool.Update(
@@ -251,8 +251,7 @@ func (blockExec *BlockExecutor) Commit(
 		TxPostCheck(state),
 	)
 
-	appHash, retainHeight := res.Data, res.RetainHeight
-	return appHash, retainHeight, err
+	return res.Data, res.RetainHeight, err
 }
 
 //---------------------------------------------------------
@@ -266,15 +265,20 @@ func execBlockOnProxyApp(
 	block *types.Block,
 	stateDB dbm.DB,
 ) (*tmstate.ABCIResponses, error) {
-	var validTxs, invalidTxs = 0, 0
-
 	abciResponses := new(tmstate.ABCIResponses)
 	dtxs := make([]*abcix.ResponseDeliverTx, len(block.Txs))
 	abciResponses.DeliverBlock = &abcix.ResponseDeliverBlock{
 		DeliverTxs: dtxs,
 	}
 
-	commitInfo, byzVals := getBeginBlockValidatorInfo(block, stateDB)
+	commitInfo, byzVals := getBlockValidatorInfo(
+		block.Time,
+		block.Height,
+		block.LastCommit,
+		block.Evidence.Evidence,
+		stateDB,
+	)
+
 	pbh := block.Header.ToProto()
 	var err error
 
@@ -294,12 +298,18 @@ func execBlockOnProxyApp(
 		logger.Error("Error in proxyAppConn.DeliverBlock", "err", err)
 	}
 
-	logger.Info("Executed block", "height", block.Height, "validTxs", validTxs, "invalidTxs", invalidTxs)
+	for _, txRes := range abciResponses.DeliverBlock.DeliverTxs {
+		if txRes.Code != abcix.CodeTypeOK {
+			// Consensus failure, because invalid tx should already be thrown away when creating block
+			panic("invalid tx found in block")
+		}
+	}
+
+	logger.Info("Executed block", "height", block.Height)
 	return abciResponses, nil
 }
 
-// TODO: In the future we may want to combine this part of code with BeginBlock
-func getCreateBlockValidatorInfo(
+func getBlockValidatorInfo(
 	time time.Time,
 	height int64,
 	lastCommit *types.Commit,
@@ -345,55 +355,6 @@ func getCreateBlockValidatorInfo(
 
 	return abcix.LastCommitInfo{
 		Round: lastCommit.Round,
-		Votes: voteInfos,
-	}, byzVals
-}
-
-func getBeginBlockValidatorInfo(block *types.Block, stateDB dbm.DB) (abcix.LastCommitInfo, []abcix.Evidence) {
-	voteInfos := make([]abcix.VoteInfo, block.LastCommit.Size())
-	// block.Height=1 -> LastCommitInfo.Votes are empty.
-	// Remember that the first LastCommit is intentionally empty, so it makes
-	// sense for LastCommitInfo.Votes to also be empty.
-	if block.Height > 1 {
-		lastValSet, err := LoadValidators(stateDB, block.Height-1)
-		if err != nil {
-			panic(err)
-		}
-
-		// Sanity check that commit size matches validator set size - only applies
-		// after first block.
-		var (
-			commitSize = block.LastCommit.Size()
-			valSetLen  = len(lastValSet.Validators)
-		)
-		if commitSize != valSetLen {
-			panic(fmt.Sprintf("commit size (%d) doesn't match valset length (%d) at height %d\n\n%v\n\n%v",
-				commitSize, valSetLen, block.Height, block.LastCommit.Signatures, lastValSet.Validators))
-		}
-
-		for i, val := range lastValSet.Validators {
-			commitSig := block.LastCommit.Signatures[i]
-			voteInfos[i] = abcix.VoteInfo{
-				Validator:       types.TM2PB.Validator(val),
-				SignedLastBlock: !commitSig.Absent(),
-			}
-		}
-	}
-
-	byzVals := make([]abcix.Evidence, len(block.Evidence.Evidence))
-	for i, ev := range block.Evidence.Evidence {
-		// We need the validator set. We already did this in validateBlock.
-		// TODO: Should we instead cache the valset in the evidence itself and add
-		// `SetValidatorSet()` and `ToABCI` methods ?
-		valset, err := LoadValidators(stateDB, ev.Height())
-		if err != nil {
-			panic(err)
-		}
-		byzVals[i] = types.TM2PB.Evidence(ev, valset, block.Time)
-	}
-
-	return abcix.LastCommitInfo{
-		Round: block.LastCommit.Round,
 		Votes: voteInfos,
 	}, byzVals
 }
