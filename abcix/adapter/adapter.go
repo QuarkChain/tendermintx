@@ -154,7 +154,7 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 	adaptGeneralization(&req, &resp, "abci.RequestEndBlock", app.abciApp.EndBlock)
 	endEvents := resp.Events
 
-	resp.Events = make([]abcix.Event, len(beginEvents)+len(endEvents))
+	resp.Events = make([]abcix.Event, len(beginEvents))
 	copy(resp.Events, beginEvents)
 	resp.Events = append(resp.Events, endEvents...)
 	return resp
