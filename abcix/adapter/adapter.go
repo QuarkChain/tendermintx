@@ -36,14 +36,6 @@ var typeRegistry = map[string]reflect.Type{
 	"abci.RequestBeginBlock":         reflect.TypeOf(abci.RequestBeginBlock{}),
 }
 
-func newStruct(name string) (interface{}, bool) {
-	elem, ok := typeRegistry[name]
-	if !ok {
-		return nil, false
-	}
-	return reflect.New(elem).Interface(), true
-}
-
 func Apply(f interface{}, args ...interface{}) reflect.Value {
 	fun := reflect.ValueOf(f)
 	in := make([]reflect.Value, len(args))
@@ -55,10 +47,11 @@ func Apply(f interface{}, args ...interface{}) reflect.Value {
 }
 
 func adaptGeneralization(req interface{}, resp interface{}, abciReq string, f interface{}) error {
-	abcireq, ok := newStruct(abciReq)
+	elem, ok := typeRegistry[abciReq]
 	if !ok {
-		return errors.New("fail")
+		return errors.New("fail to build a new struct")
 	}
+	abcireq := reflect.New(elem).Interface()
 	if err := copier.Copy(abcireq, req); err != nil {
 		// TODO: panic for debugging purposes. better error handling soon!
 		panic(err)
