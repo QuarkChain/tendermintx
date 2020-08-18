@@ -52,7 +52,7 @@ var (
 )
 
 var RootCmd = &cobra.Command{
-	Use:   "abci-cli",
+	Use:   "abcix-cli",
 	Short: "the ABCI CLI tool wraps an ABCI client",
 	Long:  "the ABCI CLI tool wraps an ABCI client and is used for testing ABCI servers",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -170,7 +170,7 @@ var batchCmd = &cobra.Command{
 This command is run by piping in a file containing a series of commands
 you'd like to run:
 
-    abci-cli batch < example.file
+    abcix-cli batch < example.file
 
 where example.file looks something like:
 
@@ -332,7 +332,7 @@ func cmdConsole(cmd *cobra.Command, args []string) error {
 
 func muxOnCommands(cmd *cobra.Command, pArgs []string) error {
 	if len(pArgs) < 2 {
-		return errors.New("expecting persistent args of the form: abci-cli [command] <...>")
+		return errors.New("expecting persistent args of the form: abcix-cli [command] <...>")
 	}
 
 	// TODO: this parsing is fragile
