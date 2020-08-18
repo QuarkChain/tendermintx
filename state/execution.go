@@ -265,8 +265,6 @@ func execBlockOnProxyApp(
 	block *types.Block,
 	stateDB dbm.DB,
 ) (*tmstate.ABCIResponses, error) {
-	var validTxs, invalidTxs = 0, 0
-
 	abciResponses := new(tmstate.ABCIResponses)
 	dtxs := make([]*abcix.ResponseDeliverTx, len(block.Txs))
 	abciResponses.DeliverBlock = &abcix.ResponseDeliverBlock{
@@ -301,14 +299,13 @@ func execBlockOnProxyApp(
 	}
 
 	for _, txRes := range abciResponses.DeliverBlock.DeliverTxs {
-		if txRes.Code == abcix.CodeTypeOK {
-			validTxs++
-		} else {
-			invalidTxs++
+		if txRes.Code != abcix.CodeTypeOK {
+			// Consensus failure, because invalid tx should already be thrown away when creating block
+			panic("invalid tx found in block")
 		}
 	}
 
-	logger.Info("Executed block", "height", block.Height, "validTxs", validTxs, "invalidTxs", invalidTxs)
+	logger.Info("Executed block", "height", block.Height)
 	return abciResponses, nil
 }
 

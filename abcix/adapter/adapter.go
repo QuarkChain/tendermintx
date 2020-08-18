@@ -153,6 +153,9 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 			// TODO: panic for debugging purposes. better error handling soon!
 			panic(err)
 		}
+		// Adapt tx result to success. Note the underlying ABCI should be responsible to
+		// record actual tx result for querying
+		respDeliverTx.Code = abcix.CodeTypeOK
 		resp.DeliverTxs = append(resp.DeliverTxs, &respDeliverTx)
 	}
 
