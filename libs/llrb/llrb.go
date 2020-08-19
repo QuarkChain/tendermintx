@@ -11,20 +11,12 @@ import (
 // If more nodes are pushed it will panic.
 const MaxSize = int(^uint(0) >> 1)
 
-type NodeKey struct {
+type nodeKey struct {
 	priority uint64
 	ts       time.Time
 }
 
-func (a NodeKey) NewNodeKey(priority uint64, ts time.Time) *NodeKey {
-	key := &NodeKey{
-		priority: priority,
-		ts:       ts,
-	}
-	return key
-}
-
-func (a NodeKey) Compare(b NodeKey) int {
+func (a nodeKey) Compare(b nodeKey) int {
 	if a.priority > b.priority {
 		return 1
 	}
@@ -41,7 +33,7 @@ func (a NodeKey) Compare(b NodeKey) int {
 }
 
 type node struct {
-	Key         NodeKey
+	Key         nodeKey
 	Data        []byte
 	Left, Right *node
 	Black       bool
@@ -85,15 +77,15 @@ func (t *Llrb) Size() int {
 	return s
 }
 
-// GetNext retrieves an "largest" element "smaller" than starter if provided
-func (t *Llrb) GetNext(startPriority uint64, startTime time.Time) ([]byte, error) {
+// GetNext retrieves a satisfied tx with "largest" nodeKey "smaller" than starter if provided
+func (t *Llrb) GetNext(startPriority uint64, startTime time.Time, remainBytes int64, remainGas int64) ([]byte, error) {
 	return nil, nil
 }
 
 // Insert inserts value into the tree.
 func (t *Llrb) Insert(priority uint64, time time.Time, data []byte) error {
 	var err error
-	key := NodeKey{
+	key := nodeKey{
 		priority: priority,
 		ts:       time,
 	}
@@ -105,7 +97,7 @@ func (t *Llrb) Insert(priority uint64, time time.Time, data []byte) error {
 	return err
 }
 
-func (t *Llrb) insert(h *node, key NodeKey, data []byte) (*node, error) {
+func (t *Llrb) insert(h *node, key nodeKey, data []byte) (*node, error) {
 	if h == nil {
 		return &node{Key: key, Data: data}, nil
 	}
@@ -136,7 +128,7 @@ func (t *Llrb) insert(h *node, key NodeKey, data []byte) (*node, error) {
 	return h, err
 }
 
-func (t *Llrb) deleteMin(h *node) (*node, *NodeKey) {
+func (t *Llrb) deleteMin(h *node) (*node, *nodeKey) {
 	if h == nil {
 		return nil, nil
 	}
@@ -148,7 +140,7 @@ func (t *Llrb) deleteMin(h *node) (*node, *NodeKey) {
 		h = t.moveRedLeft(h)
 	}
 
-	var deleted *NodeKey
+	var deleted *nodeKey
 	h.Left, deleted = t.deleteMin(h.Left)
 
 	return t.fixUp(h), deleted
@@ -156,9 +148,13 @@ func (t *Llrb) deleteMin(h *node) (*node, *NodeKey) {
 
 // Delete deletes a value from the tree whose value equals key.
 // The deleted data is return, otherwise nil is returned.
-func (t *Llrb) Delete(key *NodeKey) []byte {
+func (t *Llrb) Delete(priority uint64, time time.Time) []byte {
 
-	var deleted *NodeKey
+	var deleted *nodeKey
+	key := &nodeKey{
+		priority: priority,
+		ts:       time,
+	}
 	t.root, deleted = t.delete(t.root, key)
 	if t.root != nil {
 		t.root.Black = true
@@ -166,12 +162,11 @@ func (t *Llrb) Delete(key *NodeKey) []byte {
 	if deleted != nil {
 		t.size--
 	}
-
 	return nil
 }
 
-func (t *Llrb) delete(h *node, key *NodeKey) (*node, *NodeKey) {
-	var deleted *NodeKey
+func (t *Llrb) delete(h *node, key *nodeKey) (*node, *nodeKey) {
+	var deleted *nodeKey
 	if h == nil {
 		return nil, nil
 	}

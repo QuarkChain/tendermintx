@@ -1,10 +1,10 @@
 package llrb
 
-//func getNodeKeys(count int) []NodeKey {
+//func getNodeKeys(count int) []nodeKey {
 //	perm := rand.Perm(count)
-//	var nks []NodeKey
+//	var nks []nodeKey
 //	for i := 0; i < count; i++ {
-//		nk := NodeKey{
+//		nk := nodeKey{
 //			priority: uint64(perm[i]),
 //			ts:       time.Now(),
 //		}
