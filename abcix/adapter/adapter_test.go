@@ -17,7 +17,7 @@ type mockAbcixApp struct {
 	abcix.BaseApplication
 }
 
-func (app *mockAbcixApp)CheckTx(req abcix.RequestCheckTx) abcix.ResponseCheckTx {
+func (app *mockAbcixApp) CheckTx(req abcix.RequestCheckTx) abcix.ResponseCheckTx {
 	time.Sleep(1e8)
 	return abcix.ResponseCheckTx{
 		Code: abci.CodeTypeOK,
@@ -72,7 +72,7 @@ func BenchmarkAdaptedApp_CheckTx(b *testing.B) {
 	app.CheckTx(abcix.RequestCheckTx{})
 }
 
-func BenchmarkAdaptedApp_CheckTx2 (b *testing.B) {
+func BenchmarkAdaptedApp_CheckTx2(b *testing.B) {
 	abcixApp := &mockAbcixApp{}
 	abcixApp.CheckTx(abcix.RequestCheckTx{})
 }
