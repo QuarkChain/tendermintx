@@ -32,6 +32,13 @@ func (a nodeKey) compare(b nodeKey) int {
 	return 0
 }
 
+func NewKey(priority uint64, ts time.Time) nodeKey {
+	k := new(nodeKey)
+	k.priority = priority
+	k.ts = ts
+	return *k
+}
+
 type node struct {
 	Key         nodeKey
 	Data        interface{}
@@ -78,7 +85,7 @@ func (t *Llrb) Size() int {
 }
 
 // GetNext retrieves a satisfied tx with "largest" nodeKey "smaller" than starter if provided
-func (t *Llrb) GetNext(startPriority uint64, startTime time.Time, remainBytes int64, remainGas int64) ([]byte, error) {
+func (t *Llrb) GetNext(key nodeKey, predicate func(interface{}) bool) ([]byte, error) {
 	return nil, nil
 }
 
