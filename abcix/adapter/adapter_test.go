@@ -13,20 +13,8 @@ type mockAbciApp struct {
 	abci.BaseApplication
 }
 
-type mockAbcixApp struct {
-	abcix.BaseApplication
-}
-
-func (app *mockAbcixApp) CheckTx(req abcix.RequestCheckTx) abcix.ResponseCheckTx {
-	time.Sleep(1e8)
-	return abcix.ResponseCheckTx{
-		Code: abci.CodeTypeOK,
-		Data: []byte("42"),
-	}
-}
-
 func (app *mockAbciApp) CheckTx(req abci.RequestCheckTx) abci.ResponseCheckTx {
-	time.Sleep(1e8)
+	time.Sleep(5e7)
 	return abci.ResponseCheckTx{
 		Code: abci.CodeTypeOK,
 		Data: []byte("42"),
@@ -40,13 +28,23 @@ func (app *mockAbciApp) DeliverTx(req abci.RequestDeliverTx) abci.ResponseDelive
 }
 
 func (app *mockAbciApp) BeginBlock(req abci.RequestBeginBlock) abci.ResponseBeginBlock {
-	var events = []abci.Event{{Type: "begin"}}
-	return abci.ResponseBeginBlock{Events: events}
+	return abci.ResponseBeginBlock{Events: []abci.Event{{Type: "begin"}}}
 }
 
 func (app *mockAbciApp) EndBlock(req abci.RequestEndBlock) abci.ResponseEndBlock {
-	var events = []abci.Event{{Type: "end"}}
-	return abci.ResponseEndBlock{Events: events}
+	return abci.ResponseEndBlock{Events: []abci.Event{{Type: "end"}}}
+}
+
+type mockAbcixApp struct {
+	abcix.BaseApplication
+}
+
+func (app *mockAbcixApp) CheckTx(req abcix.RequestCheckTx) abcix.ResponseCheckTx {
+	time.Sleep(5e7)
+	return abcix.ResponseCheckTx{
+		Code: abci.CodeTypeOK,
+		Data: []byte("42"),
+	}
 }
 
 func TestAdapt(t *testing.T) {

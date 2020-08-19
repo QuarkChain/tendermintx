@@ -35,18 +35,32 @@ func (app *adaptedApp) OriginalApp() abci.Application {
 	return app.abciApp
 }
 
-var typeRegistry = map[string]reflect.Type{
-	"abci.RequestInfo":               reflect.TypeOf(abci.RequestInfo{}),
-	"abci.RequestSetOption":          reflect.TypeOf(abci.RequestSetOption{}),
-	"abci.RequestQuery":              reflect.TypeOf(abci.RequestQuery{}),
-	"abci.RequestCheckTx":            reflect.TypeOf(abci.RequestCheckTx{}),
-	"abci.RequestInitChain":          reflect.TypeOf(abci.RequestInitChain{}),
-	"abci.RequestListSnapshots":      reflect.TypeOf(abci.RequestListSnapshots{}),
-	"abci.RequestOfferSnapshot":      reflect.TypeOf(abci.RequestOfferSnapshot{}),
-	"abci.RequestLoadSnapshotChunk":  reflect.TypeOf(abci.RequestOfferSnapshot{}),
-	"abci.RequestApplySnapshotChunk": reflect.TypeOf(abci.RequestApplySnapshotChunk{}),
-	"abci.RequestEndBlock":           reflect.TypeOf(abci.RequestEndBlock{}),
-	"abci.RequestBeginBlock":         reflect.TypeOf(abci.RequestBeginBlock{}),
+const (
+	info = iota
+	setoption
+	query
+	checktx
+	initchain
+	listsnapshots
+	offersnapshot
+	loadsnapshotchunk
+	applysnapshotchunk
+	endblock
+	beginblock
+)
+
+var typeRegistry = map[int]reflect.Type{
+	info:               reflect.TypeOf(abci.RequestInfo{}),
+	setoption:          reflect.TypeOf(abci.RequestSetOption{}),
+	query:              reflect.TypeOf(abci.RequestQuery{}),
+	checktx:            reflect.TypeOf(abci.RequestCheckTx{}),
+	initchain:          reflect.TypeOf(abci.RequestInitChain{}),
+	listsnapshots:      reflect.TypeOf(abci.RequestListSnapshots{}),
+	offersnapshot:      reflect.TypeOf(abci.RequestOfferSnapshot{}),
+	loadsnapshotchunk:  reflect.TypeOf(abci.RequestOfferSnapshot{}),
+	applysnapshotchunk: reflect.TypeOf(abci.RequestApplySnapshotChunk{}),
+	endblock:           reflect.TypeOf(abci.RequestEndBlock{}),
+	beginblock:         reflect.TypeOf(abci.RequestBeginBlock{}),
 }
 
 func Apply(f interface{}, args ...interface{}) reflect.Value {
@@ -59,42 +73,48 @@ func Apply(f interface{}, args ...interface{}) reflect.Value {
 	return r[0]
 }
 
-func convert(req interface{}, resp interface{}, abciReq string, f interface{}) error {
+func applyLegacyABCI(req interface{}, resp interface{}, abciReq int, f interface{}) error {
 	elem, ok := typeRegistry[abciReq]
 	if !ok {
 		return errors.New("fail to build a new struct")
 	}
 	abcireq := reflect.New(elem).Interface()
 	if err := copier.Copy(abcireq, req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
+		return err
 	}
 
 	abciResp := Apply(f, abcireq).Interface()
 	if err := copier.Copy(resp, abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
+		return err
 	}
 	return nil
 }
 
 func (app *adaptedApp) Info(req abcix.RequestInfo) (resp abcix.ResponseInfo) {
-	convert(&req, &resp, "abci.RequestInfo", app.abciApp.Info)
+	if err := applyLegacyABCI(&req, &resp, info, app.abciApp.Info); err != nil {
+		panic(err)
+	}
 	return
 }
 
 func (app *adaptedApp) SetOption(req abcix.RequestSetOption) (resp abcix.ResponseSetOption) {
-	convert(&req, &resp, "abci.RequestSetOption", app.abciApp.SetOption)
+	if err := applyLegacyABCI(&req, &resp, setoption, app.abciApp.SetOption); err != nil {
+		panic(err)
+	}
 	return
 }
 
 func (app *adaptedApp) Query(req abcix.RequestQuery) (resp abcix.ResponseQuery) {
-	convert(&req, &resp, "abci.RequestQuery", app.abciApp.Query)
+	if err := applyLegacyABCI(&req, &resp, query, app.abciApp.Query); err != nil {
+		panic(err)
+	}
 	return
 }
 
 func (app *adaptedApp) CheckTx(req abcix.RequestCheckTx) (resp abcix.ResponseCheckTx) {
-	convert(&req, &resp, "abci.RequestCheckTx", app.abciApp.CheckTx)
+	if err := applyLegacyABCI(&req, &resp, checktx, app.abciApp.CheckTx); err != nil {
+		panic(err)
+	}
 	return
 }
 
@@ -130,12 +150,16 @@ func (app *adaptedApp) CreateBlock(
 }
 
 func (app *adaptedApp) InitChain(req abcix.RequestInitChain) (resp abcix.ResponseInitChain) {
-	convert(&req, &resp, "abci.RequestInitChain", app.abciApp.InitChain)
+	if err := applyLegacyABCI(&req, &resp, initchain, app.abciApp.InitChain); err != nil {
+		panic(err)
+	}
 	return
 }
 
 func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.ResponseDeliverBlock) {
-	convert(&req, &resp, "abci.RequestBeginBlock", app.abciApp.BeginBlock)
+	if err := applyLegacyABCI(&req, &resp, beginblock, app.abciApp.BeginBlock); err != nil {
+		panic(err)
+	}
 	beginEvents := resp.Events
 
 	for _, tx := range req.Txs {
@@ -151,7 +175,9 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 		resp.DeliverTxs = append(resp.DeliverTxs, &respDeliverTx)
 	}
 
-	convert(&req, &resp, "abci.RequestEndBlock", app.abciApp.EndBlock)
+	if err := applyLegacyABCI(&req, &resp, endblock, app.abciApp.EndBlock); err != nil {
+		panic(err)
+	}
 	endEvents := resp.Events
 
 	allEvents := make([]abcix.Event, 0, len(beginEvents)+len(endEvents))
@@ -176,22 +202,30 @@ func (app *adaptedApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseChe
 }
 
 func (app *adaptedApp) ListSnapshots(req abcix.RequestListSnapshots) (resp abcix.ResponseListSnapshots) {
-	convert(&req, &resp, "abci.RequestListSnapshots", app.abciApp.ListSnapshots)
+	if err := applyLegacyABCI(&req, &resp, listsnapshots, app.abciApp.ListSnapshots); err != nil {
+		panic(err)
+	}
 	return
 }
 
 func (app *adaptedApp) OfferSnapshot(req abcix.RequestOfferSnapshot) (resp abcix.ResponseOfferSnapshot) {
-	convert(&req, &resp, "abci.RequestOfferSnapshot", app.abciApp.OfferSnapshot)
+	if err := applyLegacyABCI(&req, &resp, offersnapshot, app.abciApp.OfferSnapshot); err != nil {
+		panic(err)
+	}
 	return
 }
 
 func (app *adaptedApp) LoadSnapshotChunk(req abcix.RequestLoadSnapshotChunk) (resp abcix.ResponseLoadSnapshotChunk) {
-	convert(&req, &resp, "abci.RequestLoadSnapshotChunk", app.abciApp.LoadSnapshotChunk)
+	if err := applyLegacyABCI(&req, &resp, loadsnapshotchunk, app.abciApp.LoadSnapshotChunk); err != nil {
+		panic(err)
+	}
 	return
 }
 
 func (app *adaptedApp) ApplySnapshotChunk(req abcix.RequestApplySnapshotChunk) (resp abcix.ResponseApplySnapshotChunk) {
-	convert(&req, &resp, "abci.RequestApplySnapshotChunk", app.abciApp.ApplySnapshotChunk)
+	if err := applyLegacyABCI(&req, &resp, applysnapshotchunk, app.abciApp.ApplySnapshotChunk); err != nil {
+		panic(err)
+	}
 	return
 }
 
