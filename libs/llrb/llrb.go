@@ -32,11 +32,11 @@ func (a nodeKey) compare(b nodeKey) int {
 	return 0
 }
 
-func NewKey(priority uint64, ts time.Time) nodeKey {
+func newNodeKey(priority uint64, ts time.Time) interface{} {
 	k := new(nodeKey)
 	k.priority = priority
 	k.ts = ts
-	return *k
+	return k
 }
 
 type node struct {
@@ -84,8 +84,15 @@ func (t *Llrb) Size() int {
 	return s
 }
 
-// GetNext retrieves a satisfied tx with "largest" nodeKey "smaller" than starter if provided
-func (t *Llrb) GetNext(key nodeKey, predicate func(interface{}) bool) ([]byte, error) {
+// GetNext retrieves a satisfied tx with "largest" nodeKey and "smaller" than starter if provided
+func (t *Llrb) GetNext(starter interface{}, predicate func(interface{}) bool) ([]byte, error) {
+	var key *nodeKey
+	if starter != nil {
+		key = starter.(*nodeKey)
+	}
+	if key == nil {
+		return nil, fmt.Errorf("not implemented")
+	}
 	return nil, nil
 }
 
@@ -98,7 +105,7 @@ func (t *Llrb) Insert(priority uint64, time time.Time, data interface{}) error {
 	}
 	t.root, err = t.insert(t.root, key, data)
 	t.root.Black = true
-	if err != nil {
+	if err == nil {
 		t.size++
 	}
 	return err

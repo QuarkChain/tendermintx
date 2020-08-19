@@ -1,35 +1,32 @@
 package llrb
 
-//func getNodeKeys(count int) []nodeKey {
-//	perm := rand.Perm(count)
-//	var nks []nodeKey
-//	for i := 0; i < count; i++ {
-//		nk := nodeKey{
-//			priority: uint64(perm[i]),
-//			ts:       time.Now(),
-//		}
-//		nks = append(nks, nk)
-//	}
-//	return nks
-//}
+import (
+	cr "crypto/rand"
+	"math/rand"
+	"testing"
+	"time"
+)
 
-//
-//func TestCases(t *testing.T) {
-//	tree := new(llrb)
-//	nks := getNodeKeys(1)
-//	txBytes := make([]byte, 20)
-//	cr.Read(txBytes)
-//	tree.Insert(nks[0].priority, nks[0].ts, txBytes)
-//	if tree.Size() != 1 {
-//		t.Errorf("expecting len 1")
-//	}
-//
-//	tree.Delete(&nks[0])
-//	if tree.Size() != 0 {
-//		t.Errorf("expecting len 0")
-//	}
-//
-//}
+func getNodeKeys(count int) []nodeKey {
+	perm := rand.Perm(count)
+	var nks []nodeKey
+	for i := 0; i < count; i++ {
+		nk := newNodeKey(uint64(perm[i]), time.Now())
+		nks = append(nks, *(nk.(*nodeKey)))
+	}
+	return nks
+}
+
+func TestCases(t *testing.T) {
+	tree := new(Llrb)
+	nks := getNodeKeys(1)
+	txBytes := make([]byte, 20)
+	cr.Read(txBytes)
+	tree.Insert(nks[0].priority, nks[0].ts, txBytes)
+	if tree.Size() != 1 {
+		t.Errorf("expecting len 1")
+	}
+}
 
 //
 //func TestRandomReplace(t *testing.T) {
