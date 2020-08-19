@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"testing"
+	"time"
 
 	"github.com/magiconair/properties/assert"
 	abci "github.com/tendermint/tendermint/abci/types"
@@ -12,7 +13,20 @@ type mockAbciApp struct {
 	abci.BaseApplication
 }
 
+type mockAbcixApp struct {
+	abcix.BaseApplication
+}
+
+func (app *mockAbcixApp)CheckTx(req abcix.RequestCheckTx) abcix.ResponseCheckTx {
+	time.Sleep(1e8)
+	return abcix.ResponseCheckTx{
+		Code: abci.CodeTypeOK,
+		Data: []byte("42"),
+	}
+}
+
 func (app *mockAbciApp) CheckTx(req abci.RequestCheckTx) abci.ResponseCheckTx {
+	time.Sleep(1e8)
 	return abci.ResponseCheckTx{
 		Code: abci.CodeTypeOK,
 		Data: []byte("42"),
@@ -50,4 +64,15 @@ func TestAdapt(t *testing.T) {
 
 	events := []abcix.Event{{Type: "begin"}, {Type: "end"}}
 	assert.Equal(t, respDeliverBlock.Events, events)
+}
+
+func BenchmarkAdaptedApp_CheckTx(b *testing.B) {
+	abciApp := &mockAbciApp{}
+	app := AdaptToABCIx(abciApp)
+	app.CheckTx(abcix.RequestCheckTx{})
+}
+
+func BenchmarkAdaptedApp_CheckTx2 (b *testing.B) {
+	abcixApp := &mockAbcixApp{}
+	abcixApp.CheckTx(abcix.RequestCheckTx{})
 }
