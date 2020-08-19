@@ -129,6 +129,9 @@ func (t *llrb) Insert(priority uint64, time time.Time, data interface{}) error {
 	t.root.black = true
 	if err == nil {
 		t.size++
+		if t.size >= t.maxSize {
+			panic(fmt.Sprintf("llrb: maximum size tree reached %d", t.maxSize))
+		}
 	}
 	return err
 }
