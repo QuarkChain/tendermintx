@@ -43,7 +43,7 @@ type node struct {
 	Key         nodeKey
 	Data        interface{}
 	Left, Right *node
-	Black       bool
+	black       bool
 }
 
 type LLRB interface {
@@ -107,7 +107,7 @@ func (t *llrb) Insert(priority uint64, time time.Time, data interface{}) error {
 		ts:       time,
 	}
 	t.root, err = t.insert(t.root, key, data)
-	t.root.Black = true
+	t.root.black = true
 	if err == nil {
 		t.size++
 	}
@@ -174,7 +174,7 @@ func (t *llrb) Delete(priority uint64, time time.Time) interface{} {
 	}
 	t.root, deleted = t.delete(t.root, key)
 	if t.root != nil {
-		t.root.Black = true
+		t.root.black = true
 	}
 	if deleted != nil {
 		t.size--
@@ -221,25 +221,25 @@ func (t *llrb) delete(h *node, key *nodeKey) (*node, *node) {
 
 func (t *llrb) rotateLeft(h *node) *node {
 	x := h.Right
-	if x.Black {
+	if x.black {
 		panic("rotating a black link")
 	}
 	h.Right = x.Left
 	x.Left = h
-	x.Black = h.Black
-	h.Black = false
+	x.black = h.black
+	h.black = false
 	return x
 }
 
 func (t *llrb) rotateRight(h *node) *node {
 	x := h.Left
-	if x.Black {
+	if x.black {
 		panic("rotating a black link")
 	}
 	h.Left = x.Right
 	x.Right = h
-	x.Black = h.Black
-	h.Black = false
+	x.black = h.black
+	h.black = false
 	return x
 }
 
@@ -282,13 +282,13 @@ func isRed(h *node) bool {
 	if h == nil {
 		return false
 	}
-	return !h.Black
+	return !h.black
 }
 
 func flip(h *node) {
-	h.Black = !h.Black
-	h.Left.Black = !h.Left.Black
-	h.Right.Black = !h.Right.Black
+	h.black = !h.black
+	h.Left.black = !h.Left.black
+	h.Right.black = !h.Right.black
 }
 
 func waitGroup1() (wg *sync.WaitGroup) {
