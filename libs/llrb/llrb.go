@@ -2,6 +2,7 @@ package llrb
 
 import (
 	"fmt"
+	"math"
 	"sync"
 	"time"
 )
@@ -40,15 +41,15 @@ func NewNodeKey(priority uint64, ts time.Time) interface{} {
 }
 
 type node struct {
-	Key         nodeKey
-	Data        interface{}
-	Left, Right *node
+	key         nodeKey
+	data        interface{}
+	left, right *node
 	black       bool
 }
 
 type LLRB interface {
 	Size() int
-	GetNext(starter *nodeKey, predicate func(interface{}) bool) ([]byte, error)
+	GetNext(starter *nodeKey, predicate func(interface{}) bool) (interface{}, error)
 	Insert(priority uint64, time time.Time, data interface{}) error
 	Delete(priority uint64, time time.Time) interface{}
 }
@@ -88,15 +89,30 @@ func (t *llrb) Size() int {
 }
 
 // GetNext retrieves a satisfied tx with "largest" nodeKey and "smaller" than starter if provided
-func (t *llrb) GetNext(starter *nodeKey, predicate func(interface{}) bool) ([]byte, error) {
-	//var key *nodeKey
-	//if starter != nil {
-	//	key = starter.(*nodeKey)
-	//}
-	if starter == nil {
-		return nil, fmt.Errorf("not implemented")
+func (t *llrb) GetNext(starter *nodeKey, predicate func(interface{}) bool) (interface{}, error) {
+	startKey := nodeKey{
+		priority: uint64(math.MaxUint64),
+		ts:       time.Now(),
 	}
-	return nil, nil
+	if starter != nil {
+		startKey.priority = starter.priority
+		startKey.ts = starter.ts
+	}
+
+	var cdd *node
+	for h := t.root; h != nil; {
+		if h.key.compare(startKey) == -1 {
+			if cdd == nil || cdd.key.compare(h.key) == -1 {
+				cdd = h
+			}
+		}
+		continue
+	}
+	if cdd == nil {
+		return nil, nil
+	}
+
+	return cdd.data, nil
 }
 
 // Insert inserts value into the tree.
@@ -116,29 +132,29 @@ func (t *llrb) Insert(priority uint64, time time.Time, data interface{}) error {
 
 func (t *llrb) insert(h *node, key nodeKey, data interface{}) (*node, error) {
 	if h == nil {
-		return &node{Key: key, Data: data}, nil
+		return &node{key: key, data: data}, nil
 	}
 
 	var err error
 
-	switch comp := key.compare(h.Key); comp {
+	switch key.compare(h.key) {
 	case -1:
-		h.Left, err = t.insert(h.Left, key, data)
+		h.left, err = t.insert(h.left, key, data)
 	case 1:
-		h.Right, err = t.insert(h.Right, key, data)
+		h.right, err = t.insert(h.right, key, data)
 	default:
 		err = fmt.Errorf("key conflict")
 	}
 
-	if isRed(h.Right) && !isRed(h.Left) {
+	if isRed(h.right) && !isRed(h.left) {
 		h = t.rotateLeft(h)
 	}
 
-	if isRed(h.Left) && isRed(h.Left.Left) {
+	if isRed(h.left) && isRed(h.left.left) {
 		h = t.rotateRight(h)
 	}
 
-	if isRed(h.Left) && isRed(h.Right) {
+	if isRed(h.left) && isRed(h.right) {
 		flip(h)
 	}
 
@@ -149,16 +165,16 @@ func (t *llrb) deleteMin(h *node) (*node, *node) {
 	if h == nil {
 		return nil, nil
 	}
-	if h.Left == nil {
+	if h.left == nil {
 		return nil, h
 	}
 
-	if !isRed(h.Left) && !isRed(h.Left.Left) {
+	if !isRed(h.left) && !isRed(h.left.left) {
 		h = t.moveRedLeft(h)
 	}
 
 	var deleted *node
-	h.Left, deleted = t.deleteMin(h.Left)
+	h.left, deleted = t.deleteMin(h.left)
 
 	return t.fixUp(h), deleted
 }
@@ -178,7 +194,7 @@ func (t *llrb) Delete(priority uint64, time time.Time) interface{} {
 	}
 	if deleted != nil {
 		t.size--
-		return deleted.Data
+		return deleted.data
 	}
 	return nil
 }
@@ -188,31 +204,31 @@ func (t *llrb) delete(h *node, key *nodeKey) (*node, *node) {
 	if h == nil {
 		return nil, nil
 	}
-	if key.compare(h.Key) == -1 {
-		if h.Left == nil {
+	if key.compare(h.key) == -1 {
+		if h.left == nil {
 			return h, nil
 		}
-		if !isRed(h.Left) && !isRed(h.Left.Left) {
+		if !isRed(h.left) && !isRed(h.left.left) {
 			h = t.moveRedLeft(h)
 		}
-		h.Left, deleted = t.delete(h.Left, key)
+		h.left, deleted = t.delete(h.left, key)
 	} else {
-		if isRed(h.Left) {
+		if isRed(h.left) {
 			h = t.rotateRight(h)
 		}
-		if key.compare(h.Key) == 0 && h.Right == nil {
+		if key.compare(h.key) == 0 && h.right == nil {
 			return nil, h
 		}
-		if h.Right != nil && !isRed(h.Right) && !isRed(h.Right.Left) {
+		if h.right != nil && !isRed(h.right) && !isRed(h.right.left) {
 			h = t.moveRedRight(h)
 		}
-		if key.compare(h.Key) == 0 {
+		if key.compare(h.key) == 0 {
 
 			deleted = h
-			r, k := t.deleteMin(h.Right)
-			h.Right, h.Key, h.Data = r, k.Key, k.Data
+			r, k := t.deleteMin(h.right)
+			h.right, h.key, h.data = r, k.key, k.data
 		} else {
-			h.Right, deleted = t.delete(h.Right, key)
+			h.right, deleted = t.delete(h.right, key)
 		}
 	}
 
@@ -220,24 +236,24 @@ func (t *llrb) delete(h *node, key *nodeKey) (*node, *node) {
 }
 
 func (t *llrb) rotateLeft(h *node) *node {
-	x := h.Right
+	x := h.right
 	if x.black {
 		panic("rotating a black link")
 	}
-	h.Right = x.Left
-	x.Left = h
+	h.right = x.left
+	x.left = h
 	x.black = h.black
 	h.black = false
 	return x
 }
 
 func (t *llrb) rotateRight(h *node) *node {
-	x := h.Left
+	x := h.left
 	if x.black {
 		panic("rotating a black link")
 	}
-	h.Left = x.Right
-	x.Right = h
+	h.left = x.right
+	x.right = h
 	x.black = h.black
 	h.black = false
 	return x
@@ -245,8 +261,8 @@ func (t *llrb) rotateRight(h *node) *node {
 
 func (t *llrb) moveRedLeft(h *node) *node {
 	flip(h)
-	if isRed(h.Right.Left) {
-		h.Right = t.rotateRight(h.Right)
+	if isRed(h.right.left) {
+		h.right = t.rotateRight(h.right)
 		h = t.rotateLeft(h)
 		flip(h)
 	}
@@ -255,7 +271,7 @@ func (t *llrb) moveRedLeft(h *node) *node {
 
 func (t *llrb) moveRedRight(h *node) *node {
 	flip(h)
-	if isRed(h.Left.Left) {
+	if isRed(h.left.left) {
 		h = t.rotateRight(h)
 		flip(h)
 	}
@@ -263,15 +279,15 @@ func (t *llrb) moveRedRight(h *node) *node {
 }
 
 func (t *llrb) fixUp(h *node) *node {
-	if isRed(h.Right) {
+	if isRed(h.right) {
 		h = t.rotateLeft(h)
 	}
 
-	if isRed(h.Left) && isRed(h.Left.Left) {
+	if isRed(h.left) && isRed(h.left.left) {
 		h = t.rotateRight(h)
 	}
 
-	if isRed(h.Left) && isRed(h.Right) {
+	if isRed(h.left) && isRed(h.right) {
 		flip(h)
 	}
 
@@ -287,8 +303,8 @@ func isRed(h *node) bool {
 
 func flip(h *node) {
 	h.black = !h.black
-	h.Left.black = !h.Left.black
-	h.Right.black = !h.Right.black
+	h.left.black = !h.left.black
+	h.right.black = !h.right.black
 }
 
 func waitGroup1() (wg *sync.WaitGroup) {
