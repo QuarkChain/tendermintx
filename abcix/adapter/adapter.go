@@ -59,7 +59,7 @@ func Apply(f interface{}, args ...interface{}) reflect.Value {
 	return r[0]
 }
 
-func adaptGeneralization(req interface{}, resp interface{}, abciReq string, f interface{}) error {
+func convert(req interface{}, resp interface{}, abciReq string, f interface{}) error {
 	elem, ok := typeRegistry[abciReq]
 	if !ok {
 		return errors.New("fail to build a new struct")
@@ -79,22 +79,22 @@ func adaptGeneralization(req interface{}, resp interface{}, abciReq string, f in
 }
 
 func (app *adaptedApp) Info(req abcix.RequestInfo) (resp abcix.ResponseInfo) {
-	adaptGeneralization(&req, &resp, "abci.RequestInfo", app.abciApp.Info)
+	convert(&req, &resp, "abci.RequestInfo", app.abciApp.Info)
 	return
 }
 
 func (app *adaptedApp) SetOption(req abcix.RequestSetOption) (resp abcix.ResponseSetOption) {
-	adaptGeneralization(&req, &resp, "abci.RequestSetOption", app.abciApp.SetOption)
+	convert(&req, &resp, "abci.RequestSetOption", app.abciApp.SetOption)
 	return
 }
 
 func (app *adaptedApp) Query(req abcix.RequestQuery) (resp abcix.ResponseQuery) {
-	adaptGeneralization(&req, &resp, "abci.RequestQuery", app.abciApp.Query)
+	convert(&req, &resp, "abci.RequestQuery", app.abciApp.Query)
 	return
 }
 
 func (app *adaptedApp) CheckTx(req abcix.RequestCheckTx) (resp abcix.ResponseCheckTx) {
-	adaptGeneralization(&req, &resp, "abci.RequestCheckTx", app.abciApp.CheckTx)
+	convert(&req, &resp, "abci.RequestCheckTx", app.abciApp.CheckTx)
 	return
 }
 
@@ -130,12 +130,12 @@ func (app *adaptedApp) CreateBlock(
 }
 
 func (app *adaptedApp) InitChain(req abcix.RequestInitChain) (resp abcix.ResponseInitChain) {
-	adaptGeneralization(&req, &resp, "abci.RequestInitChain", app.abciApp.InitChain)
+	convert(&req, &resp, "abci.RequestInitChain", app.abciApp.InitChain)
 	return
 }
 
 func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.ResponseDeliverBlock) {
-	adaptGeneralization(&req, &resp, "abci.RequestBeginBlock", app.abciApp.BeginBlock)
+	convert(&req, &resp, "abci.RequestBeginBlock", app.abciApp.BeginBlock)
 	beginEvents := resp.Events
 
 	for _, tx := range req.Txs {
@@ -151,12 +151,13 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 		resp.DeliverTxs = append(resp.DeliverTxs, &respDeliverTx)
 	}
 
-	adaptGeneralization(&req, &resp, "abci.RequestEndBlock", app.abciApp.EndBlock)
+	convert(&req, &resp, "abci.RequestEndBlock", app.abciApp.EndBlock)
 	endEvents := resp.Events
 
-	resp.Events = make([]abcix.Event, len(beginEvents))
-	copy(resp.Events, beginEvents)
-	resp.Events = append(resp.Events, endEvents...)
+	allEvents := make([]abcix.Event, 0, len(beginEvents)+len(endEvents))
+	allEvents = append(allEvents, beginEvents...)
+	allEvents = append(allEvents, endEvents...)
+	resp.Events = allEvents
 	return resp
 }
 
@@ -175,22 +176,22 @@ func (app *adaptedApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseChe
 }
 
 func (app *adaptedApp) ListSnapshots(req abcix.RequestListSnapshots) (resp abcix.ResponseListSnapshots) {
-	adaptGeneralization(&req, &resp, "abci.RequestListSnapshots", app.abciApp.ListSnapshots)
+	convert(&req, &resp, "abci.RequestListSnapshots", app.abciApp.ListSnapshots)
 	return
 }
 
 func (app *adaptedApp) OfferSnapshot(req abcix.RequestOfferSnapshot) (resp abcix.ResponseOfferSnapshot) {
-	adaptGeneralization(&req, &resp, "abci.RequestOfferSnapshot", app.abciApp.OfferSnapshot)
+	convert(&req, &resp, "abci.RequestOfferSnapshot", app.abciApp.OfferSnapshot)
 	return
 }
 
 func (app *adaptedApp) LoadSnapshotChunk(req abcix.RequestLoadSnapshotChunk) (resp abcix.ResponseLoadSnapshotChunk) {
-	adaptGeneralization(&req, &resp, "abci.RequestLoadSnapshotChunk", app.abciApp.LoadSnapshotChunk)
+	convert(&req, &resp, "abci.RequestLoadSnapshotChunk", app.abciApp.LoadSnapshotChunk)
 	return
 }
 
 func (app *adaptedApp) ApplySnapshotChunk(req abcix.RequestApplySnapshotChunk) (resp abcix.ResponseApplySnapshotChunk) {
-	adaptGeneralization(&req, &resp, "abci.RequestApplySnapshotChunk", app.abciApp.ApplySnapshotChunk)
+	convert(&req, &resp, "abci.RequestApplySnapshotChunk", app.abciApp.ApplySnapshotChunk)
 	return
 }
 

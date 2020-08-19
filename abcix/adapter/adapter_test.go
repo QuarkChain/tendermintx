@@ -26,14 +26,12 @@ func (app *mockAbciApp) DeliverTx(req abci.RequestDeliverTx) abci.ResponseDelive
 }
 
 func (app *mockAbciApp) BeginBlock(req abci.RequestBeginBlock) abci.ResponseBeginBlock {
-	var events = make([]abci.Event, 1)
-	events[0] = abci.Event{Type: "begin"}
+	var events = []abci.Event{{Type: "begin"}}
 	return abci.ResponseBeginBlock{Events: events}
 }
 
 func (app *mockAbciApp) EndBlock(req abci.RequestEndBlock) abci.ResponseEndBlock {
-	var events = make([]abci.Event, 1)
-	events[0] = abci.Event{Type: "end"}
+	var events = []abci.Event{{Type: "end"}}
 	return abci.ResponseEndBlock{Events: events}
 }
 
@@ -45,15 +43,11 @@ func TestAdapt(t *testing.T) {
 	assert.Equal(t, respCheckTx.Code, abci.CodeTypeOK)
 	assert.Equal(t, respCheckTx.Data, []byte("42"))
 
-	var Txs = make([][]byte, 2)
-	Txs[0] = []byte("42")
-	Txs[1] = []byte("97")
-	respDeliverBlock := app.DeliverBlock(abcix.RequestDeliverBlock{Txs: Txs})
-	assert.Equal(t, respDeliverBlock.DeliverTxs[0].Data, Txs[0])
-	assert.Equal(t, respDeliverBlock.DeliverTxs[1].Data, Txs[1])
+	txs := [][]byte{{42}, {97}}
+	respDeliverBlock := app.DeliverBlock(abcix.RequestDeliverBlock{Txs: txs})
+	assert.Equal(t, respDeliverBlock.DeliverTxs[0].Data, txs[0])
+	assert.Equal(t, respDeliverBlock.DeliverTxs[1].Data, txs[1])
 
-	var events = make([]abcix.Event, 2)
-	events[0] = abcix.Event{Type: "begin"}
-	events[1] = abcix.Event{Type: "end"}
+	events := []abcix.Event{{Type: "begin"}, {Type: "end"}}
 	assert.Equal(t, respDeliverBlock.Events, events)
 }
