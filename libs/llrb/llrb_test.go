@@ -11,7 +11,7 @@ func getNodeKeys(count int) []nodeKey {
 	perm := rand.Perm(count)
 	var nks []nodeKey
 	for i := 0; i < count; i++ {
-		nk := newNodeKey(uint64(perm[i]), time.Now())
+		nk := NewNodeKey(uint64(perm[i]), time.Now())
 		nks = append(nks, *(nk.(*nodeKey)))
 	}
 	return nks

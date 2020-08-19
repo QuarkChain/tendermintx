@@ -32,7 +32,7 @@ func (a nodeKey) compare(b nodeKey) int {
 	return 0
 }
 
-func newNodeKey(priority uint64, ts time.Time) interface{} {
+func NewNodeKey(priority uint64, ts time.Time) interface{} {
 	k := new(nodeKey)
 	k.priority = priority
 	k.ts = ts
