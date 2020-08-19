@@ -16,7 +16,7 @@ type nodeKey struct {
 	ts       time.Time
 }
 
-func (a nodeKey) Compare(b nodeKey) int {
+func (a nodeKey) compare(b nodeKey) int {
 	if a.priority > b.priority {
 		return 1
 	}
@@ -34,7 +34,7 @@ func (a nodeKey) Compare(b nodeKey) int {
 
 type node struct {
 	Key         nodeKey
-	Data        []byte
+	Data        interface{}
 	Left, Right *node
 	Black       bool
 }
@@ -83,7 +83,7 @@ func (t *Llrb) GetNext(startPriority uint64, startTime time.Time, remainBytes in
 }
 
 // Insert inserts value into the tree.
-func (t *Llrb) Insert(priority uint64, time time.Time, data []byte) error {
+func (t *Llrb) Insert(priority uint64, time time.Time, data interface{}) error {
 	var err error
 	key := nodeKey{
 		priority: priority,
@@ -97,14 +97,14 @@ func (t *Llrb) Insert(priority uint64, time time.Time, data []byte) error {
 	return err
 }
 
-func (t *Llrb) insert(h *node, key nodeKey, data []byte) (*node, error) {
+func (t *Llrb) insert(h *node, key nodeKey, data interface{}) (*node, error) {
 	if h == nil {
 		return &node{Key: key, Data: data}, nil
 	}
 
 	var err error
 
-	switch comp := key.Compare(h.Key); comp {
+	switch comp := key.compare(h.Key); comp {
 	case -1:
 		h.Left, err = t.insert(h.Left, key, data)
 	case 1:
@@ -170,7 +170,7 @@ func (t *Llrb) delete(h *node, key *nodeKey) (*node, *nodeKey) {
 	if h == nil {
 		return nil, nil
 	}
-	if key.Compare(h.Key) == -1 {
+	if key.compare(h.Key) == -1 {
 		if h.Left == nil {
 			return h, nil
 		}
@@ -182,13 +182,13 @@ func (t *Llrb) delete(h *node, key *nodeKey) (*node, *nodeKey) {
 		if isRed(h.Left) {
 			h = t.rotateRight(h)
 		}
-		if key.Compare(h.Key) == 0 && h.Right == nil {
+		if key.compare(h.Key) == 0 && h.Right == nil {
 			return nil, &h.Key
 		}
 		if h.Right != nil && !isRed(h.Right) && !isRed(h.Right.Left) {
 			h = t.moveRedRight(h)
 		}
-		if key.Compare(h.Key) == 0 {
+		if key.compare(h.Key) == 0 {
 			deleted = &h.Key
 			r, k := t.deleteMin(h.Right)
 			h.Right, h.Key = r, *k
