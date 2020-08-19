@@ -19,10 +19,6 @@ import (
 )
 
 //--------------------------------------------------------------------------------
-var (
-	maxBytes       = types.DefaultConsensusParams().Block.MaxGas
-	maxGas   int64 = 1<<(64-1) - 1
-)
 
 // lElement is used to insert, remove, or recheck transactions
 type lElement struct {
@@ -66,7 +62,7 @@ type LlrbMempool struct {
 	recheckEnd    *lElement // re-checking stops here
 
 	// Map for quick access to txs to record sender in CheckTx.
-	// txsMap: txKey -> (priority, timestamp)
+	// txsMap: txKey -> (lElement)
 	txsMap sync.Map
 
 	// Keep a cache of already-seen txs.
@@ -194,7 +190,9 @@ func (mem *LlrbMempool) Flush() {
 	mem.cache.Reset()
 
 	for {
-		tx, err := mem.txs.GetNext(e.priority, e.timeStamp, maxBytes, maxGas)
+		tx, err := mem.txs.GetNext(nil, func(i interface{}) bool {
+			return true
+		})
 		if err != nil {
 			panic(err)
 		}
@@ -471,7 +469,10 @@ func (mem *LlrbMempool) resCbRecheck(req *abcix.Request, res *abcix.Response) {
 		if mem.recheckCursor == mem.recheckEnd {
 			mem.recheckCursor = nil
 		} else {
-			tx, err := mem.txs.GetNext(mem.recheckCursor.priority, mem.recheckCursor.timeStamp, maxBytes, maxGas)
+			key := llrb.NewNodeKey(mem.recheckCursor.priority, mem.recheckCursor.timeStamp)
+			tx, err := mem.txs.GetNext(&key, func(i interface{}) bool {
+				return true
+			})
 			if err != nil {
 				panic("failed to get next tx from mempool")
 			}
@@ -588,7 +589,9 @@ func (mem *LlrbMempool) recheckTxs() {
 		panic("recheckTxs is called, but the mempool is empty")
 	}
 
-	tx, err := mem.txs.GetNext(0, time.Time{}, maxBytes, maxGas)
+	tx, err := mem.txs.GetNext(nil, func(i interface{}) bool {
+		return true
+	})
 	if err != nil {
 		panic("failed to find head")
 	}
@@ -600,7 +603,10 @@ func (mem *LlrbMempool) recheckTxs() {
 	// Push txs to proxyAppConn
 	// NOTE: globalCb may be called concurrently.
 	for {
-		nextTx, err := mem.txs.GetNext(mem.recheckEnd.priority, mem.recheckEnd.timeStamp, maxBytes, maxGas)
+		key := llrb.NewNodeKey(mem.recheckEnd.priority, mem.recheckEnd.timeStamp)
+		nextTx, err := mem.txs.GetNext(&key, func(i interface{}) bool {
+			return true
+		})
 		if err != nil {
 			panic("failed to find next tx")
 		}
@@ -625,7 +631,10 @@ func (mem *LlrbMempool) GetNextTxBytes(remainBytes int64, remainGas int64, start
 	mem.updateMtx.RLock()
 	defer mem.updateMtx.RUnlock()
 	if e, ok := mem.txsMap.Load(TxKey(starter)); ok {
-		tx, err := mem.txs.GetNext(e.(*lElement).priority, e.(*lElement).timeStamp, remainBytes, remainGas)
+		key := llrb.NewNodeKey(e.(lElement).priority, e.(lElement).timeStamp)
+		tx, err := mem.txs.GetNext(&key, func(i interface{}) bool {
+			return i.(*mempoolTx).gasWanted > remainGas && int64(len(i.(*mempoolTx).tx)) > remainBytes
+		})
 		if err != nil {
 			return nil, err
 		}
