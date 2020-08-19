@@ -99,21 +99,21 @@ func (app *adaptedApp) Info(req abcix.RequestInfo) (resp abcix.ResponseInfo) {
 
 func (app *adaptedApp) SetOption(req abcix.RequestSetOption) (resp abcix.ResponseSetOption) {
 	if err := applyLegacyABCI(&req, &resp, setoption, app.abciApp.SetOption); err != nil {
-		panic(err)
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) Query(req abcix.RequestQuery) (resp abcix.ResponseQuery) {
 	if err := applyLegacyABCI(&req, &resp, query, app.abciApp.Query); err != nil {
-		panic(err)
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) CheckTx(req abcix.RequestCheckTx) (resp abcix.ResponseCheckTx) {
 	if err := applyLegacyABCI(&req, &resp, checktx, app.abciApp.CheckTx); err != nil {
-		panic(err)
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
@@ -151,14 +151,14 @@ func (app *adaptedApp) CreateBlock(
 
 func (app *adaptedApp) InitChain(req abcix.RequestInitChain) (resp abcix.ResponseInitChain) {
 	if err := applyLegacyABCI(&req, &resp, initchain, app.abciApp.InitChain); err != nil {
-		panic(err)
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.ResponseDeliverBlock) {
 	if err := applyLegacyABCI(&req, &resp, beginblock, app.abciApp.BeginBlock); err != nil {
-		panic(err)
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	beginEvents := resp.Events
 
@@ -176,7 +176,7 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 	}
 
 	if err := applyLegacyABCI(&req, &resp, endblock, app.abciApp.EndBlock); err != nil {
-		panic(err)
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	endEvents := resp.Events
 
@@ -203,28 +203,28 @@ func (app *adaptedApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseChe
 
 func (app *adaptedApp) ListSnapshots(req abcix.RequestListSnapshots) (resp abcix.ResponseListSnapshots) {
 	if err := applyLegacyABCI(&req, &resp, listsnapshots, app.abciApp.ListSnapshots); err != nil {
-		panic(err)
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) OfferSnapshot(req abcix.RequestOfferSnapshot) (resp abcix.ResponseOfferSnapshot) {
 	if err := applyLegacyABCI(&req, &resp, offersnapshot, app.abciApp.OfferSnapshot); err != nil {
-		panic(err)
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) LoadSnapshotChunk(req abcix.RequestLoadSnapshotChunk) (resp abcix.ResponseLoadSnapshotChunk) {
 	if err := applyLegacyABCI(&req, &resp, loadsnapshotchunk, app.abciApp.LoadSnapshotChunk); err != nil {
-		panic(err)
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) ApplySnapshotChunk(req abcix.RequestApplySnapshotChunk) (resp abcix.ResponseApplySnapshotChunk) {
 	if err := applyLegacyABCI(&req, &resp, applysnapshotchunk, app.abciApp.ApplySnapshotChunk); err != nil {
-		panic(err)
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }

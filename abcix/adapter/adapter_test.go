@@ -14,7 +14,8 @@ type mockAbciApp struct {
 }
 
 func (app *mockAbciApp) CheckTx(req abci.RequestCheckTx) abci.ResponseCheckTx {
-	time.Sleep(5e7)
+	// To compare the time usage between the native ABCI methods and the adapted ones
+	time.Sleep(5 * time.Millisecond)
 	return abci.ResponseCheckTx{
 		Code: abci.CodeTypeOK,
 		Data: []byte("42"),
@@ -40,7 +41,8 @@ type mockAbcixApp struct {
 }
 
 func (app *mockAbcixApp) CheckTx(req abcix.RequestCheckTx) abcix.ResponseCheckTx {
-	time.Sleep(5e7)
+	// To compare the time usage between the native ABCI methods and the adapted ones
+	time.Sleep(5 * time.Millisecond)
 	return abcix.ResponseCheckTx{
 		Code: abci.CodeTypeOK,
 		Data: []byte("42"),
@@ -67,10 +69,16 @@ func TestAdapt(t *testing.T) {
 func BenchmarkAdaptedApp_CheckTx(b *testing.B) {
 	abciApp := &mockAbciApp{}
 	app := AdaptToABCIx(abciApp)
-	app.CheckTx(abcix.RequestCheckTx{})
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		app.CheckTx(abcix.RequestCheckTx{})
+	}
 }
 
 func BenchmarkAdaptedApp_CheckTx2(b *testing.B) {
 	abcixApp := &mockAbcixApp{}
-	abcixApp.CheckTx(abcix.RequestCheckTx{})
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		abcixApp.CheckTx(abcix.RequestCheckTx{})
+	}
 }
