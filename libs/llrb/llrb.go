@@ -105,8 +105,11 @@ func (t *llrb) GetNext(starter *nodeKey, predicate func(interface{}) bool) (inte
 			if cdd == nil || cdd.key.compare(h.key) == -1 {
 				cdd = h
 			}
+			h = h.right
+		} else {
+			h = h.left
 		}
-		continue
+
 	}
 	if cdd == nil {
 		return nil, nil
