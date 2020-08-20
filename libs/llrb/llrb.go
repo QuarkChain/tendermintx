@@ -45,7 +45,6 @@ func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) erro
 	defer t.mtx.RUnlock()
 	startKey := NodeKey{
 		Priority: uint64(math.MaxUint64),
-		TS:       time.Unix(0, 0),
 	}
 	if starter != nil {
 		startKey.Priority = starter.Priority
