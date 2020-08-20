@@ -7,55 +7,31 @@ import (
 	"time"
 )
 
-// MaxSize is the max allowed number of node a llrb is
-// allowed to contain.
+// MaxSize is the max allowed number of node a llrb is allowed to contain.
 // If more nodes are pushed it will panic.
 const MaxSize = int(^uint(0) >> 1)
 
-type nodeKey struct {
-	priority uint64
-	ts       time.Time
-}
-
-func (a nodeKey) compare(b nodeKey) int {
-	if a.priority > b.priority {
+func (a NodeKey) compare(b NodeKey) int {
+	if a.Priority > b.Priority {
 		return 1
 	}
-	if a.priority < b.priority {
+	if a.Priority < b.Priority {
 		return -1
 	}
-	if a.ts.Before(b.ts) {
+	if a.TS.Before(b.TS) {
 		return 1
 	}
-	if a.ts.After(b.ts) {
+	if a.TS.After(b.TS) {
 		return -1
 	}
 	return 0
 }
 
-func NewNodeKey(priority uint64, ts time.Time) interface{} {
-	k := new(nodeKey)
-	k.priority = priority
-	k.ts = ts
-	return k
-}
-
 type node struct {
-	key         nodeKey
+	key         NodeKey
 	data        interface{}
 	left, right *node
 	black       bool
-}
-
-type LLRB interface {
-	Size() int
-	GetNext(starter *nodeKey, predicate func(interface{}) bool) (interface{}, error)
-	Insert(priority uint64, time time.Time, data interface{}) error
-	Delete(priority uint64, time time.Time) interface{}
-}
-
-func NewLLRB() LLRB {
-	return newWithMax(MaxSize)
 }
 
 type llrb struct {
@@ -89,14 +65,14 @@ func (t *llrb) Size() int {
 }
 
 // GetNext retrieves a satisfied tx with "largest" nodeKey and "smaller" than starter if provided
-func (t *llrb) GetNext(starter *nodeKey, predicate func(interface{}) bool) (interface{}, error) {
-	startKey := nodeKey{
-		priority: uint64(math.MaxUint64),
-		ts:       time.Now(),
+func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (interface{}, error) {
+	startKey := NodeKey{
+		Priority: uint64(math.MaxUint64),
+		TS:       time.Now(),
 	}
 	if starter != nil {
-		startKey.priority = starter.priority
-		startKey.ts = starter.ts
+		startKey.Priority = starter.Priority
+		startKey.TS = starter.TS
 	}
 
 	var cdd *node
@@ -119,12 +95,8 @@ func (t *llrb) GetNext(starter *nodeKey, predicate func(interface{}) bool) (inte
 }
 
 // Insert inserts value into the tree.
-func (t *llrb) Insert(priority uint64, time time.Time, data interface{}) error {
+func (t *llrb) Insert(key NodeKey, data interface{}) error {
 	var err error
-	key := nodeKey{
-		priority: priority,
-		ts:       time,
-	}
 	t.root, err = t.insert(t.root, key, data)
 	t.root.black = true
 	if err == nil {
@@ -136,7 +108,7 @@ func (t *llrb) Insert(priority uint64, time time.Time, data interface{}) error {
 	return err
 }
 
-func (t *llrb) insert(h *node, key nodeKey, data interface{}) (*node, error) {
+func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
 	if h == nil {
 		return &node{key: key, data: data}, nil
 	}
@@ -187,25 +159,21 @@ func (t *llrb) deleteMin(h *node) (*node, *node) {
 
 // Delete deletes a value from the tree whose value equals key.
 // The deleted data is return, otherwise nil is returned.
-func (t *llrb) Delete(priority uint64, time time.Time) interface{} {
+func (t *llrb) Remove(key NodeKey) (interface{}, error) {
 
 	var deleted *node
-	key := &nodeKey{
-		priority: priority,
-		ts:       time,
-	}
-	t.root, deleted = t.delete(t.root, key)
+	t.root, deleted = t.delete(t.root, &key)
 	if t.root != nil {
 		t.root.black = true
 	}
 	if deleted != nil {
 		t.size--
-		return deleted.data
+		return deleted.data, nil
 	}
-	return nil
+	return nil, nil
 }
 
-func (t *llrb) delete(h *node, key *nodeKey) (*node, *node) {
+func (t *llrb) delete(h *node, key *NodeKey) (*node, *node) {
 	var deleted *node
 	if h == nil {
 		return nil, nil

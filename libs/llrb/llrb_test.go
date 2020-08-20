@@ -3,15 +3,19 @@ package llrb
 import (
 	"bytes"
 	cr "crypto/rand"
+	"sync"
 	"testing"
 	"time"
 )
 
-func getNodeKeys(priorities []uint64) []nodeKey {
-	var nks []nodeKey
+func getNodeKeys(priorities []uint64) []NodeKey {
+	var nks []NodeKey
 	for i := 0; i < len(priorities); i++ {
-		nk := NewNodeKey(priorities[i], time.Now())
-		nks = append(nks, *(nk.(*nodeKey)))
+		nk := NodeKey{
+			Priority: priorities[i],
+			TS:       time.Now(),
+		}
+		nks = append(nks, nk)
 	}
 	return nks
 }
@@ -26,23 +30,30 @@ func getRandomBytes(count int) [][]byte {
 	return txs
 }
 
-func getOrderedTxs(tree *llrb) [][]byte {
-	var starter *nodeKey
-	var ordered
-	for result, err := tree.GetNext(starter, func(interface{}) bool { return true }); result != nil && err == nil; {
-
+func getOrderedTxs(tree LLRB, txMap *sync.Map) [][]byte {
+	var starter NodeKey
+	var txs [][]byte
+	for {
+		result, _ := tree.GetNext(&starter, func(interface{}) bool { return true })
+		if result == nil {
+			break
+		}
+		txs = append(txs, result.([]byte))
+		v, _ := txMap.Load(string(result.([]byte)))
+		starter = v.(NodeKey)
 	}
+	return txs
 }
 
 func TestBasics(t *testing.T) {
-	tree := NewLLRB()
+	tree := New()
 	nks := getNodeKeys([]uint64{1})
 	txs := getRandomBytes(1)
-	tree.Insert(nks[0].priority, nks[0].ts, txs[0])
+	tree.Insert(nks[0], txs[0])
 	if tree.Size() != 1 {
 		t.Errorf("expecting len 1")
 	}
-	data := tree.Delete(nks[0].priority, nks[0].ts)
+	data, _ := tree.Remove(nks[0])
 	if tree.Size() != 0 {
 		t.Errorf("expecting len 0")
 	}
@@ -56,18 +67,26 @@ func TestGetNext(t *testing.T) {
 		priorities []uint64
 		order      []int64
 	}{
-		// error case by wrong gas/bytes limit
 		{
 			priorities: []uint64{0, 0, 0, 0, 0},
 			order:      []int64{0, 1, 2, 3, 4},
 		},
 	}
+
 	for i, tc := range testCases {
-		tree := NewLLRB()
+		tree := New()
 		nks := getNodeKeys(tc.priorities)
 		txs := getRandomBytes(len(tc.priorities))
+		var txsMap sync.Map
 		for j := 0; j < len(nks); j++ {
-			tree.Insert(nks[j].priority, nks[j].ts, txs[j])
+			txsMap.Store(string(txs[j]), nks[j])
+			tree.Insert(nks[j], txs[j])
+		}
+		ordered := getOrderedTxs(tree, &txsMap)
+		for j := 0; j < len(nks); j++ {
+			if !bytes.Equal(txs[j], ordered[tc.order[j]]) {
+				t.Errorf("expecting equal bytes at %d testcase %d txs", i, j)
+			}
 		}
 	}
 }
