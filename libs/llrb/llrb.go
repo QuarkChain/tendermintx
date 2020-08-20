@@ -66,6 +66,8 @@ func (t *llrb) Size() int {
 
 // GetNext retrieves a satisfied tx with "largest" nodeKey and "smaller" than starter if provided
 func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (interface{}, error) {
+	t.mtx.RLock()
+	defer t.mtx.RUnlock()
 	startKey := NodeKey{
 		Priority: uint64(math.MaxUint64),
 		TS:       time.Now(),
@@ -96,6 +98,8 @@ func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 
 // Insert inserts value into the tree.
 func (t *llrb) Insert(key NodeKey, data interface{}) error {
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
 	var err error
 	t.root, err = t.insert(t.root, key, data)
 	t.root.black = true
@@ -160,7 +164,8 @@ func (t *llrb) deleteMin(h *node) (*node, *node) {
 // Delete deletes a value from the tree whose value equals key.
 // The deleted data is return, otherwise nil is returned.
 func (t *llrb) Remove(key NodeKey) (interface{}, error) {
-
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
 	var deleted *node
 	t.root, deleted = t.delete(t.root, &key)
 	if t.root != nil {
