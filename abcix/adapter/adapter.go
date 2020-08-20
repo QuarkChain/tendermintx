@@ -49,12 +49,12 @@ const (
 	endblock
 )
 
-type s struct {
+type abciTypePair struct {
 	request reflect.Type
 	method  interface{}
 }
 
-var typeRegistry = map[int]s{
+var typeRegistry = map[int]abciTypePair{
 	info:               {reflect.TypeOf(abci.RequestInfo{}), abci.Application.Info},
 	setoption:          {reflect.TypeOf(abci.RequestSetOption{}), abci.Application.SetOption},
 	query:              {reflect.TypeOf(abci.RequestQuery{}), abci.Application.Query},
@@ -62,7 +62,7 @@ var typeRegistry = map[int]s{
 	initchain:          {reflect.TypeOf(abci.RequestInitChain{}), abci.Application.InitChain},
 	listsnapshots:      {reflect.TypeOf(abci.RequestListSnapshots{}), abci.Application.ListSnapshots},
 	offersnapshot:      {reflect.TypeOf(abci.RequestOfferSnapshot{}), abci.Application.OfferSnapshot},
-	loadsnapshotchunk:  {reflect.TypeOf(abci.RequestOfferSnapshot{}), abci.Application.LoadSnapshotChunk},
+	loadsnapshotchunk:  {reflect.TypeOf(abci.RequestLoadSnapshotChunk{}), abci.Application.LoadSnapshotChunk},
 	applysnapshotchunk: {reflect.TypeOf(abci.RequestApplySnapshotChunk{}), abci.Application.ApplySnapshotChunk},
 	beginblock:         {reflect.TypeOf(abci.RequestBeginBlock{}), abci.Application.BeginBlock},
 	endblock:           {reflect.TypeOf(abci.RequestEndBlock{}), abci.Application.EndBlock},
@@ -78,17 +78,17 @@ func Apply(f interface{}, args ...interface{}) reflect.Value {
 	return r[0]
 }
 
-func applyLegacyABCI(req interface{}, resp interface{}, abciType int, f interface{}) error {
-	elem, ok := typeRegistry[abciType]
+func (app *adaptedApp) applyLegacyABCI(req interface{}, resp interface{}, abciType int) error {
+	typePair, ok := typeRegistry[abciType]
 	if !ok {
 		return errors.New("fail to build a new struct")
 	}
-	abcireq := reflect.New(elem.request).Interface()
-	if err := copier.Copy(abcireq, req); err != nil {
+	abciReq := reflect.New(typePair.request).Interface()
+	if err := copier.Copy(abciReq, req); err != nil {
 		return err
 	}
 
-	abciResp := Apply(elem.method, f, abcireq).Interface()
+	abciResp := Apply(typePair.method, &app.abciApp, abciReq).Interface()
 	if err := copier.Copy(resp, abciResp); err != nil {
 		return err
 	}
@@ -96,28 +96,28 @@ func applyLegacyABCI(req interface{}, resp interface{}, abciType int, f interfac
 }
 
 func (app *adaptedApp) Info(req abcix.RequestInfo) (resp abcix.ResponseInfo) {
-	if err := applyLegacyABCI(&req, &resp, info, &app.abciApp); err != nil {
+	if err := app.applyLegacyABCI(&req, &resp, info); err != nil {
 		panic(err)
 	}
 	return
 }
 
 func (app *adaptedApp) SetOption(req abcix.RequestSetOption) (resp abcix.ResponseSetOption) {
-	if err := applyLegacyABCI(&req, &resp, setoption, &app.abciApp); err != nil {
+	if err := app.applyLegacyABCI(&req, &resp, setoption); err != nil {
 		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) Query(req abcix.RequestQuery) (resp abcix.ResponseQuery) {
-	if err := applyLegacyABCI(&req, &resp, query, &app.abciApp); err != nil {
+	if err := app.applyLegacyABCI(&req, &resp, query); err != nil {
 		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) CheckTx(req abcix.RequestCheckTx) (resp abcix.ResponseCheckTx) {
-	if err := applyLegacyABCI(&req, &resp, checktx, &app.abciApp); err != nil {
+	if err := app.applyLegacyABCI(&req, &resp, checktx); err != nil {
 		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
@@ -155,14 +155,14 @@ func (app *adaptedApp) CreateBlock(
 }
 
 func (app *adaptedApp) InitChain(req abcix.RequestInitChain) (resp abcix.ResponseInitChain) {
-	if err := applyLegacyABCI(&req, &resp, initchain, &app.abciApp); err != nil {
+	if err := app.applyLegacyABCI(&req, &resp, initchain); err != nil {
 		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.ResponseDeliverBlock) {
-	if err := applyLegacyABCI(&req, &resp, beginblock, &app.abciApp); err != nil {
+	if err := app.applyLegacyABCI(&req, &resp, beginblock); err != nil {
 		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	beginEvents := resp.Events
@@ -180,7 +180,7 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 		resp.DeliverTxs = append(resp.DeliverTxs, &respDeliverTx)
 	}
 
-	if err := applyLegacyABCI(&req, &resp, endblock, &app.abciApp); err != nil {
+	if err := app.applyLegacyABCI(&req, &resp, endblock); err != nil {
 		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	endEvents := resp.Events
@@ -207,28 +207,28 @@ func (app *adaptedApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseChe
 }
 
 func (app *adaptedApp) ListSnapshots(req abcix.RequestListSnapshots) (resp abcix.ResponseListSnapshots) {
-	if err := applyLegacyABCI(&req, &resp, listsnapshots, &app.abciApp); err != nil {
+	if err := app.applyLegacyABCI(&req, &resp, listsnapshots); err != nil {
 		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) OfferSnapshot(req abcix.RequestOfferSnapshot) (resp abcix.ResponseOfferSnapshot) {
-	if err := applyLegacyABCI(&req, &resp, offersnapshot, &app.abciApp); err != nil {
+	if err := app.applyLegacyABCI(&req, &resp, offersnapshot); err != nil {
 		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) LoadSnapshotChunk(req abcix.RequestLoadSnapshotChunk) (resp abcix.ResponseLoadSnapshotChunk) {
-	if err := applyLegacyABCI(&req, &resp, loadsnapshotchunk, &app.abciApp); err != nil {
+	if err := app.applyLegacyABCI(&req, &resp, loadsnapshotchunk); err != nil {
 		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) ApplySnapshotChunk(req abcix.RequestApplySnapshotChunk) (resp abcix.ResponseApplySnapshotChunk) {
-	if err := applyLegacyABCI(&req, &resp, applysnapshotchunk, &app.abciApp); err != nil {
+	if err := app.applyLegacyABCI(&req, &resp, applysnapshotchunk); err != nil {
 		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
