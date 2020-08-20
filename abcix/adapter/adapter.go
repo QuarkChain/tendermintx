@@ -81,7 +81,7 @@ func Apply(f interface{}, args ...interface{}) reflect.Value {
 func (app *adaptedApp) applyLegacyABCI(req interface{}, resp interface{}, abciType int) error {
 	typePair, ok := typeRegistry[abciType]
 	if !ok {
-		return errors.New("fail to build a new struct")
+		return errors.New("ABCI type registry not found")
 	}
 	abciReq := reflect.New(typePair.request).Interface()
 	if err := copier.Copy(abciReq, req); err != nil {
