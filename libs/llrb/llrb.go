@@ -1,13 +1,16 @@
 package llrb
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"sync"
 )
 
-// MaxSize is the max allowed number of node a llrb is allowed to contain
-const MaxSize = int(^uint(0) >> 1)
+// maxSize is the max allowed number of node a llrb is allowed to contain
+const maxSize = int(^uint(0) >> 1)
+
+var ErrorStopIteration = errors.New("STOP ITERATION")
 
 func (a NodeKey) compare(b NodeKey) int {
 	if a.Priority > b.Priority {
@@ -110,7 +113,7 @@ func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 	}
 	var candidate *node
 	for h := t.root; h != nil; {
-		if h.key.compare(startKey) == -1 && predicate(h.data) {
+		if h.key.compare(startKey) == -1 && (predicate == nil || predicate(h.data)) {
 			if candidate == nil || candidate.key.compare(h.key) == -1 {
 				candidate = h
 			}
@@ -120,7 +123,7 @@ func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 		}
 	}
 	if candidate == nil {
-		return nil, nil
+		return nil, ErrorStopIteration
 	}
 	return candidate.data, nil
 }
