@@ -4,9 +4,12 @@ import (
 	"bytes"
 	cr "crypto/rand"
 	"math"
+	"math/rand"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func getNodeKeys(priorities []uint64) []*NodeKey {
@@ -36,7 +39,7 @@ func getOrderedTxs(tree LLRB, txMap *sync.Map) [][]byte {
 	var txs [][]byte
 	for {
 		result, err := tree.GetNext(starter, nil)
-		if result == nil || err != nil {
+		if err != nil {
 			break
 		}
 		txs = append(txs, result.([]byte))
@@ -48,22 +51,62 @@ func getOrderedTxs(tree LLRB, txMap *sync.Map) [][]byte {
 
 func TestBasics(t *testing.T) {
 	tree := New()
-	nks := getNodeKeys([]uint64{1})
-	txs := getRandomBytes(1)
+	nks := getNodeKeys([]uint64{1, 2})
+	txs := getRandomBytes(2)
 	tree.Insert(*nks[0], txs[0])
-	if tree.Size() != 1 {
-		t.Errorf("expecting len 1")
-	}
+	require.Equal(t, 1, tree.Size(), "expecting len 1")
 	data, err := tree.Remove(*nks[0])
-	if err != nil {
-		t.Errorf("Error when removing element")
+	require.NoError(t, err, "expect not error when removing existed node")
+	require.Equal(t, 0, tree.Size(), "expecting len 0")
+	require.Equal(t, txs[0], data.([]byte), "expecting same data")
+	_, err = tree.Remove(*nks[1])
+	require.Error(t, err, "expect error when removing nonexistent node")
+
+}
+
+func TestRandomInsertSequenceDelete(t *testing.T) {
+	tree := New()
+	n := 10
+	txs := getRandomBytes(n)
+	perm := rand.Perm(n)
+	var nks []*NodeKey
+	for i := 0; i < n; i++ {
+		nk := &NodeKey{Priority: uint64(perm[i])}
+		nks = append(nks, nk)
+		tree.Insert(*nk, txs[perm[i]])
 	}
-	if tree.Size() != 0 {
-		t.Errorf("expecting len 0")
+	for i := 0; i < n; i++ {
+		removed, err := tree.Remove(*nks[i])
+		require.NoError(t, err, "expect not error when removing existed node")
+		require.True(t, bytes.Equal(removed.([]byte), txs[perm[i]]), "expecting same data")
 	}
-	if !bytes.Equal(data.([]byte), txs[0]) {
-		t.Errorf("expecting equal bytes")
+}
+
+func TestRandomInsertDeleteNonExistent(t *testing.T) {
+	tree := New()
+	n := 100
+	txs := getRandomBytes(n)
+	perm := rand.Perm(n)
+	var nks []*NodeKey
+	for i := 0; i < n; i++ {
+		nk := &NodeKey{Priority: uint64(perm[i])}
+		nks = append(nks, nk)
+		tree.Insert(*nk, txs[perm[i]])
 	}
+	_, err := tree.Remove(*getNodeKeys([]uint64{200})[0])
+	require.Error(t, err, "expect error when removing nonexistent node")
+	_, err = tree.Remove(*getNodeKeys([]uint64{2000})[0])
+	require.Error(t, err, "expect error when removing nonexistent node")
+
+	for i := 0; i < n; i++ {
+		result, err := tree.Remove(*nks[i])
+		require.NoError(t, err, "expect not error when removing existed node")
+		require.True(t, bytes.Equal(result.([]byte), txs[perm[i]]), "expecting same data")
+	}
+	_, err = tree.Remove(*getNodeKeys([]uint64{200})[0])
+	require.Error(t, err, "expect error when removing nonexistent node")
+	_, err = tree.Remove(*getNodeKeys([]uint64{2000})[0])
+	require.Error(t, err, "expect error when removing nonexistent node")
 }
 
 func TestGetNext(t *testing.T) {
@@ -108,9 +151,32 @@ func TestGetNext(t *testing.T) {
 		}
 		ordered := getOrderedTxs(tree, &txsMap)
 		for j := 0; j < len(nks); j++ {
-			if !bytes.Equal(txs[j], ordered[tc.order[j]]) {
-				t.Errorf("expecting equal bytes at testcase %d txs %d", i, j)
-			}
+			require.True(t, bytes.Equal(txs[j], ordered[tc.order[j]]), "expecting equal bytes at testcase %d txs %d", i, j)
 		}
+	}
+}
+
+func BenchmarkInsert(b *testing.B) {
+	tree := new(llrb)
+	for i := 0; i < b.N; i++ {
+		tree.Insert(NodeKey{Priority: uint64(i)}, getRandomBytes(1)[0])
+	}
+}
+
+func BenchmarkDelete(b *testing.B) {
+	b.StopTimer()
+	tree := new(llrb)
+	var nks []*NodeKey
+	for i := 0; i < b.N; i++ {
+		nk := &NodeKey{Priority: uint64(i)}
+		nks = append(nks, nk)
+	}
+	txs := getRandomBytes(b.N)
+	for i := 0; i < b.N; i++ {
+		tree.Insert(*nks[i], txs[i])
+	}
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		tree.Remove(*nks[i])
 	}
 }
