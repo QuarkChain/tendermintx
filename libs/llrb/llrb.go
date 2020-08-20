@@ -7,8 +7,7 @@ import (
 	"time"
 )
 
-// MaxSize is the max allowed number of node a llrb is allowed to contain.
-// If more nodes are pushed it will panic.
+// MaxSize is the max allowed number of node a llrb is allowed to contain
 const MaxSize = int(^uint(0) >> 1)
 
 func (a NodeKey) compare(b NodeKey) int {
@@ -43,8 +42,7 @@ type llrb struct {
 	root    *node
 }
 
-// Return llrb with given maxLength.
-// Will panic if list exceeds given maxLength.
+// Return llrb with given maxLength, will panic if list exceeds given maxLength
 func newWithMax(maxSize int) *llrb {
 	t := new(llrb)
 	t.mtx.Lock()
@@ -57,7 +55,7 @@ func newWithMax(maxSize int) *llrb {
 	return t
 }
 
-// Size returns the number of nodes in the tree.
+// Size returns the number of nodes in the tree
 func (t *llrb) Size() int {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
@@ -76,7 +74,6 @@ func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 		startKey.Priority = starter.Priority
 		startKey.TS = starter.TS
 	}
-
 	var cdd *node
 	for h := t.root; h != nil; {
 		if h.key.compare(startKey) == -1 && predicate(h.data) {
@@ -87,12 +84,10 @@ func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 		} else {
 			h = h.left
 		}
-
 	}
 	if cdd == nil {
 		return nil, nil
 	}
-
 	return cdd.data, nil
 }
 
@@ -116,9 +111,7 @@ func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
 	if h == nil {
 		return &node{key: key, data: data}, nil
 	}
-
 	var err error
-
 	switch key.compare(h.key) {
 	case -1:
 		h.left, err = t.insert(h.left, key, data)
@@ -127,19 +120,15 @@ func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
 	default:
 		err = fmt.Errorf("key conflict")
 	}
-
 	if isRed(h.right) && !isRed(h.left) {
 		h = t.rotateLeft(h)
 	}
-
 	if isRed(h.left) && isRed(h.left.left) {
 		h = t.rotateRight(h)
 	}
-
 	if isRed(h.left) && isRed(h.right) {
 		flip(h)
 	}
-
 	return h, err
 }
 
@@ -154,10 +143,8 @@ func (t *llrb) deleteMin(h *node) (*node, *node) {
 	if !isRed(h.left) && !isRed(h.left.left) {
 		h = t.moveRedLeft(h)
 	}
-
 	var deleted *node
 	h.left, deleted = t.deleteMin(h.left)
-
 	return t.fixUp(h), deleted
 }
 
@@ -202,7 +189,6 @@ func (t *llrb) delete(h *node, key *NodeKey) (*node, *node) {
 			h = t.moveRedRight(h)
 		}
 		if key.compare(h.key) == 0 {
-
 			deleted = h
 			r, k := t.deleteMin(h.right)
 			h.right, h.key, h.data = r, k.key, k.data
@@ -210,7 +196,6 @@ func (t *llrb) delete(h *node, key *NodeKey) (*node, *node) {
 			h.right, deleted = t.delete(h.right, key)
 		}
 	}
-
 	return t.fixUp(h), deleted
 }
 
@@ -261,15 +246,12 @@ func (t *llrb) fixUp(h *node) *node {
 	if isRed(h.right) {
 		h = t.rotateLeft(h)
 	}
-
 	if isRed(h.left) && isRed(h.left.left) {
 		h = t.rotateRight(h)
 	}
-
 	if isRed(h.left) && isRed(h.right) {
 		flip(h)
 	}
-
 	return h
 }
 

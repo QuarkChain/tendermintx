@@ -68,7 +68,7 @@ func TestGetNext(t *testing.T) {
 		priorities []uint64
 		order      []int64
 	}{
-		// same priority would present as FIFO
+		// Same priority would ordered by insert time
 		{
 			priorities: []uint64{0, 0, 0, 0, 0},
 			order:      []int64{0, 1, 2, 3, 4},
