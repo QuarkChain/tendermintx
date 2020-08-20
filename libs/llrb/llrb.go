@@ -43,16 +43,8 @@ type llrb struct {
 }
 
 // Return llrb with given maxLength, will panic if list exceeds given maxLength
-func newWithMax(maxSize int) *llrb {
-	t := new(llrb)
-	t.mtx.Lock()
-	defer t.mtx.Unlock()
-	t.wg = waitGroup1()
-	t.waitCh = make(chan struct{})
-	t.root = nil
-	t.size = 0
-	t.maxSize = maxSize
-	return t
+func newLlrb(maxSize int) *llrb {
+	return &llrb{wg: waitGroup1(), maxSize: maxSize}
 }
 
 // Size returns the number of nodes in the tree
