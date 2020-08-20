@@ -35,7 +35,7 @@ func getOrderedTxs(tree LLRB, txMap *sync.Map) [][]byte {
 	var starter *NodeKey
 	var txs [][]byte
 	for {
-		result, err := tree.GetNext(starter, func(interface{}) bool { return true })
+		result, err := tree.GetNext(starter, nil)
 		if result == nil || err != nil {
 			break
 		}

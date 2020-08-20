@@ -66,7 +66,7 @@ func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 	}
 	var candidate *node
 	for h := t.root; h != nil; {
-		if h.key.compare(startKey) == -1 && predicate(h.data) {
+		if h.key.compare(startKey) == -1 && (predicate == nil || predicate(h.data)) {
 			if candidate == nil || candidate.key.compare(h.key) == -1 {
 				candidate = h
 			}
