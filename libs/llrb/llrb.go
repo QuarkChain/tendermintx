@@ -36,16 +36,18 @@ type node struct {
 }
 
 type llrb struct {
-	mtx     sync.RWMutex
-	size    int
-	maxSize int
-	root    *node
-	stack   []*node
+	mtx       sync.RWMutex
+	size      int
+	maxSize   int
+	root      *node
+	stack     []*node
+	predicate func(interface{}) bool
 }
 
 func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) error {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
+	t.predicate = predicate
 	startKey := NodeKey{
 		Priority: uint64(math.MaxUint64),
 	}
@@ -53,29 +55,44 @@ func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) erro
 		startKey.Priority = starter.Priority
 		startKey.TS = starter.TS
 	}
-	var cdd *node
+	var candidate *node
 	for h := t.root; h != nil; {
 		t.stack = append(t.stack, h)
-		if h.key.compare(startKey) == -1 && predicate(h.data) {
-			if cdd == nil || cdd.key.compare(h.key) == -1 {
-				cdd = h
+		if h.key.compare(startKey) == -1 && (predicate == nil || predicate(h.data)) {
+			if candidate == nil || candidate.key.compare(h.key) == -1 {
+				candidate = h
 			}
 			h = h.right
 		} else {
 			h = h.left
 		}
 	}
-	return nil
+	return ErrorStopIteration
 }
 
 func (t *llrb) IterCurr() (interface{}, error) {
 	if !t.IterHasNext() {
-		return nil, fmt.Errorf("iteration ended")
+		return nil, ErrorStopIteration
 	}
 	return t.stack[len(t.stack)-1].data, nil
 }
 
 func (t *llrb) IterNext() error {
+	if t.predicate == nil {
+		t.iterNext()
+	} else {
+		for result, err := t.IterCurr(); err == nil; t.iterNext() {
+			if t.predicate(result) {
+				break
+			} else {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (t *llrb) iterNext() error {
 	curr := t.stack[len(t.stack)-1].left
 	t.stack = t.stack[:len(t.stack)-1]
 	for curr != nil {

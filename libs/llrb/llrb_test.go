@@ -49,7 +49,7 @@ func getOrderedTxs(tree LLRB, txMap *sync.Map) [][]byte {
 func iterateOrderedTxs(tree LLRB, txMap *sync.Map) [][]byte {
 	var starter *NodeKey
 	var txs [][]byte
-	tree.IterInit(starter, func(interface{}) bool { return true })
+	tree.IterInit(starter, nil)
 	for ; tree.IterHasNext(); tree.IterNext() {
 		result, _ := tree.IterCurr()
 		txs = append(txs, result.([]byte))
@@ -67,7 +67,7 @@ func TestBasics(t *testing.T) {
 	}
 	data, err := tree.Remove(*nks[0])
 	if err != nil {
-		t.Errorf("Error when removing element")
+		t.Errorf("error when removing element")
 	}
 	if tree.Size() != 0 {
 		t.Errorf("expecting len 0")
