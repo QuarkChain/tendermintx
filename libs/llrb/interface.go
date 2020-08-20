@@ -17,3 +17,13 @@ type LLRB interface {
 func New() LLRB {
 	return newLlrb(MaxSize)
 }
+
+type LlrbIter interface {
+	Curr() (interface{}, error)
+	Next() (interface{}, error)
+	HasNext() bool
+}
+
+func NewIter(starter *NodeKey, predicate func(interface{}) bool) LlrbIter {
+	return newIter(starter, predicate)
+}

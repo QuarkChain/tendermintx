@@ -33,6 +33,26 @@ type node struct {
 	black       bool
 }
 
+type iter struct {
+	stack []NodeKey
+}
+
+func newIter(starter *NodeKey, predicate func(interface{}) bool) *iter {
+	return &iter{stack: nil}
+}
+
+func (i *iter) Curr() (interface{}, error) {
+	return nil, nil
+}
+
+func (i *iter) Next() (interface{}, error) {
+	return nil, nil
+}
+
+func (i *iter) HasNext() bool {
+	return true
+}
+
 type llrb struct {
 	mtx     sync.RWMutex
 	size    int
