@@ -39,7 +39,7 @@ type llrb struct {
 	root    *node
 }
 
-// newLLRB Return llrb with given maxLength
+// newLLRB return llrb with given maxSize
 func newLLRB(maxSize int) *llrb {
 	return &llrb{maxSize: maxSize}
 }
@@ -78,7 +78,7 @@ func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 	return candidate.data, nil
 }
 
-// Insert inserts value into the tree.
+// Insert inserts value into the tree
 func (t *llrb) Insert(key NodeKey, data interface{}) error {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
@@ -135,8 +135,8 @@ func (t *llrb) deleteMin(h *node) (*node, *node) {
 	return t.fixUp(h), deleted
 }
 
-// Remove removes a value from the tree with provided key.
-// The deleted data is return if key found, otherwise nil is returned.
+// Remove removes a value from the tree with provided key
+// The removed data is return if key found, otherwise nil is returned
 func (t *llrb) Remove(key NodeKey) (interface{}, error) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
