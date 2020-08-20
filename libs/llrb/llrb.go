@@ -36,7 +36,6 @@ type node struct {
 type llrb struct {
 	mtx     sync.RWMutex
 	wg      *sync.WaitGroup
-	waitCh  chan struct{}
 	size    int
 	maxSize int
 	root    *node
