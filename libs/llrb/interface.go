@@ -15,5 +15,5 @@ type LLRB interface {
 }
 
 func New() LLRB {
-	return newLLRB(MaxSize)
+	return newLLRB(maxSize)
 }
