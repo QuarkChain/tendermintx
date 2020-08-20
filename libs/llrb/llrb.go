@@ -33,19 +33,17 @@ type node struct {
 	black       bool
 }
 
-type iter struct {
-	tree  *llrb
-	stack []*node
+type llrb struct {
+	mtx     sync.RWMutex
+	size    int
+	maxSize int
+	root    *node
+	stack   []*node
 }
 
-func newIter(starter *NodeKey, predicate func(interface{}) bool) *iter {
-	it := &iter{
-		tree:  newLlrb(MaxSize),
-		stack: []*node{},
-	}
-
-	it.tree.mtx.RLock()
-	defer it.tree.mtx.RUnlock()
+func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) error {
+	t.mtx.RLock()
+	defer t.mtx.RUnlock()
 	startKey := NodeKey{
 		Priority: uint64(math.MaxUint64),
 		TS:       time.Unix(0, 0),
@@ -55,8 +53,8 @@ func newIter(starter *NodeKey, predicate func(interface{}) bool) *iter {
 		startKey.TS = starter.TS
 	}
 	var cdd *node
-	for h := it.tree.root; h != nil; {
-		it.stack = append(it.stack, h)
+	for h := t.root; h != nil; {
+		t.stack = append(t.stack, h)
 		if h.key.compare(startKey) == -1 && predicate(h.data) {
 			if cdd == nil || cdd.key.compare(h.key) == -1 {
 				cdd = h
@@ -66,34 +64,28 @@ func newIter(starter *NodeKey, predicate func(interface{}) bool) *iter {
 			h = h.left
 		}
 	}
-	return it
+	return nil
 }
 
-func (i *iter) Curr() (interface{}, error) {
-	if !i.HasNext() {
+func (t *llrb) IterCurr() (interface{}, error) {
+	if !t.IterHasNext() {
 		return nil, fmt.Errorf("iteration ended")
 	}
-	return i.stack[len(i.stack)-1].data, nil
+	return t.stack[len(t.stack)-1].data, nil
 }
 
-func (i *iter) Next() {
-	curr := i.stack[len(i.stack)-1].left
-	i.stack = i.stack[:len(i.stack)-1]
+func (t *llrb) IterNext() error {
+	curr := t.stack[len(t.stack)-1].left
+	t.stack = t.stack[:len(t.stack)-1]
 	for curr != nil {
-		i.stack = append(i.stack, curr)
+		t.stack = append(t.stack, curr)
 		curr = curr.right
 	}
+	return nil
 }
 
-func (i *iter) HasNext() bool {
-	return len(i.stack) == 0
-}
-
-type llrb struct {
-	mtx     sync.RWMutex
-	size    int
-	maxSize int
-	root    *node
+func (t *llrb) IterHasNext() bool {
+	return len(t.stack) != 0
 }
 
 // newLlrb Return llrb with given maxLength, will panic if list exceeds given maxLength

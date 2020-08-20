@@ -46,6 +46,17 @@ func getOrderedTxs(tree LLRB, txMap *sync.Map) [][]byte {
 	return txs
 }
 
+func iterateOrderedTxs(tree LLRB) [][]byte {
+	var starter *NodeKey
+	var txs [][]byte
+	tree.IterInit(starter, func(interface{}) bool { return true })
+	for ; tree.IterHasNext(); tree.IterNext() {
+		result, _ := tree.IterCurr()
+		txs = append(txs, result.([]byte))
+	}
+	return txs
+}
+
 func TestBasics(t *testing.T) {
 	tree := New()
 	nks := getNodeKeys([]uint64{1})
@@ -113,4 +124,48 @@ func TestGetNext(t *testing.T) {
 }
 
 func TestIterator(t *testing.T) {
+	testCases := []struct {
+		priorities []uint64
+		order      []int64
+	}{
+		{
+			priorities: []uint64{0, 0, 0, 0, 0},
+			order:      []int64{0, 1, 2, 3, 4},
+		},
+		{
+			priorities: []uint64{1, 0, 1, 0, 1},
+			order:      []int64{0, 3, 1, 4, 2},
+		},
+		{
+			priorities: []uint64{1, 2, 3, 4, 5},
+			order:      []int64{4, 3, 2, 1, 0},
+		},
+		{
+			priorities: []uint64{5, 4, 3, 2, 1},
+			order:      []int64{0, 1, 2, 3, 4},
+		},
+		{
+			priorities: []uint64{1, 3, 5, 4, 2},
+			order:      []int64{4, 2, 0, 1, 3},
+		},
+		{
+			priorities: []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
+			order:      []int64{0, 1, 2, 3},
+		},
+	}
+
+	for i, tc := range testCases {
+		tree := New()
+		nks := getNodeKeys(tc.priorities)
+		txs := getRandomBytes(len(tc.priorities))
+		for j := 0; j < len(nks); j++ {
+			tree.Insert(*nks[j], txs[j])
+		}
+		ordered := iterateOrderedTxs(tree)
+		for j := 0; j < len(nks); j++ {
+			if !bytes.Equal(txs[j], ordered[tc.order[j]]) {
+				t.Errorf("expecting equal bytes at testcase %d txs %d", i, j)
+			}
+		}
+	}
 }
