@@ -1,6 +1,9 @@
 package adapter
 
 import (
+	"errors"
+	"reflect"
+
 	"github.com/jinzhu/copier"
 	tdypes "github.com/tendermint/tendermint/types"
 
@@ -32,58 +35,90 @@ func (app *adaptedApp) OriginalApp() abci.Application {
 	return app.abciApp
 }
 
-func (app *adaptedApp) Info(req abcix.RequestInfo) (resp abcix.ResponseInfo) {
-	abciReq := abci.RequestInfo{}
-	if err := copier.Copy(&abciReq, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
+const (
+	info = iota
+	setoption
+	query
+	checktx
+	initchain
+	listsnapshots
+	offersnapshot
+	loadsnapshotchunk
+	applysnapshotchunk
+	beginblock
+	endblock
+)
+
+type abciTypePair struct {
+	request reflect.Type
+	method  interface{}
+}
+
+var typeRegistry = map[int]abciTypePair{
+	info:               {reflect.TypeOf(abci.RequestInfo{}), abci.Application.Info},
+	setoption:          {reflect.TypeOf(abci.RequestSetOption{}), abci.Application.SetOption},
+	query:              {reflect.TypeOf(abci.RequestQuery{}), abci.Application.Query},
+	checktx:            {reflect.TypeOf(abci.RequestCheckTx{}), abci.Application.CheckTx},
+	initchain:          {reflect.TypeOf(abci.RequestInitChain{}), abci.Application.InitChain},
+	listsnapshots:      {reflect.TypeOf(abci.RequestListSnapshots{}), abci.Application.ListSnapshots},
+	offersnapshot:      {reflect.TypeOf(abci.RequestOfferSnapshot{}), abci.Application.OfferSnapshot},
+	loadsnapshotchunk:  {reflect.TypeOf(abci.RequestLoadSnapshotChunk{}), abci.Application.LoadSnapshotChunk},
+	applysnapshotchunk: {reflect.TypeOf(abci.RequestApplySnapshotChunk{}), abci.Application.ApplySnapshotChunk},
+	beginblock:         {reflect.TypeOf(abci.RequestBeginBlock{}), abci.Application.BeginBlock},
+	endblock:           {reflect.TypeOf(abci.RequestEndBlock{}), abci.Application.EndBlock},
+}
+
+func Apply(f interface{}, args ...interface{}) reflect.Value {
+	fun := reflect.ValueOf(f)
+	in := make([]reflect.Value, len(args))
+	for k, arg := range args {
+		in[k] = reflect.ValueOf(arg).Elem()
 	}
-	abciResp := app.abciApp.Info(abciReq)
-	if err := copier.Copy(&resp, &abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
+	r := fun.Call(in)
+	return r[0]
+}
+
+func (app *adaptedApp) applyLegacyABCI(req interface{}, resp interface{}, abciType int) error {
+	typePair, ok := typeRegistry[abciType]
+	if !ok {
+		return errors.New("ABCI type registry not found")
+	}
+	abciReq := reflect.New(typePair.request).Interface()
+	if err := copier.Copy(abciReq, req); err != nil {
+		return err
+	}
+
+	abciResp := Apply(typePair.method, &app.abciApp, abciReq).Interface()
+	if err := copier.Copy(resp, abciResp); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (app *adaptedApp) Info(req abcix.RequestInfo) (resp abcix.ResponseInfo) {
+	if err := app.applyLegacyABCI(&req, &resp, info); err != nil {
 		panic(err)
 	}
 	return
 }
 
 func (app *adaptedApp) SetOption(req abcix.RequestSetOption) (resp abcix.ResponseSetOption) {
-	abciReq := abci.RequestSetOption{}
-	if err := copier.Copy(&abciReq, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-	abciResp := app.abciApp.SetOption(abciReq)
-	if err := copier.Copy(&resp, &abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
+	if err := app.applyLegacyABCI(&req, &resp, setoption); err != nil {
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) Query(req abcix.RequestQuery) (resp abcix.ResponseQuery) {
-	abciReq := abci.RequestQuery{}
-	if err := copier.Copy(&abciReq, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-	abciResp := app.abciApp.Query(abciReq)
-	if err := copier.Copy(&resp, &abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
+	if err := app.applyLegacyABCI(&req, &resp, query); err != nil {
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) CheckTx(req abcix.RequestCheckTx) (resp abcix.ResponseCheckTx) {
-	abciReq := abci.RequestCheckTx{}
-	if err := copier.Copy(&abciReq, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-	abciResp := app.abciApp.CheckTx(abciReq)
-	if err := copier.Copy(&resp, &abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
+	if err := app.applyLegacyABCI(&req, &resp, checktx); err != nil {
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
@@ -120,31 +155,17 @@ func (app *adaptedApp) CreateBlock(
 }
 
 func (app *adaptedApp) InitChain(req abcix.RequestInitChain) (resp abcix.ResponseInitChain) {
-	abciReq := abci.RequestInitChain{}
-	if err := copier.Copy(&abciReq, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-	abciResp := app.abciApp.InitChain(abciReq)
-	if err := copier.Copy(&resp, &abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
+	if err := app.applyLegacyABCI(&req, &resp, initchain); err != nil {
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.ResponseDeliverBlock) {
-	var reqBegin abci.RequestBeginBlock
-	if err := copier.Copy(&reqBegin, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
+	if err := app.applyLegacyABCI(&req, &resp, beginblock); err != nil {
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
-	respBegin := app.abciApp.BeginBlock(reqBegin)
-	events := respBegin.Events
-	if err := copier.Copy(&resp, &respBegin); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
+	beginEvents := resp.Events
 
 	for _, tx := range req.Txs {
 		legacyRespDeliverTx := app.abciApp.DeliverTx(abci.RequestDeliverTx{Tx: tx})
@@ -159,30 +180,15 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 		resp.DeliverTxs = append(resp.DeliverTxs, &respDeliverTx)
 	}
 
-	var reqEnd abci.RequestEndBlock
-	if err := copier.Copy(&reqEnd, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
+	if err := app.applyLegacyABCI(&req, &resp, endblock); err != nil {
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
-	respEnd := app.abciApp.EndBlock(reqEnd)
-	events = append(events, respEnd.Events...)
-	if err := copier.Copy(&resp, &respEnd); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
+	endEvents := resp.Events
 
-	// Reform the events
-	resp.Events = make([]abcix.Event, len(events))
-	for i, oldEvent := range events {
-		oldEvent := oldEvent
-		var newEvent abcix.Event
-		if err := copier.Copy(&newEvent, &oldEvent); err != nil {
-			// TODO: panic for debugging purposes. better error handling soon!
-			panic(err)
-		}
-		resp.Events[i] = newEvent
-	}
-
+	allEvents := make([]abcix.Event, 0, len(beginEvents)+len(endEvents))
+	allEvents = append(allEvents, beginEvents...)
+	allEvents = append(allEvents, endEvents...)
+	resp.Events = allEvents
 	return resp
 }
 
@@ -201,57 +207,29 @@ func (app *adaptedApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseChe
 }
 
 func (app *adaptedApp) ListSnapshots(req abcix.RequestListSnapshots) (resp abcix.ResponseListSnapshots) {
-	abciReq := abci.RequestListSnapshots{}
-	if err := copier.Copy(&abciReq, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-	abciResp := app.abciApp.ListSnapshots(abciReq)
-	if err := copier.Copy(&resp, &abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
+	if err := app.applyLegacyABCI(&req, &resp, listsnapshots); err != nil {
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) OfferSnapshot(req abcix.RequestOfferSnapshot) (resp abcix.ResponseOfferSnapshot) {
-	abciReq := abci.RequestOfferSnapshot{}
-	if err := copier.Copy(&abciReq, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-	abciResp := app.abciApp.OfferSnapshot(abciReq)
-	if err := copier.Copy(&resp, &abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
+	if err := app.applyLegacyABCI(&req, &resp, offersnapshot); err != nil {
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) LoadSnapshotChunk(req abcix.RequestLoadSnapshotChunk) (resp abcix.ResponseLoadSnapshotChunk) {
-	abciReq := abci.RequestLoadSnapshotChunk{}
-	if err := copier.Copy(&abciReq, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-	abciResp := app.abciApp.LoadSnapshotChunk(abciReq)
-	if err := copier.Copy(&resp, &abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
+	if err := app.applyLegacyABCI(&req, &resp, loadsnapshotchunk); err != nil {
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
 
 func (app *adaptedApp) ApplySnapshotChunk(req abcix.RequestApplySnapshotChunk) (resp abcix.ResponseApplySnapshotChunk) {
-	abciReq := abci.RequestApplySnapshotChunk{}
-	if err := copier.Copy(&abciReq, &req); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
-	}
-	abciResp := app.abciApp.ApplySnapshotChunk(abciReq)
-	if err := copier.Copy(&resp, &abciResp); err != nil {
-		// TODO: panic for debugging purposes. better error handling soon!
-		panic(err)
+	if err := app.applyLegacyABCI(&req, &resp, applysnapshotchunk); err != nil {
+		panic("failed to adapt the ABCI legacy methods: " + err.Error())
 	}
 	return
 }
