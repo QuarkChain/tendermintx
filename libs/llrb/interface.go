@@ -20,10 +20,11 @@ func New() LLRB {
 
 type LlrbIter interface {
 	Curr() (interface{}, error)
-	Next() (interface{}, error)
+	Next()
 	HasNext() bool
 }
 
+// TODO The iterator should passed with a tree, or initialized by a tree
 func NewIter(starter *NodeKey, predicate func(interface{}) bool) LlrbIter {
 	return newIter(starter, predicate)
 }

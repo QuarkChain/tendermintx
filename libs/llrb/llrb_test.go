@@ -112,3 +112,6 @@ func TestGetNext(t *testing.T) {
 		}
 	}
 }
+
+func TestIterator(t *testing.T) {
+}

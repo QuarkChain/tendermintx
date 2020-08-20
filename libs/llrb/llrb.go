@@ -34,23 +34,59 @@ type node struct {
 }
 
 type iter struct {
-	stack []NodeKey
+	tree  *llrb
+	stack []*node
 }
 
 func newIter(starter *NodeKey, predicate func(interface{}) bool) *iter {
-	return &iter{stack: nil}
+	it := &iter{
+		tree:  newLlrb(MaxSize),
+		stack: []*node{},
+	}
+
+	it.tree.mtx.RLock()
+	defer it.tree.mtx.RUnlock()
+	startKey := NodeKey{
+		Priority: uint64(math.MaxUint64),
+		TS:       time.Unix(0, 0),
+	}
+	if starter != nil {
+		startKey.Priority = starter.Priority
+		startKey.TS = starter.TS
+	}
+	var cdd *node
+	for h := it.tree.root; h != nil; {
+		it.stack = append(it.stack, h)
+		if h.key.compare(startKey) == -1 && predicate(h.data) {
+			if cdd == nil || cdd.key.compare(h.key) == -1 {
+				cdd = h
+			}
+			h = h.right
+		} else {
+			h = h.left
+		}
+	}
+	return it
 }
 
 func (i *iter) Curr() (interface{}, error) {
-	return nil, nil
+	if !i.HasNext() {
+		return nil, fmt.Errorf("iteration ended")
+	}
+	return i.stack[len(i.stack)-1].data, nil
 }
 
-func (i *iter) Next() (interface{}, error) {
-	return nil, nil
+func (i *iter) Next() {
+	curr := i.stack[len(i.stack)-1].left
+	i.stack = i.stack[:len(i.stack)-1]
+	for curr != nil {
+		i.stack = append(i.stack, curr)
+		curr = curr.right
+	}
 }
 
 func (i *iter) HasNext() bool {
-	return true
+	return len(i.stack) == 0
 }
 
 type llrb struct {
