@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"sync"
-	"time"
 )
 
 // MaxSize is the max allowed number of node a llrb is allowed to contain
@@ -88,8 +87,8 @@ func (t *llrb) IterHasNext() bool {
 	return len(t.stack) != 0
 }
 
-// newLlrb Return llrb with given maxLength, will panic if list exceeds given maxLength
-func newLlrb(maxSize int) *llrb {
+// newLLRB return llrb with given maxSize
+func newLLRB(maxSize int) *llrb {
 	return &llrb{maxSize: maxSize}
 }
 
@@ -106,30 +105,28 @@ func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 	defer t.mtx.RUnlock()
 	startKey := NodeKey{
 		Priority: uint64(math.MaxUint64),
-		TS:       time.Unix(0, 0),
 	}
 	if starter != nil {
-		startKey.Priority = starter.Priority
-		startKey.TS = starter.TS
+		startKey = *starter
 	}
-	var cdd *node
+	var candidate *node
 	for h := t.root; h != nil; {
 		if h.key.compare(startKey) == -1 && predicate(h.data) {
-			if cdd == nil || cdd.key.compare(h.key) == -1 {
-				cdd = h
+			if candidate == nil || candidate.key.compare(h.key) == -1 {
+				candidate = h
 			}
 			h = h.right
 		} else {
 			h = h.left
 		}
 	}
-	if cdd == nil {
+	if candidate == nil {
 		return nil, nil
 	}
-	return cdd.data, nil
+	return candidate.data, nil
 }
 
-// Insert inserts value into the tree.
+// Insert inserts value into the tree
 func (t *llrb) Insert(key NodeKey, data interface{}) error {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
@@ -139,7 +136,7 @@ func (t *llrb) Insert(key NodeKey, data interface{}) error {
 	if err == nil {
 		t.size++
 		if t.size >= t.maxSize {
-			panic(fmt.Sprintf("llrb: maximum size tree reached %d", t.maxSize))
+			return fmt.Errorf("tree reached maximum size %d", t.maxSize)
 		}
 	}
 	return err
@@ -186,13 +183,13 @@ func (t *llrb) deleteMin(h *node) (*node, *node) {
 	return t.fixUp(h), deleted
 }
 
-// Remove removes a value from the tree with provided key.
-// The deleted data is return if key found, otherwise nil is returned.
+// Remove removes a value from the tree with provided key
+// The removed data is return if key found, otherwise nil is returned
 func (t *llrb) Remove(key NodeKey) (interface{}, error) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 	var deleted *node
-	t.root, deleted = t.delete(t.root, &key)
+	t.root, deleted = t.delete(t.root, key)
 	if t.root != nil {
 		t.root.black = true
 	}
@@ -200,10 +197,10 @@ func (t *llrb) Remove(key NodeKey) (interface{}, error) {
 		t.size--
 		return deleted.data, nil
 	}
-	return nil, nil
+	return nil, fmt.Errorf("key not found")
 }
 
-func (t *llrb) delete(h *node, key *NodeKey) (*node, *node) {
+func (t *llrb) delete(h *node, key NodeKey) (*node, *node) {
 	var deleted *node
 	if h == nil {
 		return nil, nil
