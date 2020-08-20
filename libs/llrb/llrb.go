@@ -70,7 +70,7 @@ func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 	defer t.mtx.RUnlock()
 	startKey := NodeKey{
 		Priority: uint64(math.MaxUint64),
-		TS:       time.Now(),
+		TS:       time.Unix(0, 0),
 	}
 	if starter != nil {
 		startKey.Priority = starter.Priority

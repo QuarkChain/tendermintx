@@ -3,15 +3,16 @@ package llrb
 import (
 	"bytes"
 	cr "crypto/rand"
+	"math"
 	"sync"
 	"testing"
 	"time"
 )
 
-func getNodeKeys(priorities []uint64) []NodeKey {
-	var nks []NodeKey
+func getNodeKeys(priorities []uint64) []*NodeKey {
+	var nks []*NodeKey
 	for i := 0; i < len(priorities); i++ {
-		nk := NodeKey{
+		nk := &NodeKey{
 			Priority: priorities[i],
 			TS:       time.Now(),
 		}
@@ -31,16 +32,16 @@ func getRandomBytes(count int) [][]byte {
 }
 
 func getOrderedTxs(tree LLRB, txMap *sync.Map) [][]byte {
-	var starter NodeKey
+	var starter *NodeKey
 	var txs [][]byte
 	for {
-		result, _ := tree.GetNext(&starter, func(interface{}) bool { return true })
+		result, _ := tree.GetNext(starter, func(interface{}) bool { return true })
 		if result == nil {
 			break
 		}
 		txs = append(txs, result.([]byte))
 		v, _ := txMap.Load(string(result.([]byte)))
-		starter = v.(NodeKey)
+		starter = v.(*NodeKey)
 	}
 	return txs
 }
@@ -49,11 +50,11 @@ func TestBasics(t *testing.T) {
 	tree := New()
 	nks := getNodeKeys([]uint64{1})
 	txs := getRandomBytes(1)
-	tree.Insert(nks[0], txs[0])
+	tree.Insert(*nks[0], txs[0])
 	if tree.Size() != 1 {
 		t.Errorf("expecting len 1")
 	}
-	data, _ := tree.Remove(nks[0])
+	data, _ := tree.Remove(*nks[0])
 	if tree.Size() != 0 {
 		t.Errorf("expecting len 0")
 	}
@@ -67,9 +68,30 @@ func TestGetNext(t *testing.T) {
 		priorities []uint64
 		order      []int64
 	}{
+		// same priority would present as FIFO
 		{
 			priorities: []uint64{0, 0, 0, 0, 0},
 			order:      []int64{0, 1, 2, 3, 4},
+		},
+		{
+			priorities: []uint64{1, 0, 1, 0, 1},
+			order:      []int64{0, 3, 1, 4, 2},
+		},
+		{
+			priorities: []uint64{1, 2, 3, 4, 5},
+			order:      []int64{4, 3, 2, 1, 0},
+		},
+		{
+			priorities: []uint64{5, 4, 3, 2, 1},
+			order:      []int64{0, 1, 2, 3, 4},
+		},
+		{
+			priorities: []uint64{1, 3, 5, 4, 2},
+			order:      []int64{4, 2, 0, 1, 3},
+		},
+		{
+			priorities: []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
+			order:      []int64{0, 1, 2, 3},
 		},
 	}
 
@@ -80,7 +102,7 @@ func TestGetNext(t *testing.T) {
 		var txsMap sync.Map
 		for j := 0; j < len(nks); j++ {
 			txsMap.Store(string(txs[j]), nks[j])
-			tree.Insert(nks[j], txs[j])
+			tree.Insert(*nks[j], txs[j])
 		}
 		ordered := getOrderedTxs(tree, &txsMap)
 		for j := 0; j < len(nks); j++ {
