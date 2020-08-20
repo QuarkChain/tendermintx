@@ -68,7 +68,6 @@ func TestGetNext(t *testing.T) {
 		priorities []uint64
 		order      []int64
 	}{
-		// Tx with same priority will be ordered by insert time
 		{
 			priorities: []uint64{0, 0, 0, 0, 0},
 			order:      []int64{0, 1, 2, 3, 4},
@@ -107,7 +106,7 @@ func TestGetNext(t *testing.T) {
 		ordered := getOrderedTxs(tree, &txsMap)
 		for j := 0; j < len(nks); j++ {
 			if !bytes.Equal(txs[j], ordered[tc.order[j]]) {
-				t.Errorf("expecting equal bytes at %d testcase %d txs", i, j)
+				t.Errorf("expecting equal bytes at testcase %d txs %d", i, j)
 			}
 		}
 	}

@@ -40,7 +40,7 @@ type llrb struct {
 	root    *node
 }
 
-// Return llrb with given maxLength, will panic if list exceeds given maxLength
+// newLlrb Return llrb with given maxLength, will panic if list exceeds given maxLength
 func newLlrb(maxSize int) *llrb {
 	return &llrb{maxSize: maxSize}
 }
@@ -138,8 +138,8 @@ func (t *llrb) deleteMin(h *node) (*node, *node) {
 	return t.fixUp(h), deleted
 }
 
-// Delete deletes a value from the tree whose value equals key.
-// The deleted data is return, otherwise nil is returned.
+// Remove removes a value from the tree with provided key.
+// The deleted data is return if key found, otherwise nil is returned.
 func (t *llrb) Remove(key NodeKey) (interface{}, error) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
