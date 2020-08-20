@@ -119,8 +119,8 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	// remove invalid txs from mempool
 	var invalidTxs = make([]types.Tx, len(resp.InvalidTxs))
 	var deliverTxResponses = make([]*abcix.ResponseDeliverTx, len(resp.InvalidTxs))
-	for i, tx := range resp.InvalidTxs {
-		copy(invalidTxs[i], tx)
+	for i, invalidTx := range resp.InvalidTxs {
+		copy(invalidTxs[i], invalidTx)
 		deliverTxResponses[i].Code = 1
 	}
 	err = blockExec.mempool.Update(
