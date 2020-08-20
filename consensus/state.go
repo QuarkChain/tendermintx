@@ -1744,6 +1744,12 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 		cs.Logger.Info("Received complete proposal block", "height", cs.ProposalBlock.Height, "hash", cs.ProposalBlock.Hash())
 		cs.eventBus.PublishEventCompleteProposal(cs.CompleteProposalEvent())
 
+		checkBlockResp, err := cs.blockExec.GetCheckBlockResp(block)
+		if err != nil || checkBlockResp.Code != 0 {
+			cs.Logger.Error("Error on CheckBlock", "err", err)
+			return added, err
+		}
+
 		// Update Valid* if we can.
 		prevotes := cs.Votes.Prevotes(cs.Round)
 		blockID, hasTwoThirds := prevotes.TwoThirdsMajority()

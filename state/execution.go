@@ -254,6 +254,30 @@ func (blockExec *BlockExecutor) Commit(
 	return res.Data, res.RetainHeight, err
 }
 
+func (blockExec *BlockExecutor) GetCheckBlockResp(block *types.Block) (*abcix.ResponseCheckBlock, error) {
+	commitInfo, byzVals := getBlockValidatorInfo(
+		block.Time,
+		block.Height,
+		block.LastCommit,
+		block.Evidence.Evidence,
+		blockExec.db,
+	)
+	pbh := block.Header.ToProto()
+	txs := make([][]byte, 0, len(block.Txs))
+	for _, tx := range block.Txs {
+		txs = append(txs, tx)
+	}
+
+	return blockExec.proxyApp.CheckBlockSync(abcix.RequestCheckBlock{
+		Height:              block.Height,
+		Hash:                block.Hash(),
+		Header:              *pbh,
+		LastCommitInfo:      commitInfo,
+		ByzantineValidators: byzVals,
+		Txs:                 txs,
+	})
+}
+
 //---------------------------------------------------------
 // Helper functions for executing blocks and updating state
 
