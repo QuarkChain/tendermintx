@@ -35,7 +35,6 @@ type node struct {
 
 type llrb struct {
 	mtx     sync.RWMutex
-	wg      *sync.WaitGroup
 	size    int
 	maxSize int
 	root    *node
@@ -43,7 +42,7 @@ type llrb struct {
 
 // Return llrb with given maxLength, will panic if list exceeds given maxLength
 func newLlrb(maxSize int) *llrb {
-	return &llrb{wg: waitGroup1(), maxSize: maxSize}
+	return &llrb{maxSize: maxSize}
 }
 
 // Size returns the number of nodes in the tree
@@ -257,10 +256,4 @@ func flip(h *node) {
 	h.black = !h.black
 	h.left.black = !h.left.black
 	h.right.black = !h.right.black
-}
-
-func waitGroup1() (wg *sync.WaitGroup) {
-	wg = &sync.WaitGroup{}
-	wg.Add(1)
-	return
 }
