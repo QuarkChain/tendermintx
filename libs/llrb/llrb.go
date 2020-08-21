@@ -122,20 +122,20 @@ func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
 	return h, err
 }
 
-func (t *llrb) deleteMin(h *node) (*node, NodeKey, interface{}) {
+func (t *llrb) deleteMin(h *node) (*node, node) {
 	deleted := node{}
 	if h == nil {
-		return nil, deleted.key, deleted.data
+		return nil, deleted
 	}
 	if h.left == nil {
-		return nil, h.key, h.data
+		return nil, *h
 	}
 
 	if !isRed(h.left) && !isRed(h.left.left) {
 		h = t.moveRedLeft(h)
 	}
-	h.left, deleted.key, deleted.data = t.deleteMin(h.left)
-	return t.fixUp(h), deleted.key, deleted.data
+	h.left, deleted = t.deleteMin(h.left)
+	return t.fixUp(h), deleted
 }
 
 // Remove removes a value from the tree with provided key
@@ -144,7 +144,7 @@ func (t *llrb) Remove(key NodeKey) (interface{}, error) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 	deleted := node{}
-	t.root, deleted.key, deleted.data = t.delete(t.root, key)
+	t.root, deleted = t.delete(t.root, key)
 	if t.root != nil {
 		t.root.black = true
 	}
@@ -155,38 +155,40 @@ func (t *llrb) Remove(key NodeKey) (interface{}, error) {
 	return nil, fmt.Errorf("key not found")
 }
 
-func (t *llrb) delete(h *node, key NodeKey) (*node, NodeKey, interface{}) {
+func (t *llrb) delete(h *node, key NodeKey) (*node, node) {
 	deleted := node{}
 	if h == nil {
-		return nil, deleted.key, deleted.data
+		return nil, deleted
 	}
 	if key.compare(h.key) == -1 {
 		if h.left == nil {
-			return h, deleted.key, deleted.data
+			return h, deleted
 		}
 		if !isRed(h.left) && !isRed(h.left.left) {
 			h = t.moveRedLeft(h)
 		}
-		h.left, deleted.key, deleted.data = t.delete(h.left, key)
+		h.left, deleted = t.delete(h.left, key)
 	} else {
 		if isRed(h.left) {
 			h = t.rotateRight(h)
 		}
 		if key.compare(h.key) == 0 && h.right == nil {
-			return nil, h.key, h.data
+			return nil, *h
 		}
 		if h.right != nil && !isRed(h.right) && !isRed(h.right.left) {
 			h = t.moveRedRight(h)
 		}
 		if key.compare(h.key) == 0 {
-			deleted.data = h.data
-			deleted.key = h.key
-			h.right, h.key, h.data = t.deleteMin(h.right)
+			deleted = *h
+			temp := node{}
+			h.right, temp = t.deleteMin(h.right)
+			h.key = temp.key
+			h.data = temp.data
 		} else {
-			h.right, deleted.key, deleted.data = t.delete(h.right, key)
+			h.right, deleted = t.delete(h.right, key)
 		}
 	}
-	return t.fixUp(h), deleted.key, deleted.data
+	return t.fixUp(h), deleted
 }
 
 func (t *llrb) rotateLeft(h *node) *node {

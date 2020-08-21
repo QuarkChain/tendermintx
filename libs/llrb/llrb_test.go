@@ -163,7 +163,7 @@ func BenchmarkInsert(b *testing.B) {
 	}
 }
 
-func BenchmarkDelete(b *testing.B) {
+func BenchmarkRemove(b *testing.B) {
 	b.StopTimer()
 	tree := new(llrb)
 	var nks []*NodeKey
