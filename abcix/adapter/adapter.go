@@ -201,9 +201,9 @@ func (app *adaptedApp) Commit() (resp abcix.ResponseCommit) {
 	return
 }
 
-func (app *adaptedApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckBlock {
-	// TODO: defer to consensus engine for now
-	panic("implement me")
+func (app *adaptedApp) CheckBlock(req abcix.RequestCheckBlock) (resp abcix.ResponseCheckBlock) {
+	// TODO
+	return
 }
 
 func (app *adaptedApp) ListSnapshots(req abcix.RequestListSnapshots) (resp abcix.ResponseListSnapshots) {
