@@ -143,12 +143,12 @@ func (t *llrb) deleteMin(h *node) (*node, node) {
 func (t *llrb) Remove(key NodeKey) (interface{}, error) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
-	deleted := node{}
-	t.root, deleted = t.delete(t.root, key)
+	root, deleted := t.delete(t.root, key)
+	t.root = root
 	if t.root != nil {
 		t.root.black = true
 	}
-	if deleted.data != nil {
+	if deleted != (node{}) {
 		t.size--
 		return deleted.data, nil
 	}
@@ -180,10 +180,10 @@ func (t *llrb) delete(h *node, key NodeKey) (*node, node) {
 		}
 		if key.compare(h.key) == 0 {
 			deleted = *h
-			temp := node{}
-			h.right, temp = t.deleteMin(h.right)
-			h.key = temp.key
-			h.data = temp.data
+			right, newNode := t.deleteMin(h.right)
+			h.right = right
+			h.key = newNode.key
+			h.data = newNode.data
 		} else {
 			h.right, deleted = t.delete(h.right, key)
 		}
