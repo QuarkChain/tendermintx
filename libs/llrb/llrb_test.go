@@ -121,10 +121,10 @@ func TestRandomInsertDeleteNonExistent(t *testing.T) {
 
 func TestGetNext(t *testing.T) {
 	testCases := []struct {
-		priorities      []uint64
-		bytelen         []int
-		expectedTxOrder []int // How original txs ordered in retrieved txs
-		bytelimit       int
+		priorities      []uint64 // Priority of each tx
+		byteLenghth     []int    // Byte lenth of each tx
+		expectedTxOrder []int    // How original txs ordered in retrieved txs
+		byteLimit       int      // Byte limit provided by user
 	}{
 		{
 			priorities:      []uint64{0, 0, 0, 0, 0},
@@ -153,27 +153,27 @@ func TestGetNext(t *testing.T) {
 		// Byte limitation test
 		{
 			priorities:      []uint64{0, 0, 0, 0, 0},
-			bytelen:         []int{1, 2, 3, 4, 5},
+			byteLenghth:     []int{1, 2, 3, 4, 5},
 			expectedTxOrder: []int{0},
-			bytelimit:       1,
+			byteLimit:       1,
 		},
 		{
 			priorities:      []uint64{0, 0, 0, 0, 0},
-			bytelen:         []int{1, 2, 3, 4, 5},
+			byteLenghth:     []int{1, 2, 3, 4, 5},
 			expectedTxOrder: []int{0, 1, 2},
-			bytelimit:       3,
+			byteLimit:       3,
 		},
 		{
 			priorities:      []uint64{1, 0, 1, 0, 1},
-			bytelen:         []int{1, 2, 3, 4, 5},
+			byteLenghth:     []int{1, 2, 3, 4, 5},
 			expectedTxOrder: []int{0, 2, 1},
-			bytelimit:       3,
+			byteLimit:       3,
 		},
 		{
 			priorities:      []uint64{1, 3, 5, 4, 2},
-			bytelen:         []int{1, 3, 5, 4, 2},
+			byteLenghth:     []int{1, 3, 5, 4, 2},
 			expectedTxOrder: []int{1, 4, 0},
-			bytelimit:       3,
+			byteLimit:       3,
 		},
 	}
 
@@ -182,9 +182,9 @@ func TestGetNext(t *testing.T) {
 		nks := getNodeKeys(tc.priorities)
 		txs := getRandomBytes(len(tc.priorities))
 		limit := 20
-		if tc.bytelen != nil {
-			txs = getFixedBytes(tc.bytelen)
-			limit = tc.bytelimit
+		if tc.byteLenghth != nil {
+			txs = getFixedBytes(tc.byteLenghth)
+			limit = tc.byteLimit
 		}
 		var txsMap sync.Map
 		for j := 0; j < len(nks); j++ {
