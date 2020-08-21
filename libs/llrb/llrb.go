@@ -11,6 +11,7 @@ import (
 const maxSize = int(^uint(0) >> 1)
 
 var ErrorStopIteration = errors.New("STOP ITERATION")
+var ErrorKeyNotFound = errors.New("KEY NOT FOUND")
 
 func (a NodeKey) compare(b NodeKey) int {
 	if a.Priority > b.Priority {
@@ -79,6 +80,18 @@ func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 		return nil, ErrorStopIteration
 	}
 	return candidate.data, nil
+}
+
+func (t *llrb) Update(oldKey NodeKey, newKey NodeKey) error {
+	data, err := t.Remove(oldKey)
+	if err != nil {
+		return err
+	}
+	err = t.Insert(newKey, data)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Insert inserts value into the tree
@@ -152,7 +165,7 @@ func (t *llrb) Remove(key NodeKey) (interface{}, error) {
 		t.size--
 		return deleted.data, nil
 	}
-	return nil, fmt.Errorf("key not found")
+	return nil, ErrorKeyNotFound
 }
 
 func (t *llrb) delete(h *node, key NodeKey) (*node, node) {
