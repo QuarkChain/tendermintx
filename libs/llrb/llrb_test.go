@@ -123,7 +123,7 @@ func TestGetNext(t *testing.T) {
 	testCases := []struct {
 		priorities      []uint64
 		bytelen         []int
-		expectedTxOrder []int // how original txs ordered in retrieved txs
+		expectedTxOrder []int // How original txs ordered in retrieved txs
 		bytelimit       int
 	}{
 		{
