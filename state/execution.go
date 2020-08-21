@@ -1,6 +1,8 @@
 package state
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"time"
 
@@ -254,7 +256,7 @@ func (blockExec *BlockExecutor) Commit(
 	return res.Data, res.RetainHeight, err
 }
 
-func (blockExec *BlockExecutor) GetCheckBlockResp(block *types.Block) (*abcix.ResponseCheckBlock, error) {
+func (blockExec *BlockExecutor) CheckBlock(block *types.Block) error {
 	commitInfo, byzVals := getBlockValidatorInfo(
 		block.Time,
 		block.Height,
@@ -268,7 +270,7 @@ func (blockExec *BlockExecutor) GetCheckBlockResp(block *types.Block) (*abcix.Re
 		txs = append(txs, tx)
 	}
 
-	return blockExec.proxyApp.CheckBlockSync(abcix.RequestCheckBlock{
+	resp, err := blockExec.proxyApp.CheckBlockSync(abcix.RequestCheckBlock{
 		Height:              block.Height,
 		Hash:                block.Hash(),
 		Header:              *pbh,
@@ -276,6 +278,23 @@ func (blockExec *BlockExecutor) GetCheckBlockResp(block *types.Block) (*abcix.Re
 		ByzantineValidators: byzVals,
 		Txs:                 txs,
 	})
+
+	if err != nil {
+		return err
+	}
+	if resp.Code != 0 {
+		return errors.New("application error during CheckBlock")
+	}
+	for _, tx := range resp.DeliverTxs {
+		if tx.Code != 0 {
+			return errors.New("invalid transaction")
+		}
+	}
+	if !bytes.Equal(resp.Data, block.Header.LastResultsHash.Bytes()) {
+		return errors.New("mismatch between header and CheckBlock response")
+	}
+
+	return err
 }
 
 //---------------------------------------------------------
