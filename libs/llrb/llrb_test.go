@@ -194,7 +194,7 @@ func TestGetNext(t *testing.T) {
 		ordered := getOrderedTxs(tree, limit, &txsMap)
 		require.Equal(t, len(tc.expectedTxOrder), len(ordered))
 		for j, k := range tc.expectedTxOrder {
-			require.True(t, bytes.Equal(txs[k], ordered[j]), "expecting equal bytes at testcase %d, original tx %d, retrieved tx %d", i, k, j)
+			require.True(t, bytes.Equal(txs[k], ordered[j]), "expecting equal bytes at testcase %d", i)
 		}
 	}
 }
