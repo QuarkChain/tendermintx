@@ -83,11 +83,11 @@ func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 }
 
 func (t *llrb) UpdateKey(oldKey NodeKey, newKey NodeKey) error {
-	if data, err := t.Remove(oldKey); err != nil {
+	data, err := t.Remove(oldKey)
+	if err != nil {
 		return err
-	} else {
-		return t.Insert(newKey, data)
 	}
+	return t.Insert(newKey, data)
 }
 
 // Insert inserts value into the tree
