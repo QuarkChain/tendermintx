@@ -700,6 +700,32 @@ func (mem *CListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, star
 	return candidate.Value.(*mempoolTx).tx, nil
 }
 
+func (mem *CListMempool) RemoveTxs(txs types.Txs, deliverTxResponses []*abcix.ResponseDeliverTx) {
+	for i, tx := range txs {
+		if deliverTxResponses[i].Code == abcix.CodeTypeOK {
+			// Add valid committed tx to the cache (if missing).
+			_ = mem.cache.Push(tx)
+		} else {
+			// Allow invalid transactions to be resubmitted.
+			mem.cache.Remove(tx)
+		}
+
+		// Remove committed tx from the mempool.
+		//
+		// Note an evil proposer can drop valid txs!
+		// Mempool before:
+		//   100 -> 101 -> 102
+		// Block, proposed by an evil proposer:
+		//   101 -> 102
+		// Mempool after:
+		//   100
+		// https://github.com/tendermint/tendermint/issues/3322.
+		if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
+			mem.removeTx(tx, e.(*clist.CElement), false)
+		}
+	}
+}
+
 //--------------------------------------------------------------------------------
 
 // mempoolTx is a transaction that successfully ran
