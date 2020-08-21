@@ -56,11 +56,11 @@ func TestBasics(t *testing.T) {
 	tree.Insert(*nks[0], txs[0])
 	require.Equal(t, 1, tree.Size(), "expecting len 1")
 	data, err := tree.Remove(*nks[0])
-	require.NoError(t, err, "expect not error when removing existed node")
+	require.NoError(t, err, "expecting no error when removing existed node")
 	require.Equal(t, 0, tree.Size(), "expecting len 0")
 	require.Equal(t, txs[0], data.([]byte), "expecting same data")
 	_, err = tree.Remove(*nks[1])
-	require.Error(t, err, "expect error when removing nonexistent node")
+	require.Error(t, err, "expecting error when removing nonexistent node")
 
 }
 
@@ -77,7 +77,7 @@ func TestRandomInsertSequenceDelete(t *testing.T) {
 	}
 	for i := 0; i < n; i++ {
 		removed, err := tree.Remove(*nks[i])
-		require.NoError(t, err, "expect not error when removing existed node")
+		require.NoError(t, err, "expecting no error when removing existed node")
 		require.True(t, bytes.Equal(removed.([]byte), txs[perm[i]]), "expecting same data")
 	}
 }
@@ -94,19 +94,19 @@ func TestRandomInsertDeleteNonExistent(t *testing.T) {
 		tree.Insert(*nk, txs[perm[i]])
 	}
 	_, err := tree.Remove(*getNodeKeys([]uint64{200})[0])
-	require.Error(t, err, "expect error when removing nonexistent node")
+	require.Error(t, err, "expecting error when removing nonexistent node")
 	_, err = tree.Remove(*getNodeKeys([]uint64{2000})[0])
-	require.Error(t, err, "expect error when removing nonexistent node")
+	require.Error(t, err, "expecting error when removing nonexistent node")
 
 	for i := 0; i < n; i++ {
 		result, err := tree.Remove(*nks[i])
-		require.NoError(t, err, "expect not error when removing existed node")
+		require.NoError(t, err, "expecting no error when removing existed node")
 		require.True(t, bytes.Equal(result.([]byte), txs[perm[i]]), "expecting same data")
 	}
 	_, err = tree.Remove(*getNodeKeys([]uint64{200})[0])
-	require.Error(t, err, "expect error when removing nonexistent node")
+	require.Error(t, err, "expecting error when removing nonexistent node")
 	_, err = tree.Remove(*getNodeKeys([]uint64{2000})[0])
-	require.Error(t, err, "expect error when removing nonexistent node")
+	require.Error(t, err, "expecting error when removing nonexistent node")
 }
 
 func TestGetNext(t *testing.T) {
