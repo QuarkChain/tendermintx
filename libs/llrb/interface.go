@@ -13,7 +13,7 @@ type LLRB interface {
 	Insert(key NodeKey, data interface{}) error
 	Remove(key NodeKey) (interface{}, error)
 	IterInit(starter *NodeKey, predicate func(interface{}) bool) error
-	IterNext() error
+	IterNext()
 	IterCurr() (interface{}, error)
 	IterHasNext() bool
 }

@@ -72,22 +72,17 @@ func iterateOrderedTxs(tree LLRB, limit int, txMap *sync.Map) [][]byte {
 
 func TestBasics(t *testing.T) {
 	tree := New()
-	nks := getNodeKeys([]uint64{1})
-	txs := getRandomBytes(1)
+	nks := getNodeKeys([]uint64{1, 2})
+	txs := getRandomBytes(2)
 	tree.Insert(*nks[0], txs[0])
-	if tree.Size() != 1 {
-		t.Errorf("expecting len 1")
-	}
+	require.Equal(t, 1, tree.Size(), "expecting len 1")
 	data, err := tree.Remove(*nks[0])
-	if err != nil {
-		t.Errorf("error when removing element")
-	}
-	if tree.Size() != 0 {
-		t.Errorf("expecting len 0")
-	}
-	if !bytes.Equal(data.([]byte), txs[0]) {
-		t.Errorf("expecting equal bytes")
-	}
+	require.NoError(t, err, "expecting no error when removing existed node")
+	require.Equal(t, 0, tree.Size(), "expecting len 0")
+	require.Equal(t, txs[0], data.([]byte), "expecting same data")
+	_, err = tree.Remove(*nks[1])
+	require.Error(t, err, "expecting error when removing nonexistent node")
+
 }
 
 func TestRandomInsertSequenceDelete(t *testing.T) {

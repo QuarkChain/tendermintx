@@ -58,8 +58,8 @@ func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) erro
 	var candidate *node
 	for h := t.root; h != nil; {
 		t.stack = append(t.stack, h)
-		if h.key.compare(startKey) == -1 && (predicate == nil || predicate(h.data)) {
-			if candidate == nil || candidate.key.compare(h.key) == -1 {
+		if h.key.compare(startKey) == -1 {
+			if (predicate == nil || predicate(h.data)) && (candidate == nil || candidate.key.compare(h.key) == -1) {
 				candidate = h
 			}
 			h = h.right
@@ -67,7 +67,10 @@ func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) erro
 			h = h.left
 		}
 	}
-	return ErrorStopIteration
+	if candidate == nil {
+		return ErrorStopIteration
+	}
+	return nil
 }
 
 func (t *llrb) IterCurr() (interface{}, error) {
@@ -77,29 +80,21 @@ func (t *llrb) IterCurr() (interface{}, error) {
 	return t.stack[len(t.stack)-1].data, nil
 }
 
-func (t *llrb) IterNext() error {
-	if t.predicate == nil {
-		t.iterNext()
-	} else {
-		for result, err := t.IterCurr(); err == nil; t.iterNext() {
-			if t.predicate(result) {
-				break
-			} else {
-				return err
-			}
+func (t *llrb) IterNext() {
+	t.iterNext()
+	if t.predicate != nil {
+		for result, err := t.IterCurr(); err == nil && !t.predicate(result); t.iterNext() {
 		}
 	}
-	return nil
 }
 
-func (t *llrb) iterNext() error {
+func (t *llrb) iterNext() {
 	curr := t.stack[len(t.stack)-1].left
 	t.stack = t.stack[:len(t.stack)-1]
 	for curr != nil {
 		t.stack = append(t.stack, curr)
 		curr = curr.right
 	}
-	return nil
 }
 
 func (t *llrb) IterHasNext() bool {
