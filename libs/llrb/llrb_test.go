@@ -34,11 +34,21 @@ func getRandomBytes(count int) [][]byte {
 	return txs
 }
 
-func getOrderedTxs(tree LLRB, txMap *sync.Map) [][]byte {
+func getFixedBytes(bytelen []int) [][]byte {
+	var txs [][]byte
+	for i := 0; i < len(bytelen); i++ {
+		tx := make([]byte, bytelen[i])
+		cr.Read(tx)
+		txs = append(txs, tx)
+	}
+	return txs
+}
+
+func getOrderedTxs(tree LLRB, byteLimit int, txMap *sync.Map) [][]byte {
 	var starter *NodeKey
 	var txs [][]byte
 	for {
-		result, err := tree.GetNext(starter, nil)
+		result, err := tree.GetNext(starter, func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
 		if err != nil {
 			break
 		}
@@ -111,32 +121,59 @@ func TestRandomInsertDeleteNonExistent(t *testing.T) {
 
 func TestGetNext(t *testing.T) {
 	testCases := []struct {
-		priorities []uint64
-		order      []int64
+		priorities      []uint64
+		bytelen         []int
+		expectedTxOrder []int // how original txs ordered in retrieved txs
+		bytelimit       int
 	}{
 		{
-			priorities: []uint64{0, 0, 0, 0, 0},
-			order:      []int64{0, 1, 2, 3, 4},
+			priorities:      []uint64{0, 0, 0, 0, 0},
+			expectedTxOrder: []int{0, 1, 2, 3, 4},
 		},
 		{
-			priorities: []uint64{1, 0, 1, 0, 1},
-			order:      []int64{0, 3, 1, 4, 2},
+			priorities:      []uint64{1, 0, 1, 0, 1},
+			expectedTxOrder: []int{0, 2, 4, 1, 3},
 		},
 		{
-			priorities: []uint64{1, 2, 3, 4, 5},
-			order:      []int64{4, 3, 2, 1, 0},
+			priorities:      []uint64{1, 2, 3, 4, 5},
+			expectedTxOrder: []int{4, 3, 2, 1, 0},
 		},
 		{
-			priorities: []uint64{5, 4, 3, 2, 1},
-			order:      []int64{0, 1, 2, 3, 4},
+			priorities:      []uint64{5, 4, 3, 2, 1},
+			expectedTxOrder: []int{0, 1, 2, 3, 4},
 		},
 		{
-			priorities: []uint64{1, 3, 5, 4, 2},
-			order:      []int64{4, 2, 0, 1, 3},
+			priorities:      []uint64{1, 3, 5, 4, 2},
+			expectedTxOrder: []int{2, 3, 1, 4, 0},
 		},
 		{
-			priorities: []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
-			order:      []int64{0, 1, 2, 3},
+			priorities:      []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
+			expectedTxOrder: []int{0, 1, 2, 3},
+		},
+		// Byte limitation test
+		{
+			priorities:      []uint64{0, 0, 0, 0, 0},
+			bytelen:         []int{1, 2, 3, 4, 5},
+			expectedTxOrder: []int{0},
+			bytelimit:       1,
+		},
+		{
+			priorities:      []uint64{0, 0, 0, 0, 0},
+			bytelen:         []int{1, 2, 3, 4, 5},
+			expectedTxOrder: []int{0, 1, 2},
+			bytelimit:       3,
+		},
+		{
+			priorities:      []uint64{1, 0, 1, 0, 1},
+			bytelen:         []int{1, 2, 3, 4, 5},
+			expectedTxOrder: []int{0, 2, 1},
+			bytelimit:       3,
+		},
+		{
+			priorities:      []uint64{1, 3, 5, 4, 2},
+			bytelen:         []int{1, 3, 5, 4, 2},
+			expectedTxOrder: []int{1, 4, 0},
+			bytelimit:       3,
 		},
 	}
 
@@ -144,14 +181,20 @@ func TestGetNext(t *testing.T) {
 		tree := New()
 		nks := getNodeKeys(tc.priorities)
 		txs := getRandomBytes(len(tc.priorities))
+		limit := 20
+		if tc.bytelen != nil {
+			txs = getFixedBytes(tc.bytelen)
+			limit = tc.bytelimit
+		}
 		var txsMap sync.Map
 		for j := 0; j < len(nks); j++ {
 			txsMap.Store(string(txs[j]), nks[j])
 			tree.Insert(*nks[j], txs[j])
 		}
-		ordered := getOrderedTxs(tree, &txsMap)
-		for j := 0; j < len(nks); j++ {
-			require.True(t, bytes.Equal(txs[j], ordered[tc.order[j]]), "expecting equal bytes at testcase %d txs %d", i, j)
+		ordered := getOrderedTxs(tree, limit, &txsMap)
+		require.Equal(t, len(tc.expectedTxOrder), len(ordered))
+		for j, k := range tc.expectedTxOrder {
+			require.True(t, bytes.Equal(txs[k], ordered[j]), "expecting equal bytes at testcase %d, original tx %d, retrieved tx %d", i, k, j)
 		}
 	}
 }
