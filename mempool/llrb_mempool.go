@@ -7,12 +7,16 @@ import (
 	"sync/atomic"
 	"time"
 
+	tmos "github.com/tendermint/tendermint/libs/os"
+
+	auto "github.com/tendermint/tendermint/libs/autofile"
+
+	tmmath "github.com/tendermint/tendermint/libs/math"
+
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	cfg "github.com/tendermint/tendermint/config"
-	auto "github.com/tendermint/tendermint/libs/autofile"
 	"github.com/tendermint/tendermint/libs/llrb"
 	"github.com/tendermint/tendermint/libs/log"
-	tmos "github.com/tendermint/tendermint/libs/os"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/proxy"
 	"github.com/tendermint/tendermint/types"
@@ -22,9 +26,8 @@ import (
 
 // lElement is used to insert, remove, or recheck transactions
 type lElement struct {
-	priority  uint64
-	timeStamp time.Time
-	tx        *mempoolTx
+	nodeKey llrb.NodeKey
+	tx      *mempoolTx
 }
 
 //--------------------------------------------------------------------------------
@@ -35,45 +38,18 @@ type lElement struct {
 // mempool uses a left-leaning red-black tree structure for storing transactions that can
 // be efficiently accessed by multiple concurrent readers.
 type LlrbMempool struct {
-	// Atomic integers
-	height   int64 // the last block Update()'d to
-	txsBytes int64 // total size of mempool, in bytes
-
-	// notify listeners (ie. consensus) when txs are available
-	notifiedTxsAvailable bool
-	txsAvailable         chan struct{} // fires once for each height, when the mempool is not empty
-
-	config *cfg.MempoolConfig
-
-	// Exclusive mutex for Update method to prevent concurrent execution of
-	// CheckTx or ReapMaxBytesMaxGas(ReapMaxTxs) methods.
-	updateMtx sync.RWMutex
-	preCheck  PreCheckFunc
-	postCheck PostCheckFunc
-
-	wal          *auto.AutoFile // a log of mempool txs
-	txs          *llrb.Llrb     // left-leaning red-black tree of good txs
-	proxyAppConn proxy.AppConnMempool
-
+	umempool
+	txs llrb.LLRB // left-leaning red-black tree of good txs
+	// Map for quick access to txs to record sender in CheckTx.
+	// txsMap: txKey -> lElement
+	txsMap   sync.Map
+	preCheck PreCheckFunc
 	// Track whether we're rechecking txs.
 	// These are not protected by a mutex and are expected to be mutated in
 	// serial (ie. by abci responses which are called in serial).
 	recheckCursor *lElement // next expected response
 	recheckEnd    *lElement // re-checking stops here
-
-	// Map for quick access to txs to record sender in CheckTx.
-	// txsMap: txKey -> (lElement)
-	txsMap sync.Map
-
-	// Keep a cache of already-seen txs.
-	// This reduces the pressure on the proxyApp.
-	cache txCache
-
-	logger log.Logger
-
-	metrics *Metrics
-
-	server *mempoolServer
+	server        *mempoolServer
 }
 
 var _ Mempool = &LlrbMempool{}
@@ -89,15 +65,18 @@ func NewLlrbMempool(
 	options ...LlrbMempoolOption,
 ) *LlrbMempool {
 	mempool := &LlrbMempool{
-		config:        config,
-		proxyAppConn:  proxyAppConn,
+		umempool: umempool{
+			config:       config,
+			proxyAppConn: proxyAppConn,
+			height:       height,
+			logger:       log.NewNopLogger(),
+			metrics:      NopMetrics(),
+		},
 		txs:           llrb.New(),
-		height:        height,
 		recheckCursor: nil,
 		recheckEnd:    nil,
-		logger:        log.NewNopLogger(),
-		metrics:       NopMetrics(),
 	}
+
 	if config.CacheSize > 0 {
 		mempool.cache = newMapTxCache(config.CacheSize)
 	} else {
@@ -115,23 +94,17 @@ func NewLlrbMempool(
 		}
 		mempool.server = server
 	}
+
+	mempool.umempool.txAdder = func(tx *mempoolTx, priority uint64) { mempool.addTx(tx, priority) }
+	mempool.umempool.sizer = mempool.Size
+
 	return mempool
-}
-
-// NOTE: not thread safe - should only be called once, on startup
-func (mem *LlrbMempool) EnableTxsAvailable() {
-	mem.txsAvailable = make(chan struct{}, 1)
-}
-
-// SetLogger sets the Logger.
-func (mem *LlrbMempool) SetLogger(l log.Logger) {
-	mem.logger = l
 }
 
 func (mem *LlrbMempool) InitWAL() error {
 	var (
 		walDir  = mem.config.WalDir()
-		walFile = walDir + "/wal"
+		walFile = walDir + "/lwal"
 	)
 
 	const perm = 0700
@@ -148,36 +121,9 @@ func (mem *LlrbMempool) InitWAL() error {
 	return nil
 }
 
-func (mem *LlrbMempool) CloseWAL() {
-	if err := mem.wal.Close(); err != nil {
-		mem.logger.Error("Error closing WAL", "err", err)
-	}
-	mem.wal = nil
-}
-
-// Safe for concurrent use by multiple goroutines.
-func (mem *LlrbMempool) Lock() {
-	mem.updateMtx.Lock()
-}
-
-// Safe for concurrent use by multiple goroutines.
-func (mem *LlrbMempool) Unlock() {
-	mem.updateMtx.Unlock()
-}
-
 // Safe for concurrent use by multiple goroutines.
 func (mem *LlrbMempool) Size() int {
 	return mem.txs.Size()
-}
-
-// Safe for concurrent use by multiple goroutines.
-func (mem *LlrbMempool) TxsBytes() int64 {
-	return atomic.LoadInt64(&mem.txsBytes)
-}
-
-// Lock() must be help by the caller during execution.
-func (mem *LlrbMempool) FlushAppConn() error {
-	return mem.proxyAppConn.FlushSync()
 }
 
 // XXX: Unsafe! Calling Flush may leave mempool in inconsistent state.
@@ -190,21 +136,17 @@ func (mem *LlrbMempool) Flush() {
 	mem.cache.Reset()
 
 	for {
-		tx, err := mem.txs.GetNext(nil, func(i interface{}) bool {
-			return true
-		})
+		memTx, err := mem.txs.GetNext(nil, nil)
 		if err != nil {
-			panic(err)
-		}
-		if len(tx) == 0 {
 			break
 		}
+		tx := (*memTx.(**mempoolTx)).tx
 		if i, ok := mem.txsMap.Load(TxKey(tx)); ok {
 			e = i.(*lElement)
 		}
-		mem.Lock()
-		mem.txs.Delete(e.priority, e.timeStamp)
-		mem.Unlock()
+		if _, err := mem.txs.Remove(e.nodeKey); err != nil {
+			panic(err)
+		}
 	}
 
 	mem.txsMap.Range(func(key, _ interface{}) bool {
@@ -267,11 +209,11 @@ func (mem *LlrbMempool) CheckTx(tx types.Tx, cb func(*abcix.Response), txInfo Tx
 		// TODO: Notify administrators when WAL fails
 		_, err := mem.wal.Write([]byte(tx))
 		if err != nil {
-			mem.logger.Error("Error writing to WAL", "err", err)
+			mem.logger.Error("Error writing to lWAL", "err", err)
 		}
 		_, err = mem.wal.Write([]byte("\n"))
 		if err != nil {
-			mem.logger.Error("Error writing to WAL", "err", err)
+			mem.logger.Error("Error writing to lWAL", "err", err)
 		}
 	}
 	// END WAL
@@ -345,12 +287,11 @@ func (mem *LlrbMempool) reqResCb(
 //  - resCbFirstTime (lock not held) if tx is valid
 func (mem *LlrbMempool) addTx(memTx *mempoolTx, priority uint64) {
 	timeStamp := time.Now()
-	mem.Lock()
-	if err := mem.txs.Insert(priority, timeStamp, memTx); err != nil {
+	e := &lElement{nodeKey: llrb.NodeKey{Priority: priority, TS: timeStamp}}
+	if err := mem.txs.Insert(e.nodeKey, &memTx); err != nil {
 		panic("failed to insert tx into llrb mempool")
 	}
-	mem.Unlock()
-	mem.txsMap.Store(TxKey(memTx.tx), lElement{priority, timeStamp, memTx})
+	mem.txsMap.Store(TxKey(memTx.tx), &lElement{e.nodeKey, memTx})
 	atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx)))
 	mem.metrics.TxSizeBytes.Observe(float64(len(memTx.tx)))
 }
@@ -360,82 +301,13 @@ func (mem *LlrbMempool) addTx(memTx *mempoolTx, priority uint64) {
 // 	- resCbRecheck (lock not held) if tx was invalidated
 func (mem *LlrbMempool) removeTx(tx types.Tx, elem *lElement, removeFromCache bool) {
 	mem.Lock()
-	mem.txs.Delete(elem.priority, elem.timeStamp)
+	mem.txs.Remove(elem.nodeKey)
 	mem.Unlock()
 	mem.txsMap.Delete(TxKey(tx))
 	atomic.AddInt64(&mem.txsBytes, int64(-len(tx)))
 
 	if removeFromCache {
 		mem.cache.Remove(tx)
-	}
-}
-
-func (mem *LlrbMempool) isFull(txSize int) error {
-	var (
-		memSize  = mem.Size()
-		txsBytes = mem.TxsBytes()
-	)
-
-	if memSize >= mem.config.Size || int64(txSize)+txsBytes > mem.config.MaxTxsBytes {
-		return ErrMempoolIsFull{
-			memSize, mem.config.Size,
-			txsBytes, mem.config.MaxTxsBytes,
-		}
-	}
-
-	return nil
-}
-
-// callback, which is called after the app checked the tx for the first time.
-//
-// The case where the app checks the tx for the second and subsequent times is
-// handled by the resCbRecheck callback.
-func (mem *LlrbMempool) resCbFirstTime(
-	tx []byte,
-	peerID uint16,
-	peerP2PID p2p.ID,
-	res *abcix.Response,
-) {
-	switch r := res.Value.(type) {
-	case *abcix.Response_CheckTx:
-		var postCheckErr error
-		if mem.postCheck != nil {
-			postCheckErr = mem.postCheck(tx, r.CheckTx)
-		}
-		if (r.CheckTx.Code == abcix.CodeTypeOK) && postCheckErr == nil {
-			// Check mempool isn't full again to reduce the chance of exceeding the
-			// limits.
-			if err := mem.isFull(len(tx)); err != nil {
-				// remove from cache (mempool might have a space later)
-				mem.cache.Remove(tx)
-				mem.logger.Error(err.Error())
-				return
-			}
-
-			memTx := &mempoolTx{
-				height:    mem.height,
-				gasWanted: r.CheckTx.GasWanted,
-				tx:        tx,
-			}
-			memTx.senders.Store(peerID, true)
-			mem.addTx(memTx, r.CheckTx.Priority)
-			mem.logger.Info("Added good transaction",
-				"tx", txID(tx),
-				"res", r,
-				"height", memTx.height,
-				"total", mem.Size(),
-			)
-			mem.notifyTxsAvailable()
-		} else {
-			// ignore bad transaction
-			mem.logger.Info("Rejected bad transaction",
-				"tx", txID(tx), "peerID", peerP2PID, "res", r, "err", postCheckErr)
-			mem.metrics.FailedTxs.Add(1)
-			// remove from cache (it might be good later)
-			mem.cache.Remove(tx)
-		}
-	default:
-		// ignore other messages
 	}
 }
 
@@ -469,15 +341,14 @@ func (mem *LlrbMempool) resCbRecheck(req *abcix.Request, res *abcix.Response) {
 		if mem.recheckCursor == mem.recheckEnd {
 			mem.recheckCursor = nil
 		} else {
-			key := llrb.NewNodeKey(mem.recheckCursor.priority, mem.recheckCursor.timeStamp)
-			tx, err := mem.txs.GetNext(&key, func(i interface{}) bool {
-				return true
-			})
+			memTx, err := mem.txs.GetNext(&(mem.recheckCursor.nodeKey), nil)
 			if err != nil {
-				panic("failed to get next tx from mempool")
-			}
-			if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
-				mem.recheckCursor = e.(*lElement)
+				mem.recheckCursor = nil
+			} else {
+				tx := (*memTx.(**mempoolTx)).tx
+				if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
+					mem.recheckCursor = e.(*lElement)
+				}
 			}
 		}
 		if mem.recheckCursor == nil {
@@ -494,31 +365,28 @@ func (mem *LlrbMempool) resCbRecheck(req *abcix.Request, res *abcix.Response) {
 	}
 }
 
-// Safe for concurrent use by multiple goroutines.
-func (mem *LlrbMempool) TxsAvailable() <-chan struct{} {
-	return mem.txsAvailable
-}
-
-func (mem *LlrbMempool) notifyTxsAvailable() {
-	if mem.Size() == 0 {
-		panic("notified txs available but mempool is empty!")
-	}
-	if mem.txsAvailable != nil && !mem.notifiedTxsAvailable {
-		// channel cap is 1, so this will send once
-		mem.notifiedTxsAvailable = true
-		select {
-		case mem.txsAvailable <- struct{}{}:
-		default:
-		}
-	}
-}
-
 func (mem *LlrbMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 	panic("implement me")
 }
 
 func (mem *LlrbMempool) ReapMaxTxs(max int) types.Txs {
-	panic("implement me")
+	mem.updateMtx.RLock()
+	defer mem.updateMtx.RUnlock()
+
+	if max < 0 {
+		max = mem.txs.Size()
+	}
+
+	txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Size(), max))
+	for len(txs) <= max {
+		memTx, err := mem.txs.GetNext(nil, nil)
+		if err != nil {
+			break
+		}
+		tx := (*memTx.(**mempoolTx)).tx
+		txs = append(txs, tx)
+	}
+	return txs
 }
 
 // Lock() must be help by the caller during execution.
@@ -585,40 +453,37 @@ func (mem *LlrbMempool) Update(
 }
 
 func (mem *LlrbMempool) recheckTxs() {
+	var tempE lElement
 	if mem.Size() == 0 {
 		panic("recheckTxs is called, but the mempool is empty")
 	}
 
-	tx, err := mem.txs.GetNext(nil, func(i interface{}) bool {
-		return true
-	})
+	memTx, err := mem.txs.GetNext(nil, nil)
 	if err != nil {
-		panic("failed to find head")
-	}
-	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
-		mem.recheckCursor = e.(*lElement)
-		mem.recheckEnd = e.(*lElement)
+		mem.recheckCursor = nil
+		mem.recheckEnd = nil
+	} else {
+		tx := (*memTx.(**mempoolTx)).tx
+		if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
+			mem.recheckCursor = e.(*lElement)
+		}
 	}
 
 	// Push txs to proxyAppConn
 	// NOTE: globalCb may be called concurrently.
 	for {
-		key := llrb.NewNodeKey(mem.recheckEnd.priority, mem.recheckEnd.timeStamp)
-		nextTx, err := mem.txs.GetNext(&key, func(i interface{}) bool {
-			return true
-		})
+		memTx, err := mem.txs.GetNext(&(tempE.nodeKey), nil)
 		if err != nil {
-			panic("failed to find next tx")
-		}
-		if len(nextTx) == 0 {
+			mem.recheckEnd = &tempE
 			break
 		}
+		tx := (*memTx.(**mempoolTx)).tx
 		mem.proxyAppConn.CheckTxAsync(abcix.RequestCheckTx{
-			Tx:   nextTx,
+			Tx:   tx,
 			Type: abcix.CheckTxType_Recheck,
 		})
-		if e, ok := mem.txsMap.Load(TxKey(nextTx)); ok {
-			mem.recheckEnd = e.(*lElement)
+		if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
+			tempE = (*e.(*lElement))
 		}
 	}
 
@@ -628,17 +493,22 @@ func (mem *LlrbMempool) recheckTxs() {
 // GetNextTxBytes finds satisfied tx with two iterations which cost O(N) time, will be optimized with balance tree
 // or other techniques to reduce the time complexity to O(logN) or even O(1)
 func (mem *LlrbMempool) GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
+
 	mem.updateMtx.RLock()
 	defer mem.updateMtx.RUnlock()
-	if e, ok := mem.txsMap.Load(TxKey(starter)); ok {
-		key := llrb.NewNodeKey(e.(lElement).priority, e.(lElement).timeStamp)
-		tx, err := mem.txs.GetNext(&key, func(i interface{}) bool {
-			return i.(*mempoolTx).gasWanted > remainGas && int64(len(i.(*mempoolTx).tx)) > remainBytes
-		})
-		if err != nil {
-			return nil, err
+
+	var prevElement lElement
+	if len(starter) > 0 {
+		if e, ok := mem.txsMap.Load(TxKey(starter)); ok {
+			prevElement = *e.(*lElement)
 		}
-		return tx, nil
 	}
-	return nil, nil
+	memTx, err := mem.txs.GetNext(&(prevElement.nodeKey), func(i interface{}) bool {
+		return ((*i.(**mempoolTx)).gasWanted <= remainGas) && (int64(len((*i.(**mempoolTx)).tx)) <= remainBytes)
+	})
+	if err != nil {
+		return nil, nil
+	}
+	tx := (*memTx.(**mempoolTx)).tx
+	return tx, nil
 }

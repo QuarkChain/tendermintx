@@ -15,5 +15,5 @@ type LLRB interface {
 }
 
 func New() LLRB {
-	panic("Not implemented")
+	return newLLRB(maxSize)
 }

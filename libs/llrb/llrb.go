@@ -1,275 +1,247 @@
 package llrb
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"sync"
-	"time"
 )
 
-// MaxSize is the max allowed number of node a llrb is
-// allowed to contain.
-// If more nodes are pushed it will panic.
-const MaxSize = int(^uint(0) >> 1)
+// maxSize is the max allowed number of node a llrb is allowed to contain
+const maxSize = int(^uint(0) >> 1)
 
-type nodeKey struct {
-	priority uint64
-	ts       time.Time
-}
+var ErrorStopIteration = errors.New("STOP ITERATION")
 
-func (a nodeKey) compare(b nodeKey) int {
-	if a.priority > b.priority {
+func (a NodeKey) compare(b NodeKey) int {
+	if a.Priority > b.Priority {
 		return 1
 	}
-	if a.priority < b.priority {
+	if a.Priority < b.Priority {
 		return -1
 	}
-	if a.ts.Before(b.ts) {
+	if a.TS.Before(b.TS) {
 		return 1
 	}
-	if a.ts.After(b.ts) {
+	if a.TS.After(b.TS) {
 		return -1
 	}
 	return 0
 }
 
-func NewNodeKey(priority uint64, ts time.Time) interface{} {
-	k := new(nodeKey)
-	k.priority = priority
-	k.ts = ts
-	return k
-}
-
 type node struct {
-	Key         nodeKey
-	Data        interface{}
-	Left, Right *node
-	Black       bool
+	key         NodeKey
+	data        interface{}
+	left, right *node
+	black       bool
 }
 
-type Llrb struct {
+type llrb struct {
 	mtx     sync.RWMutex
-	wg      *sync.WaitGroup
-	waitCh  chan struct{}
 	size    int
 	maxSize int
 	root    *node
 }
 
-func (t *Llrb) Init() *Llrb {
-	t.mtx.Lock()
-	t.wg = waitGroup1()
-	t.waitCh = make(chan struct{})
-	t.root = nil
-	t.size = 0
-	t.mtx.Unlock()
-	return t
+// newLLRB return llrb with given maxSize
+func newLLRB(maxSize int) *llrb {
+	return &llrb{maxSize: maxSize}
 }
 
-// Return CList with MaxLength. CList will panic if it goes beyond MaxLength.
-func New() *Llrb { return newWithMax(MaxSize) }
-
-// Return CList with given maxLength.
-// Will panic if list exceeds given maxLength.
-func newWithMax(maxSize int) *Llrb {
-	t := new(Llrb)
-	t.maxSize = maxSize
-	return t.Init()
-}
-
-// Size returns the number of nodes in the tree.
-func (t *Llrb) Size() int {
+// Size returns the number of nodes in the tree
+func (t *llrb) Size() int {
 	t.mtx.RLock()
-	s := t.size
-	t.mtx.RUnlock()
-	return s
+	defer t.mtx.RUnlock()
+	return t.size
 }
 
 // GetNext retrieves a satisfied tx with "largest" nodeKey and "smaller" than starter if provided
-func (t *Llrb) GetNext(starter interface{}, predicate func(interface{}) bool) ([]byte, error) {
-	var key *nodeKey
+func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (interface{}, error) {
+	t.mtx.RLock()
+	defer t.mtx.RUnlock()
+	startKey := NodeKey{
+		Priority: uint64(math.MaxUint64),
+	}
 	if starter != nil {
-		key = starter.(*nodeKey)
+		startKey = *starter
 	}
-	if key == nil {
-		return nil, fmt.Errorf("not implemented")
+	var candidate *node
+	for h := t.root; h != nil; {
+		if h.key.compare(startKey) == -1 && (predicate == nil || predicate(h.data)) {
+			if candidate == nil || candidate.key.compare(h.key) == -1 {
+				candidate = h
+			}
+			h = h.right
+		} else {
+			h = h.left
+		}
 	}
-	return nil, nil
+	if candidate == nil {
+		return nil, ErrorStopIteration
+	}
+	return candidate.data, nil
 }
 
-// Insert inserts value into the tree.
-func (t *Llrb) Insert(priority uint64, time time.Time, data interface{}) error {
+// Insert inserts value into the tree
+func (t *llrb) Insert(key NodeKey, data interface{}) error {
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
 	var err error
-	key := nodeKey{
-		priority: priority,
-		ts:       time,
-	}
 	t.root, err = t.insert(t.root, key, data)
-	t.root.Black = true
+	t.root.black = true
 	if err == nil {
 		t.size++
+		if t.size >= t.maxSize {
+			return fmt.Errorf("tree reached maximum size %d", t.maxSize)
+		}
 	}
 	return err
 }
 
-func (t *Llrb) insert(h *node, key nodeKey, data interface{}) (*node, error) {
+func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
 	if h == nil {
-		return &node{Key: key, Data: data}, nil
+		return &node{key: key, data: data}, nil
 	}
-
 	var err error
-
-	switch comp := key.compare(h.Key); comp {
+	switch key.compare(h.key) {
 	case -1:
-		h.Left, err = t.insert(h.Left, key, data)
+		h.left, err = t.insert(h.left, key, data)
 	case 1:
-		h.Right, err = t.insert(h.Right, key, data)
+		h.right, err = t.insert(h.right, key, data)
 	default:
 		err = fmt.Errorf("key conflict")
 	}
-
-	if isRed(h.Right) && !isRed(h.Left) {
+	if isRed(h.right) && !isRed(h.left) {
 		h = t.rotateLeft(h)
 	}
-
-	if isRed(h.Left) && isRed(h.Left.Left) {
+	if isRed(h.left) && isRed(h.left.left) {
 		h = t.rotateRight(h)
 	}
-
-	if isRed(h.Left) && isRed(h.Right) {
+	if isRed(h.left) && isRed(h.right) {
 		flip(h)
 	}
-
 	return h, err
 }
 
-func (t *Llrb) deleteMin(h *node) (*node, *nodeKey) {
+func (t *llrb) deleteMin(h *node) (*node, *node) {
 	if h == nil {
 		return nil, nil
 	}
-	if h.Left == nil {
-		return nil, &h.Key
+	if h.left == nil {
+		return nil, h
 	}
 
-	if !isRed(h.Left) && !isRed(h.Left.Left) {
+	if !isRed(h.left) && !isRed(h.left.left) {
 		h = t.moveRedLeft(h)
 	}
-
-	var deleted *nodeKey
-	h.Left, deleted = t.deleteMin(h.Left)
-
+	var deleted *node
+	h.left, deleted = t.deleteMin(h.left)
 	return t.fixUp(h), deleted
 }
 
-// Delete deletes a value from the tree whose value equals key.
-// The deleted data is return, otherwise nil is returned.
-func (t *Llrb) Delete(priority uint64, time time.Time) []byte {
-
-	var deleted *nodeKey
-	key := &nodeKey{
-		priority: priority,
-		ts:       time,
-	}
+// Remove removes a value from the tree with provided key
+// The removed data is return if key found, otherwise nil is returned
+func (t *llrb) Remove(key NodeKey) (interface{}, error) {
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
+	var deleted *node
 	t.root, deleted = t.delete(t.root, key)
 	if t.root != nil {
-		t.root.Black = true
+		t.root.black = true
 	}
 	if deleted != nil {
 		t.size--
+		return deleted.data, nil
 	}
-	return nil
+	return nil, fmt.Errorf("key not found")
 }
 
-func (t *Llrb) delete(h *node, key *nodeKey) (*node, *nodeKey) {
-	var deleted *nodeKey
+func (t *llrb) delete(h *node, key NodeKey) (*node, *node) {
+	var deleted *node
 	if h == nil {
 		return nil, nil
 	}
-	if key.compare(h.Key) == -1 {
-		if h.Left == nil {
+	if key.compare(h.key) == -1 {
+		if h.left == nil {
 			return h, nil
 		}
-		if !isRed(h.Left) && !isRed(h.Left.Left) {
+		if !isRed(h.left) && !isRed(h.left.left) {
 			h = t.moveRedLeft(h)
 		}
-		h.Left, deleted = t.delete(h.Left, key)
+		h.left, deleted = t.delete(h.left, key)
 	} else {
-		if isRed(h.Left) {
+		if isRed(h.left) {
 			h = t.rotateRight(h)
 		}
-		if key.compare(h.Key) == 0 && h.Right == nil {
-			return nil, &h.Key
+		if key.compare(h.key) == 0 && h.right == nil {
+			return nil, h
 		}
-		if h.Right != nil && !isRed(h.Right) && !isRed(h.Right.Left) {
+		if h.right != nil && !isRed(h.right) && !isRed(h.right.left) {
 			h = t.moveRedRight(h)
 		}
-		if key.compare(h.Key) == 0 {
-			deleted = &h.Key
-			r, k := t.deleteMin(h.Right)
-			h.Right, h.Key = r, *k
+		if key.compare(h.key) == 0 {
+			deleted = h
+			r, k := t.deleteMin(h.right)
+			h.right, h.key, h.data = r, k.key, k.data
 		} else {
-			h.Right, deleted = t.delete(h.Right, key)
+			h.right, deleted = t.delete(h.right, key)
 		}
 	}
-
 	return t.fixUp(h), deleted
 }
 
-func (t *Llrb) rotateLeft(h *node) *node {
-	x := h.Right
-	if x.Black {
+func (t *llrb) rotateLeft(h *node) *node {
+	x := h.right
+	if x.black {
 		panic("rotating a black link")
 	}
-	h.Right = x.Left
-	x.Left = h
-	x.Black = h.Black
-	h.Black = false
+	h.right = x.left
+	x.left = h
+	x.black = h.black
+	h.black = false
 	return x
 }
 
-func (t *Llrb) rotateRight(h *node) *node {
-	x := h.Left
-	if x.Black {
+func (t *llrb) rotateRight(h *node) *node {
+	x := h.left
+	if x.black {
 		panic("rotating a black link")
 	}
-	h.Left = x.Right
-	x.Right = h
-	x.Black = h.Black
-	h.Black = false
+	h.left = x.right
+	x.right = h
+	x.black = h.black
+	h.black = false
 	return x
 }
 
-func (t *Llrb) moveRedLeft(h *node) *node {
+func (t *llrb) moveRedLeft(h *node) *node {
 	flip(h)
-	if isRed(h.Right.Left) {
-		h.Right = t.rotateRight(h.Right)
+	if isRed(h.right.left) {
+		h.right = t.rotateRight(h.right)
 		h = t.rotateLeft(h)
 		flip(h)
 	}
 	return h
 }
 
-func (t *Llrb) moveRedRight(h *node) *node {
+func (t *llrb) moveRedRight(h *node) *node {
 	flip(h)
-	if isRed(h.Left.Left) {
+	if isRed(h.left.left) {
 		h = t.rotateRight(h)
 		flip(h)
 	}
 	return h
 }
 
-func (t *Llrb) fixUp(h *node) *node {
-	if isRed(h.Right) {
+func (t *llrb) fixUp(h *node) *node {
+	if isRed(h.right) {
 		h = t.rotateLeft(h)
 	}
-
-	if isRed(h.Left) && isRed(h.Left.Left) {
+	if isRed(h.left) && isRed(h.left.left) {
 		h = t.rotateRight(h)
 	}
-
-	if isRed(h.Left) && isRed(h.Right) {
+	if isRed(h.left) && isRed(h.right) {
 		flip(h)
 	}
-
 	return h
 }
 
@@ -277,17 +249,11 @@ func isRed(h *node) bool {
 	if h == nil {
 		return false
 	}
-	return !h.Black
+	return !h.black
 }
 
 func flip(h *node) {
-	h.Black = !h.Black
-	h.Left.Black = !h.Left.Black
-	h.Right.Black = !h.Right.Black
-}
-
-func waitGroup1() (wg *sync.WaitGroup) {
-	wg = &sync.WaitGroup{}
-	wg.Add(1)
-	return
+	h.black = !h.black
+	h.left.black = !h.left.black
+	h.right.black = !h.right.black
 }

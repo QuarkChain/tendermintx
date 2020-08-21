@@ -2,9 +2,15 @@ package mempool
 
 import (
 	"fmt"
+	"sync"
+	"sync/atomic"
 
 	abcix "github.com/tendermint/tendermint/abcix/types"
+	cfg "github.com/tendermint/tendermint/config"
+	auto "github.com/tendermint/tendermint/libs/autofile"
+	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
+	"github.com/tendermint/tendermint/proxy"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -135,5 +141,163 @@ func PostCheckMaxGas(maxGas int64) PostCheckFunc {
 				res.GasWanted, maxGas)
 		}
 		return nil
+	}
+}
+
+//--------------------------------------------------------------------------------
+
+type umempool struct {
+	// Atomic integers
+	height   int64 // the last block Update()'d to
+	txsBytes int64 // total size of mempool, in bytes
+
+	// notify listeners (ie. consensus) when txs are available
+	notifiedTxsAvailable bool
+	txsAvailable         chan struct{} // fires once for each height, when the mempool is not empty
+
+	// Keep a cache of already-seen txs.
+	// This reduces the pressure on the proxyApp.
+	cache     txCache
+	postCheck PostCheckFunc
+
+	config *cfg.MempoolConfig
+
+	// Exclusive mutex for Update method to prevent concurrent execution of
+	// CheckTx or ReapMaxBytesMaxGas(ReapMaxTxs) methods.
+	updateMtx sync.RWMutex
+
+	wal          *auto.AutoFile // a log of mempool txs
+	proxyAppConn proxy.AppConnMempool
+
+	logger log.Logger
+
+	metrics *Metrics
+
+	txAdder func(*mempoolTx, uint64) // abstraction for addTx()
+	sizer   func() int
+}
+
+// NOTE: not thread safe - should only be called once, on startup
+func (mem *umempool) EnableTxsAvailable() {
+	mem.txsAvailable = make(chan struct{}, 1)
+}
+
+// SetLogger sets the Logger.
+func (mem *umempool) SetLogger(l log.Logger) {
+	mem.logger = l
+}
+
+func (mem *umempool) CloseWAL() {
+	if err := mem.wal.Close(); err != nil {
+		mem.logger.Error("Error closing WAL", "err", err)
+	}
+	mem.wal = nil
+}
+
+// Safe for concurrent use by multiple goroutines.
+func (mem *umempool) Lock() {
+	mem.updateMtx.Lock()
+}
+
+// Safe for concurrent use by multiple goroutines.
+func (mem *umempool) Unlock() {
+	mem.updateMtx.Unlock()
+}
+
+// Safe for concurrent use by multiple goroutines.
+func (mem *umempool) TxsBytes() int64 {
+	return atomic.LoadInt64(&mem.txsBytes)
+}
+
+// Lock() must be help by the caller during execution.
+func (mem *umempool) FlushAppConn() error {
+	return mem.proxyAppConn.FlushSync()
+}
+
+// Safe for concurrent use by multiple goroutines.
+func (mem *umempool) TxsAvailable() <-chan struct{} {
+	return mem.txsAvailable
+}
+
+func (mem *umempool) notifyTxsAvailable() {
+	if mem.sizer() == 0 {
+		panic("notified txs available but mempool is empty!")
+	}
+	if mem.txsAvailable != nil && !mem.notifiedTxsAvailable {
+		// channel cap is 1, so this will send once
+		mem.notifiedTxsAvailable = true
+		select {
+		case mem.txsAvailable <- struct{}{}:
+		default:
+		}
+	}
+}
+
+func (mem *umempool) isFull(txSize int) error {
+	var (
+		memSize  = mem.sizer()
+		txsBytes = mem.TxsBytes()
+	)
+
+	if memSize >= mem.config.Size || int64(txSize)+txsBytes > mem.config.MaxTxsBytes {
+		return ErrMempoolIsFull{
+			memSize, mem.config.Size,
+			txsBytes, mem.config.MaxTxsBytes,
+		}
+	}
+
+	return nil
+}
+
+// callback, which is called after the app checked the tx for the first time.
+//
+// The case where the app checks the tx for the second and subsequent times is
+// handled by the resCbRecheck callback.
+func (mem *umempool) resCbFirstTime(
+	tx []byte,
+	peerID uint16,
+	peerP2PID p2p.ID,
+	res *abcix.Response,
+) {
+	switch r := res.Value.(type) {
+	case *abcix.Response_CheckTx:
+		var postCheckErr error
+		if mem.postCheck != nil {
+			postCheckErr = mem.postCheck(tx, r.CheckTx)
+		}
+		if (r.CheckTx.Code == abcix.CodeTypeOK) && postCheckErr == nil {
+			// Check mempool isn't full again to reduce the chance of exceeding the
+			// limits.
+			if err := mem.isFull(len(tx)); err != nil {
+				// remove from cache (mempool might have a space later)
+				mem.cache.Remove(tx)
+				mem.logger.Error(err.Error())
+				return
+			}
+
+			memTx := &mempoolTx{
+				height:    mem.height,
+				gasWanted: r.CheckTx.GasWanted,
+				tx:        tx,
+			}
+			memTx.senders.Store(peerID, true)
+			mem.txAdder(memTx, r.CheckTx.Priority)
+			mem.logger.Info("Added good transaction",
+				"tx", txID(tx),
+				"res", r,
+				"height", memTx.height,
+				"total", mem.sizer(),
+			)
+			mem.notifyTxsAvailable()
+		} else {
+			// ignore bad transaction
+			mem.logger.Info("Rejected bad transaction",
+				"tx", txID(tx), "peerID", peerP2PID, "res", r, "err", postCheckErr)
+			mem.metrics.FailedTxs.Add(1)
+			// remove from cache (it might be good later)
+			mem.cache.Remove(tx)
+		}
+	default:
+		// ignore other messages
 	}
 }

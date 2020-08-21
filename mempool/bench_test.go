@@ -11,7 +11,7 @@ import (
 func BenchmarkReap(b *testing.B) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLegacyLocalClientCreator(app)
-	mempool, cleanup := newMempoolWithApp(cc)
+	mempool, cleanup := newClistMempoolWithApp(cc)
 	defer cleanup()
 
 	size := 10000
@@ -29,7 +29,7 @@ func BenchmarkReap(b *testing.B) {
 func BenchmarkCheckTx(b *testing.B) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLegacyLocalClientCreator(app)
-	mempool, cleanup := newMempoolWithApp(cc)
+	mempool, cleanup := newClistMempoolWithApp(cc)
 	defer cleanup()
 
 	for i := 0; i < b.N; i++ {

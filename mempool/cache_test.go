@@ -38,7 +38,7 @@ func TestCacheRemove(t *testing.T) {
 func TestCacheAfterUpdate(t *testing.T) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLegacyLocalClientCreator(app)
-	mempool, cleanup := newMempoolWithApp(cc)
+	mempool, cleanup := newClistMempoolWithApp(cc)
 	defer cleanup()
 
 	// reAddIndices & txsInCache can have elements > numTxsToCreate

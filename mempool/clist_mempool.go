@@ -9,13 +9,15 @@ import (
 	"sync"
 	"sync/atomic"
 
+	tmos "github.com/tendermint/tendermint/libs/os"
+
+	auto "github.com/tendermint/tendermint/libs/autofile"
+
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	cfg "github.com/tendermint/tendermint/config"
-	auto "github.com/tendermint/tendermint/libs/autofile"
 	"github.com/tendermint/tendermint/libs/clist"
 	"github.com/tendermint/tendermint/libs/log"
 	tmmath "github.com/tendermint/tendermint/libs/math"
-	tmos "github.com/tendermint/tendermint/libs/os"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/proxy"
 	"github.com/tendermint/tendermint/types"
@@ -32,45 +34,18 @@ const TxKeySize = sha256.Size
 // mempool uses a concurrent list structure for storing transactions that can
 // be efficiently accessed by multiple concurrent readers.
 type CListMempool struct {
-	// Atomic integers
-	height   int64 // the last block Update()'d to
-	txsBytes int64 // total size of mempool, in bytes
-
-	// notify listeners (ie. consensus) when txs are available
-	notifiedTxsAvailable bool
-	txsAvailable         chan struct{} // fires once for each height, when the mempool is not empty
-
-	config *cfg.MempoolConfig
-
-	// Exclusive mutex for Update method to prevent concurrent execution of
-	// CheckTx or ReapMaxBytesMaxGas(ReapMaxTxs) methods.
-	updateMtx sync.RWMutex
-	preCheck  PreCheckFunc
-	postCheck PostCheckFunc
-
-	wal          *auto.AutoFile // a log of mempool txs
-	txs          *clist.CList   // concurrent linked-list of good txs
-	proxyAppConn proxy.AppConnMempool
-
+	umempool
+	txs *clist.CList // concurrent linked-list of good txs
+	// Map for quick access to txs to record sender in CheckTx.
+	// txsMap: txKey -> CElement
+	txsMap   sync.Map
+	preCheck PreCheckFunc
 	// Track whether we're rechecking txs.
 	// These are not protected by a mutex and are expected to be mutated in
 	// serial (ie. by abci responses which are called in serial).
 	recheckCursor *clist.CElement // next expected response
 	recheckEnd    *clist.CElement // re-checking stops here
-
-	// Map for quick access to txs to record sender in CheckTx.
-	// txsMap: txKey -> CElement
-	txsMap sync.Map
-
-	// Keep a cache of already-seen txs.
-	// This reduces the pressure on the proxyApp.
-	cache txCache
-
-	logger log.Logger
-
-	metrics *Metrics
-
-	server *mempoolServer
+	server        *mempoolServer
 }
 
 var _ Mempool = &CListMempool{}
@@ -86,15 +61,20 @@ func NewCListMempool(
 	options ...CListMempoolOption,
 ) *CListMempool {
 	mempool := &CListMempool{
-		config:        config,
-		proxyAppConn:  proxyAppConn,
+		umempool: umempool{
+			config:       config,
+			proxyAppConn: proxyAppConn,
+			height:       height,
+			logger:       log.NewNopLogger(),
+			metrics:      NopMetrics(),
+		},
 		txs:           clist.New(),
-		height:        height,
 		recheckCursor: nil,
 		recheckEnd:    nil,
-		logger:        log.NewNopLogger(),
-		metrics:       NopMetrics(),
 	}
+	mempool.umempool.txAdder = func(tx *mempoolTx, priority uint64) { mempool.addTx(tx, priority) }
+	mempool.umempool.sizer = mempool.Size
+
 	if config.CacheSize > 0 {
 		mempool.cache = newMapTxCache(config.CacheSize)
 	} else {
@@ -113,16 +93,6 @@ func NewCListMempool(
 		mempool.server = server
 	}
 	return mempool
-}
-
-// NOTE: not thread safe - should only be called once, on startup
-func (mem *CListMempool) EnableTxsAvailable() {
-	mem.txsAvailable = make(chan struct{}, 1)
-}
-
-// SetLogger sets the Logger.
-func (mem *CListMempool) SetLogger(l log.Logger) {
-	mem.logger = l
 }
 
 // WithPreCheck sets a filter for the mempool to reject a tx if f(tx) returns
@@ -164,36 +134,9 @@ func (mem *CListMempool) InitWAL() error {
 	return nil
 }
 
-func (mem *CListMempool) CloseWAL() {
-	if err := mem.wal.Close(); err != nil {
-		mem.logger.Error("Error closing WAL", "err", err)
-	}
-	mem.wal = nil
-}
-
-// Safe for concurrent use by multiple goroutines.
-func (mem *CListMempool) Lock() {
-	mem.updateMtx.Lock()
-}
-
-// Safe for concurrent use by multiple goroutines.
-func (mem *CListMempool) Unlock() {
-	mem.updateMtx.Unlock()
-}
-
 // Safe for concurrent use by multiple goroutines.
 func (mem *CListMempool) Size() int {
 	return mem.txs.Len()
-}
-
-// Safe for concurrent use by multiple goroutines.
-func (mem *CListMempool) TxsBytes() int64 {
-	return atomic.LoadInt64(&mem.txsBytes)
-}
-
-// Lock() must be help by the caller during execution.
-func (mem *CListMempool) FlushAppConn() error {
-	return mem.proxyAppConn.FlushSync()
 }
 
 // XXX: Unsafe! Calling Flush may leave mempool in inconsistent state.
@@ -394,75 +337,6 @@ func (mem *CListMempool) RemoveTxByKey(txKey [TxKeySize]byte, removeFromCache bo
 	}
 }
 
-func (mem *CListMempool) isFull(txSize int) error {
-	var (
-		memSize  = mem.Size()
-		txsBytes = mem.TxsBytes()
-	)
-
-	if memSize >= mem.config.Size || int64(txSize)+txsBytes > mem.config.MaxTxsBytes {
-		return ErrMempoolIsFull{
-			memSize, mem.config.Size,
-			txsBytes, mem.config.MaxTxsBytes,
-		}
-	}
-
-	return nil
-}
-
-// callback, which is called after the app checked the tx for the first time.
-//
-// The case where the app checks the tx for the second and subsequent times is
-// handled by the resCbRecheck callback.
-func (mem *CListMempool) resCbFirstTime(
-	tx []byte,
-	peerID uint16,
-	peerP2PID p2p.ID,
-	res *abcix.Response,
-) {
-	switch r := res.Value.(type) {
-	case *abcix.Response_CheckTx:
-		var postCheckErr error
-		if mem.postCheck != nil {
-			postCheckErr = mem.postCheck(tx, r.CheckTx)
-		}
-		if (r.CheckTx.Code == abcix.CodeTypeOK) && postCheckErr == nil {
-			// Check mempool isn't full again to reduce the chance of exceeding the
-			// limits.
-			if err := mem.isFull(len(tx)); err != nil {
-				// remove from cache (mempool might have a space later)
-				mem.cache.Remove(tx)
-				mem.logger.Error(err.Error())
-				return
-			}
-
-			memTx := &mempoolTx{
-				height:    mem.height,
-				gasWanted: r.CheckTx.GasWanted,
-				tx:        tx,
-			}
-			memTx.senders.Store(peerID, true)
-			mem.addTx(memTx, r.CheckTx.Priority)
-			mem.logger.Info("Added good transaction",
-				"tx", txID(tx),
-				"res", r,
-				"height", memTx.height,
-				"total", mem.Size(),
-			)
-			mem.notifyTxsAvailable()
-		} else {
-			// ignore bad transaction
-			mem.logger.Info("Rejected bad transaction",
-				"tx", txID(tx), "peerID", peerP2PID, "res", r, "err", postCheckErr)
-			mem.metrics.FailedTxs.Add(1)
-			// remove from cache (it might be good later)
-			mem.cache.Remove(tx)
-		}
-	default:
-		// ignore other messages
-	}
-}
-
 // callback, which is called after the app rechecked the tx.
 //
 // The case where the app checks the tx for the first time is handled by the
@@ -506,25 +380,6 @@ func (mem *CListMempool) resCbRecheck(req *abcix.Request, res *abcix.Response) {
 		}
 	default:
 		// ignore other messages
-	}
-}
-
-// Safe for concurrent use by multiple goroutines.
-func (mem *CListMempool) TxsAvailable() <-chan struct{} {
-	return mem.txsAvailable
-}
-
-func (mem *CListMempool) notifyTxsAvailable() {
-	if mem.Size() == 0 {
-		panic("notified txs available but mempool is empty!")
-	}
-	if mem.txsAvailable != nil && !mem.notifiedTxsAvailable {
-		// channel cap is 1, so this will send once
-		mem.notifiedTxsAvailable = true
-		select {
-		case mem.txsAvailable <- struct{}{}:
-		default:
-		}
 	}
 }
 
