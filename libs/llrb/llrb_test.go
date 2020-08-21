@@ -105,8 +105,6 @@ func TestRandomInsertDeleteNonExistent(t *testing.T) {
 	}
 	_, err := tree.Remove(*getNodeKeys([]uint64{200})[0])
 	require.Error(t, err, "expecting error when removing nonexistent node")
-	_, err = tree.Remove(*getNodeKeys([]uint64{2000})[0])
-	require.Error(t, err, "expecting error when removing nonexistent node")
 
 	for i := 0; i < n; i++ {
 		result, err := tree.Remove(*nks[i])
@@ -115,16 +113,14 @@ func TestRandomInsertDeleteNonExistent(t *testing.T) {
 	}
 	_, err = tree.Remove(*getNodeKeys([]uint64{200})[0])
 	require.Error(t, err, "expecting error when removing nonexistent node")
-	_, err = tree.Remove(*getNodeKeys([]uint64{2000})[0])
-	require.Error(t, err, "expecting error when removing nonexistent node")
 }
 
 func TestGetNext(t *testing.T) {
 	testCases := []struct {
 		priorities      []uint64 // Priority of each tx
 		byteLength      []int    // Byte length of each tx
-		expectedTxOrder []int    // How original txs ordered in retrieved txs
 		byteLimit       int      // Byte limit provided by user
+		expectedTxOrder []int    // How original txs ordered in retrieved txs
 	}{
 		{
 			priorities:      []uint64{0, 0, 0, 0, 0},
@@ -153,27 +149,32 @@ func TestGetNext(t *testing.T) {
 		// Byte limitation test
 		{
 			priorities:      []uint64{0, 0, 0, 0, 0},
-			byteLength:      []int{1, 2, 3, 4, 5},
-			expectedTxOrder: []int{0},
 			byteLimit:       1,
+			expectedTxOrder: []int{},
 		},
 		{
 			priorities:      []uint64{0, 0, 0, 0, 0},
 			byteLength:      []int{1, 2, 3, 4, 5},
-			expectedTxOrder: []int{0, 1, 2},
+			byteLimit:       1,
+			expectedTxOrder: []int{0},
+		},
+		{
+			priorities:      []uint64{0, 0, 0, 0, 0},
+			byteLength:      []int{1, 2, 3, 4, 5},
 			byteLimit:       3,
+			expectedTxOrder: []int{0, 1, 2},
 		},
 		{
 			priorities:      []uint64{1, 0, 1, 0, 1},
 			byteLength:      []int{1, 2, 3, 4, 5},
-			expectedTxOrder: []int{0, 2, 1},
 			byteLimit:       3,
+			expectedTxOrder: []int{0, 2, 1},
 		},
 		{
 			priorities:      []uint64{1, 3, 5, 4, 2},
 			byteLength:      []int{1, 3, 5, 4, 2},
-			expectedTxOrder: []int{1, 4, 0},
 			byteLimit:       3,
+			expectedTxOrder: []int{1, 4, 0},
 		},
 	}
 
@@ -184,6 +185,8 @@ func TestGetNext(t *testing.T) {
 		limit := 20
 		if tc.byteLength != nil {
 			txs = getFixedBytes(tc.byteLength)
+		}
+		if tc.byteLimit != 0 {
 			limit = tc.byteLimit
 		}
 		var txsMap sync.Map
@@ -192,7 +195,7 @@ func TestGetNext(t *testing.T) {
 			tree.Insert(*nks[j], txs[j])
 		}
 		ordered := getOrderedTxs(tree, limit, &txsMap)
-		require.Equal(t, len(tc.expectedTxOrder), len(ordered))
+		require.Equal(t, len(tc.expectedTxOrder), len(ordered), "expecting equal tx count at testcase %d", i)
 		for j, k := range tc.expectedTxOrder {
 			require.True(t, bytes.Equal(txs[k], ordered[j]), "expecting equal bytes at testcase %d", i)
 		}
