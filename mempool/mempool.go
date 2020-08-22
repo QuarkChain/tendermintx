@@ -82,7 +82,7 @@ type Mempool interface {
 	// Any further writes will not be relayed to disk.
 	CloseWAL()
 
-	RemoveTxs(blockTxs types.Txs, deliverTxResponses []*abcix.ResponseDeliverTx)
+	RemoveTxs(blockTxs types.Txs) error
 }
 
 //--------------------------------------------------------------------------------

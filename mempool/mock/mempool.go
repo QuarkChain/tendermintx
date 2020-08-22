@@ -43,4 +43,4 @@ func (Mempool) TxsWaitChan() <-chan struct{} { return nil }
 
 func (Mempool) InitWAL() error                                      { return nil }
 func (Mempool) CloseWAL()                                           {}
-func (Mempool) RemoveTxs(_ types.Txs, _ []*abcix.ResponseDeliverTx) {}
+func (Mempool) RemoveTxs(_ types.Txs) error { return nil }
