@@ -644,7 +644,3 @@ func abciResponses(n int, code uint32) []*abcix.ResponseDeliverTx {
 	}
 	return responses
 }
-
-func TestCListMempool_RemoveTxs(t *testing.T) {
-
-}
