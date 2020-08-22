@@ -66,8 +66,8 @@ func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 	}
 	var candidate *node
 	for h := t.root; h != nil; {
-		if h.key.compare(startKey) == -1 && (predicate == nil || predicate(h.data)) {
-			if candidate == nil || candidate.key.compare(h.key) == -1 {
+		if h.key.compare(startKey) == -1 {
+			if (predicate == nil || predicate(h.data)) && (candidate == nil || candidate.key.compare(h.key) == -1) {
 				candidate = h
 			}
 			h = h.right
@@ -122,18 +122,18 @@ func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
 	return h, err
 }
 
-func (t *llrb) deleteMin(h *node) (*node, *node) {
+func (t *llrb) deleteMin(h *node) (*node, node) {
+	deleted := node{}
 	if h == nil {
-		return nil, nil
+		return nil, deleted
 	}
 	if h.left == nil {
-		return nil, h
+		return nil, *h
 	}
 
 	if !isRed(h.left) && !isRed(h.left.left) {
 		h = t.moveRedLeft(h)
 	}
-	var deleted *node
 	h.left, deleted = t.deleteMin(h.left)
 	return t.fixUp(h), deleted
 }
@@ -143,26 +143,26 @@ func (t *llrb) deleteMin(h *node) (*node, *node) {
 func (t *llrb) Remove(key NodeKey) (interface{}, error) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
-	var deleted *node
-	t.root, deleted = t.delete(t.root, key)
+	root, deleted := t.delete(t.root, key)
+	t.root = root
 	if t.root != nil {
 		t.root.black = true
 	}
-	if deleted != nil {
+	if deleted != (node{}) {
 		t.size--
 		return deleted.data, nil
 	}
 	return nil, fmt.Errorf("key not found")
 }
 
-func (t *llrb) delete(h *node, key NodeKey) (*node, *node) {
-	var deleted *node
+func (t *llrb) delete(h *node, key NodeKey) (*node, node) {
+	deleted := node{}
 	if h == nil {
-		return nil, nil
+		return nil, deleted
 	}
 	if key.compare(h.key) == -1 {
 		if h.left == nil {
-			return h, nil
+			return h, deleted
 		}
 		if !isRed(h.left) && !isRed(h.left.left) {
 			h = t.moveRedLeft(h)
@@ -173,15 +173,17 @@ func (t *llrb) delete(h *node, key NodeKey) (*node, *node) {
 			h = t.rotateRight(h)
 		}
 		if key.compare(h.key) == 0 && h.right == nil {
-			return nil, h
+			return nil, *h
 		}
 		if h.right != nil && !isRed(h.right) && !isRed(h.right.left) {
 			h = t.moveRedRight(h)
 		}
 		if key.compare(h.key) == 0 {
-			deleted = h
-			r, k := t.deleteMin(h.right)
-			h.right, h.key, h.data = r, k.key, k.data
+			deleted = *h
+			right, newNode := t.deleteMin(h.right)
+			h.right = right
+			h.key = newNode.key
+			h.data = newNode.data
 		} else {
 			h.right, deleted = t.delete(h.right, key)
 		}
