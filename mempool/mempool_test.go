@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -33,11 +32,11 @@ import (
 // test.
 type cleanupFunc func()
 
-func newClistMempoolWithApp(cc proxy.LegacyClientCreator) (*CListMempool, cleanupFunc) {
+func newClistMempoolWithApp(cc proxy.LegacyClientCreator) (*basemempool, cleanupFunc) {
 	return newClistMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"))
 }
 
-func newClistMempoolWithAppAndConfig(cc proxy.LegacyClientCreator, config *cfg.Config) (*CListMempool, cleanupFunc) {
+func newClistMempoolWithAppAndConfig(cc proxy.LegacyClientCreator, config *cfg.Config) (*basemempool, cleanupFunc) {
 	appConnMem, _ := cc.NewABCIClient()
 	appConnMem.SetLogger(log.TestingLogger().With("module", "abci-client", "connection", "mempool"))
 	err := appConnMem.Start()
@@ -50,11 +49,11 @@ func newClistMempoolWithAppAndConfig(cc proxy.LegacyClientCreator, config *cfg.C
 	return mempool, func() { os.RemoveAll(config.RootDir) }
 }
 
-func newLlrbMempoolWithApp(cc proxy.LegacyClientCreator) (*LlrbMempool, cleanupFunc) {
+func newLlrbMempoolWithApp(cc proxy.LegacyClientCreator) (*basemempool, cleanupFunc) {
 	return newLlrbMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"))
 }
 
-func newLlrbMempoolWithAppAndConfig(cc proxy.LegacyClientCreator, config *cfg.Config) (*LlrbMempool, cleanupFunc) {
+func newLlrbMempoolWithAppAndConfig(cc proxy.LegacyClientCreator, config *cfg.Config) (*basemempool, cleanupFunc) {
 	appConnMem, _ := cc.NewABCIClient()
 	appConnMem.SetLogger(log.TestingLogger().With("module", "abci-client", "connection", "mempool"))
 	err := appConnMem.Start()
@@ -108,54 +107,54 @@ func checkTxs(t *testing.T, mempool Mempool, count int, peerID uint16) types.Txs
 	return txs
 }
 
-func TestReapMaxBytesMaxGas(t *testing.T) {
-	app := kvstore.NewApplication()
-	cc := proxy.NewLegacyLocalClientCreator(app)
-	mempool, cleanup := newClistMempoolWithApp(cc)
-	defer cleanup()
-
-	// Ensure gas calculation behaves as expected
-	checkTxs(t, mempool, 1, UnknownPeerID)
-	tx0 := mempool.TxsFront().Value.(*mempoolTx)
-	// assert that kv store has gas wanted = 1.
-	require.Equal(t, app.CheckTx(abci.RequestCheckTx{Tx: tx0.tx}).GasWanted, int64(1), "KVStore had a gas value neq to 1")
-	require.Equal(t, tx0.gasWanted, int64(1), "transactions gas was set incorrectly")
-	// ensure each tx is 20 bytes long
-	require.Equal(t, len(tx0.tx), 20, "Tx is longer than 20 bytes")
-	mempool.Flush()
-
-	// each table driven test creates numTxsToCreate txs with checkTx, and at the end clears all remaining txs.
-	// each tx has 20 bytes
-	tests := []struct {
-		numTxsToCreate int
-		maxBytes       int64
-		maxGas         int64
-		expectedNumTxs int
-	}{
-		{20, -1, -1, 20},
-		{20, -1, 0, 0},
-		{20, -1, 10, 10},
-		{20, -1, 30, 20},
-		{20, 0, -1, 0},
-		{20, 0, 10, 0},
-		{20, 10, 10, 0},
-		{20, 20, 10, 1},
-		{20, 100, 5, 5},
-		{20, 200, -1, 10},
-		{20, 200, 10, 10},
-		{20, 200, 15, 10},
-		{20, 20000, -1, 20},
-		{20, 20000, 5, 5},
-		{20, 20000, 30, 20},
-	}
-	for tcIndex, tt := range tests {
-		checkTxs(t, mempool, tt.numTxsToCreate, UnknownPeerID)
-		got := mempool.ReapMaxBytesMaxGas(tt.maxBytes, tt.maxGas)
-		assert.Equal(t, tt.expectedNumTxs, len(got), "Got %d txs, expected %d, tc #%d",
-			len(got), tt.expectedNumTxs, tcIndex)
-		mempool.Flush()
-	}
-}
+//func TestReapMaxBytesMaxGas(t *testing.T) {
+//	app := kvstore.NewApplication()
+//	cc := proxy.NewLegacyLocalClientCreator(app)
+//	mempool, cleanup := newClistMempoolWithApp(cc)
+//	defer cleanup()
+//
+//	// Ensure gas calculation behaves as expected
+//	checkTxs(t, mempool, 1, UnknownPeerID)
+//	tx0 := mempool.TxsFront().Value.(*mempoolTx)
+//	// assert that kv store has gas wanted = 1.
+//	require.Equal(t, app.CheckTx(abci.RequestCheckTx{Tx: tx0.tx}).GasWanted, int64(1), "KVStore had a gas value neq to 1")
+//	require.Equal(t, tx0.gasWanted, int64(1), "transactions gas was set incorrectly")
+//	// ensure each tx is 20 bytes long
+//	require.Equal(t, len(tx0.tx), 20, "Tx is longer than 20 bytes")
+//	mempool.Flush()
+//
+//	// each table driven test creates numTxsToCreate txs with checkTx, and at the end clears all remaining txs.
+//	// each tx has 20 bytes
+//	tests := []struct {
+//		numTxsToCreate int
+//		maxBytes       int64
+//		maxGas         int64
+//		expectedNumTxs int
+//	}{
+//		{20, -1, -1, 20},
+//		{20, -1, 0, 0},
+//		{20, -1, 10, 10},
+//		{20, -1, 30, 20},
+//		{20, 0, -1, 0},
+//		{20, 0, 10, 0},
+//		{20, 10, 10, 0},
+//		{20, 20, 10, 1},
+//		{20, 100, 5, 5},
+//		{20, 200, -1, 10},
+//		{20, 200, 10, 10},
+//		{20, 200, 15, 10},
+//		{20, 20000, -1, 20},
+//		{20, 20000, 5, 5},
+//		{20, 20000, 30, 20},
+//	}
+//	for tcIndex, tt := range tests {
+//		checkTxs(t, mempool, tt.numTxsToCreate, UnknownPeerID)
+//		got := mempool.ReapMaxBytesMaxGas(tt.maxBytes, tt.maxGas)
+//		assert.Equal(t, tt.expectedNumTxs, len(got), "Got %d txs, expected %d, tc #%d",
+//			len(got), tt.expectedNumTxs, tcIndex)
+//		mempool.Flush()
+//	}
+//}
 
 func TestMempoolFilters(t *testing.T) {
 	var mempool Mempool
@@ -536,7 +535,7 @@ func TestMempoolMaxMsgSize(t *testing.T) {
 }
 
 func TestMempoolTxsBytes(t *testing.T) {
-	var mempool Mempool
+	var mempool *basemempool
 	var cleanup cleanupFunc
 	for i := 0; i < 2; i++ {
 		app := kvstore.NewApplication()
@@ -610,185 +609,185 @@ func TestMempoolTxsBytes(t *testing.T) {
 	}
 }
 
-func TestCListMempool_RemoveTxByKey(t *testing.T) {
-	app := kvstore.NewApplication()
-	cc := proxy.NewLegacyLocalClientCreator(app)
-	config := cfg.ResetTestRoot("mempool_test")
-	config.Mempool.MaxTxsBytes = 10
-	mempool, cleanup := newClistMempoolWithAppAndConfig(cc, config)
-	defer cleanup()
-	err := mempool.CheckTx([]byte{0x06}, nil, TxInfo{})
-	require.NoError(t, err)
-	assert.EqualValues(t, 1, mempool.TxsBytes())
-	mempool.RemoveTxByKey(TxKey([]byte{0x07}), true)
-	assert.EqualValues(t, 1, mempool.TxsBytes())
-	mempool.RemoveTxByKey(TxKey([]byte{0x06}), true)
-	assert.EqualValues(t, 0, mempool.TxsBytes())
-}
+//func TestCListMempool_RemoveTxByKey(t *testing.T) {
+//	app := kvstore.NewApplication()
+//	cc := proxy.NewLegacyLocalClientCreator(app)
+//	config := cfg.ResetTestRoot("mempool_test")
+//	config.Mempool.MaxTxsBytes = 10
+//	mempool, cleanup := newClistMempoolWithAppAndConfig(cc, config)
+//	defer cleanup()
+//	err := mempool.CheckTx([]byte{0x06}, nil, TxInfo{})
+//	require.NoError(t, err)
+//	assert.EqualValues(t, 1, mempool.TxsBytes())
+//	mempool.RemoveTxByKey(TxKey([]byte{0x07}), true)
+//	assert.EqualValues(t, 1, mempool.TxsBytes())
+//	mempool.RemoveTxByKey(TxKey([]byte{0x06}), true)
+//	assert.EqualValues(t, 0, mempool.TxsBytes())
+//}
 
-func generateTxsWithPriorityClist(t *testing.T, mempool *CListMempool, priorityList []uint64) []types.Tx {
-	l := len(priorityList)
-	// Each tx has default gas 1, bytes len 20, priority 0
-	checkTxs(t, mempool, l, UnknownPeerID)
-	var txs []types.Tx
-	// Add priority to each element
-	for front, i := mempool.TxsFront(), 0; front != nil; front, i = front.Next(), i+1 {
-		front.Priority = priorityList[i]
-		txs = append(txs, front.Value.(*mempoolTx).tx)
-	}
-	return txs
-}
-
-func getTxswithPriorityClist(mempool *CListMempool, remainBytes int64) []types.Tx {
-	var txs []types.Tx
-	starter, _ := mempool.GetNextTxBytes(remainBytes, 1, nil)
-	for starter != nil {
-		txs = append(txs, starter)
-		starter, _ = mempool.GetNextTxBytes(remainBytes, 1, starter)
-	}
-	return txs
-}
-
-func TestCListMempool_GetNextTxBytes(t *testing.T) {
-	app := kvstore.NewApplication()
-	cc := proxy.NewLegacyLocalClientCreator(app)
-	mempool, cleanup := newClistMempoolWithApp(cc)
-	defer cleanup()
-
-	testCases := []struct {
-		priorities []uint64
-		order      []uint64
-		hasError   bool
-	}{
-		// error case by wrong gas/bytes limit
-		{
-			priorities: []uint64{0, 0, 0, 0, 0},
-			hasError:   true,
-		},
-		// same priority would present as FIFO
-		{
-			priorities: []uint64{0, 0, 0, 0, 0},
-			order:      []uint64{0, 1, 2, 3, 4},
-		},
-		{
-			priorities: []uint64{1, 0, 1, 0, 1},
-			order:      []uint64{0, 3, 1, 4, 2},
-		},
-		{
-			priorities: []uint64{1, 2, 3, 4, 5},
-			order:      []uint64{4, 3, 2, 1, 0},
-		},
-		{
-			priorities: []uint64{5, 4, 3, 2, 1},
-			order:      []uint64{0, 1, 2, 3, 4},
-		},
-		{
-			priorities: []uint64{1, 3, 5, 4, 2},
-			order:      []uint64{4, 2, 0, 1, 3},
-		},
-		{
-			priorities: []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
-			order:      []uint64{0, 1, 2, 3},
-		},
-	}
-
-	for i, testCase := range testCases {
-		originalTxs := generateTxsWithPriorityClist(t, mempool, testCase.priorities)
-		remainBytes := 20
-		if testCase.hasError {
-			remainBytes = 10
-		}
-		orderedTxs := getTxswithPriorityClist(mempool, int64(remainBytes))
-		if testCase.hasError {
-			require.Nil(t, orderedTxs, "Failed at testcase %d", i)
-			mempool.Flush()
-			continue
-		}
-		for j, k := range testCase.order {
-			require.Equal(t, originalTxs[j], orderedTxs[k], "Failed at testcase %d", i)
-		}
-		mempool.Flush()
-	}
-}
-
-func generateTxsWithPriorityLlrb(t *testing.T, mempool *LlrbMempool, priorityList []uint64) []types.Tx {
-	var starter lElement
-	l := len(priorityList)
-	// Each tx has default gas 1, bytes len 20, priority 0
-	checkTxs(t, mempool, l, UnknownPeerID)
-	var txs []types.Tx
-	// Add priority to each element
-	for i := 0; i < l; i++ {
-		txBytes := make([]byte, 20)
-		_, err := rand.Read(txBytes)
-		if err != nil {
-			t.Error(err)
-		}
-		memTx, err := mempool.txs.GetNext(&(starter.nodeKey), nil)
-		if err != nil {
-			break
-		}
-		tx := (*memTx.(**mempoolTx)).tx
-		if e, ok := mempool.txsMap.Load(TxKey(tx)); ok {
-			starter = *e.(*lElement)
-			starter.nodeKey.Priority = priorityList[i]
-			txs = append(txs, tx)
-		}
-	}
-	return txs
-}
-
-func getTxswithPriorityLlrb(mempool *LlrbMempool, remainBytes int64) []types.Tx {
-	var txs []types.Tx
-	starter, _ := mempool.GetNextTxBytes(remainBytes, 1, nil)
-	for starter != nil {
-		txs = append(txs, starter)
-		starter, _ = mempool.GetNextTxBytes(remainBytes, 1, starter)
-	}
-	return txs
-}
-
-func TestLlrbMempool_GetNextTxBytes(t *testing.T) {
-	app := kvstore.NewApplication()
-	cc := proxy.NewLegacyLocalClientCreator(app)
-	mempool, cleanup := newLlrbMempoolWithApp(cc)
-	defer cleanup()
-
-	testCases := []struct {
-		priorities []uint64
-		order      []uint64
-		hasError   bool
-	}{
-		// error case by wrong gas/bytes limit
-		{
-			priorities: []uint64{0, 0, 0, 0, 0},
-			hasError:   true,
-		},
-		// same priority would present as FIFO
-		{
-			priorities: []uint64{0, 0, 0, 0, 0},
-			order:      []uint64{0, 1, 2, 3, 4},
-		},
-	}
-
-	for i, testCase := range testCases {
-		originalTxs := generateTxsWithPriorityLlrb(t, mempool, testCase.priorities)
-		remainBytes := 20
-		if testCase.hasError {
-			remainBytes = 10
-		}
-		orderedTxs := getTxswithPriorityLlrb(mempool, int64(remainBytes))
-		if testCase.hasError {
-			require.Nil(t, orderedTxs, "Failed at testcase %d", i)
-			mempool.Flush()
-			continue
-		}
-		for j, k := range testCase.order {
-			require.Equal(t, originalTxs[j], orderedTxs[k], "Failed at testcase %d", i)
-		}
-		mempool.Flush()
-	}
-}
+//func generateTxsWithPriorityClist(t *testing.T, mempool *CListMempool, priorityList []uint64) []types.Tx {
+//	l := len(priorityList)
+//	// Each tx has default gas 1, bytes len 20, priority 0
+//	checkTxs(t, mempool, l, UnknownPeerID)
+//	var txs []types.Tx
+//	// Add priority to each element
+//	for front, i := mempool.TxsFront(), 0; front != nil; front, i = front.Next(), i+1 {
+//		front.Priority = priorityList[i]
+//		txs = append(txs, front.Value.(*mempoolTx).tx)
+//	}
+//	return txs
+//}
+//
+//func getTxswithPriorityClist(mempool *CListMempool, remainBytes int64) []types.Tx {
+//	var txs []types.Tx
+//	starter, _ := mempool.GetNextTxBytes(remainBytes, 1, nil)
+//	for starter != nil {
+//		txs = append(txs, starter)
+//		starter, _ = mempool.GetNextTxBytes(remainBytes, 1, starter)
+//	}
+//	return txs
+//}
+//
+//func TestCListMempool_GetNextTxBytes(t *testing.T) {
+//	app := kvstore.NewApplication()
+//	cc := proxy.NewLegacyLocalClientCreator(app)
+//	mempool, cleanup := newClistMempoolWithApp(cc)
+//	defer cleanup()
+//
+//	testCases := []struct {
+//		priorities []uint64
+//		order      []uint64
+//		hasError   bool
+//	}{
+//		// error case by wrong gas/bytes limit
+//		{
+//			priorities: []uint64{0, 0, 0, 0, 0},
+//			hasError:   true,
+//		},
+//		// same priority would present as FIFO
+//		{
+//			priorities: []uint64{0, 0, 0, 0, 0},
+//			order:      []uint64{0, 1, 2, 3, 4},
+//		},
+//		{
+//			priorities: []uint64{1, 0, 1, 0, 1},
+//			order:      []uint64{0, 3, 1, 4, 2},
+//		},
+//		{
+//			priorities: []uint64{1, 2, 3, 4, 5},
+//			order:      []uint64{4, 3, 2, 1, 0},
+//		},
+//		{
+//			priorities: []uint64{5, 4, 3, 2, 1},
+//			order:      []uint64{0, 1, 2, 3, 4},
+//		},
+//		{
+//			priorities: []uint64{1, 3, 5, 4, 2},
+//			order:      []uint64{4, 2, 0, 1, 3},
+//		},
+//		{
+//			priorities: []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
+//			order:      []uint64{0, 1, 2, 3},
+//		},
+//	}
+//
+//	for i, testCase := range testCases {
+//		originalTxs := generateTxsWithPriorityClist(t, mempool, testCase.priorities)
+//		remainBytes := 20
+//		if testCase.hasError {
+//			remainBytes = 10
+//		}
+//		orderedTxs := getTxswithPriorityClist(mempool, int64(remainBytes))
+//		if testCase.hasError {
+//			require.Nil(t, orderedTxs, "Failed at testcase %d", i)
+//			mempool.Flush()
+//			continue
+//		}
+//		for j, k := range testCase.order {
+//			require.Equal(t, originalTxs[j], orderedTxs[k], "Failed at testcase %d", i)
+//		}
+//		mempool.Flush()
+//	}
+//}
+//
+//func generateTxsWithPriorityLlrb(t *testing.T, mempool *LlrbMempool, priorityList []uint64) []types.Tx {
+//	var starter lElement
+//	l := len(priorityList)
+//	// Each tx has default gas 1, bytes len 20, priority 0
+//	checkTxs(t, mempool, l, UnknownPeerID)
+//	var txs []types.Tx
+//	// Add priority to each element
+//	for i := 0; i < l; i++ {
+//		txBytes := make([]byte, 20)
+//		_, err := rand.Read(txBytes)
+//		if err != nil {
+//			t.Error(err)
+//		}
+//		memTx, err := mempool.txs.GetNext(&(starter.nodeKey), nil)
+//		if err != nil {
+//			break
+//		}
+//		tx := (*memTx.(**mempoolTx)).tx
+//		if e, ok := mempool.txsMap.Load(TxKey(tx)); ok {
+//			starter = *e.(*lElement)
+//			starter.nodeKey.Priority = priorityList[i]
+//			txs = append(txs, tx)
+//		}
+//	}
+//	return txs
+//}
+//
+//func getTxswithPriorityLlrb(mempool *LlrbMempool, remainBytes int64) []types.Tx {
+//	var txs []types.Tx
+//	starter, _ := mempool.GetNextTxBytes(remainBytes, 1, nil)
+//	for starter != nil {
+//		txs = append(txs, starter)
+//		starter, _ = mempool.GetNextTxBytes(remainBytes, 1, starter)
+//	}
+//	return txs
+//}
+//
+//func TestLlrbMempool_GetNextTxBytes(t *testing.T) {
+//	app := kvstore.NewApplication()
+//	cc := proxy.NewLegacyLocalClientCreator(app)
+//	mempool, cleanup := newLlrbMempoolWithApp(cc)
+//	defer cleanup()
+//
+//	testCases := []struct {
+//		priorities []uint64
+//		order      []uint64
+//		hasError   bool
+//	}{
+//		// error case by wrong gas/bytes limit
+//		{
+//			priorities: []uint64{0, 0, 0, 0, 0},
+//			hasError:   true,
+//		},
+//		// same priority would present as FIFO
+//		{
+//			priorities: []uint64{0, 0, 0, 0, 0},
+//			order:      []uint64{0, 1, 2, 3, 4},
+//		},
+//	}
+//
+//	for i, testCase := range testCases {
+//		originalTxs := generateTxsWithPriorityLlrb(t, mempool, testCase.priorities)
+//		remainBytes := 20
+//		if testCase.hasError {
+//			remainBytes = 10
+//		}
+//		orderedTxs := getTxswithPriorityLlrb(mempool, int64(remainBytes))
+//		if testCase.hasError {
+//			require.Nil(t, orderedTxs, "Failed at testcase %d", i)
+//			mempool.Flush()
+//			continue
+//		}
+//		for j, k := range testCase.order {
+//			require.Equal(t, originalTxs[j], orderedTxs[k], "Failed at testcase %d", i)
+//		}
+//		mempool.Flush()
+//	}
+//}
 
 func checksumIt(data []byte) string {
 	h := sha256.New()
