@@ -1,6 +1,7 @@
 package llrb
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
@@ -26,7 +27,7 @@ func (a NodeKey) compare(b NodeKey) int {
 	if a.TS.After(b.TS) {
 		return -1
 	}
-	return 0
+	return bytes.Compare(a.TxHash[:], b.TxHash[:])
 }
 
 type node struct {

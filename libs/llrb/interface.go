@@ -1,10 +1,16 @@
 package llrb
 
-import "time"
+import (
+	"crypto/sha256"
+	"time"
+)
+
+const TxKeySize = sha256.Size
 
 type NodeKey struct {
 	Priority uint64
 	TS       time.Time
+	TxHash   [TxKeySize]byte
 }
 
 type LLRB interface {

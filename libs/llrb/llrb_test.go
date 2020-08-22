@@ -3,6 +3,7 @@ package llrb
 import (
 	"bytes"
 	cr "crypto/rand"
+	"crypto/sha256"
 	"math"
 	"math/rand"
 	"sync"
@@ -12,12 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func getNodeKeys(priorities []uint64) []*NodeKey {
+func getNodeKeys(priorities []uint64, txs [][]byte) []*NodeKey {
 	var nks []*NodeKey
 	for i := 0; i < len(priorities); i++ {
 		nk := &NodeKey{
 			Priority: priorities[i],
 			TS:       time.Now(),
+			TxHash:   txHash(txs[i]),
 		}
 		nks = append(nks, nk)
 	}
@@ -59,10 +61,14 @@ func getOrderedTxs(tree LLRB, byteLimit int, txMap *sync.Map) [][]byte {
 	return txs
 }
 
+func txHash(tx []byte) [TxKeySize]byte {
+	return sha256.Sum256(tx)
+}
+
 func TestBasics(t *testing.T) {
 	tree := New()
-	nks := getNodeKeys([]uint64{1, 2})
 	txs := getRandomBytes(2)
+	nks := getNodeKeys([]uint64{1, 2}, txs)
 	tree.Insert(*nks[0], txs[0])
 	require.Equal(t, 1, tree.Size(), "expecting len 1")
 	data, err := tree.Remove(*nks[0])
@@ -103,7 +109,7 @@ func TestRandomInsertDeleteNonExistent(t *testing.T) {
 		nks = append(nks, nk)
 		tree.Insert(*nk, txs[perm[i]])
 	}
-	_, err := tree.Remove(*getNodeKeys([]uint64{200})[0])
+	_, err := tree.Remove(*getNodeKeys([]uint64{200}, txs)[0])
 	require.Error(t, err, "expecting error when removing nonexistent node")
 
 	for i := 0; i < n; i++ {
@@ -111,7 +117,7 @@ func TestRandomInsertDeleteNonExistent(t *testing.T) {
 		require.NoError(t, err, "expecting no error when removing existed node")
 		require.True(t, bytes.Equal(result.([]byte), txs[perm[i]]), "expecting same data")
 	}
-	_, err = tree.Remove(*getNodeKeys([]uint64{200})[0])
+	_, err = tree.Remove(*getNodeKeys([]uint64{200}, txs)[0])
 	require.Error(t, err, "expecting error when removing nonexistent node")
 }
 
@@ -203,8 +209,8 @@ func TestGetNext(t *testing.T) {
 
 	for i, tc := range testCases {
 		tree := New()
-		nks := getNodeKeys(tc.priorities)
 		txs := getRandomBytes(len(tc.priorities))
+		nks := getNodeKeys(tc.priorities, txs)
 		limit := 20
 		if tc.byteLength != nil {
 			txs = getFixedBytes(tc.byteLength)
