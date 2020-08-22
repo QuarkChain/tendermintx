@@ -124,7 +124,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	blockExec.mempool.Lock()
 	err = blockExec.mempool.RemoveTxs(invalidTxs)
 	if err != nil {
-		panic(err)
+		blockExec.logger.Error("Error in mempool.RemoveTxs", "err", err)
 	}
 	blockExec.mempool.Unlock()
 
