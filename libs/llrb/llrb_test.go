@@ -115,6 +115,29 @@ func TestRandomInsertDeleteNonExistent(t *testing.T) {
 	require.Error(t, err, "expecting error when removing nonexistent node")
 }
 
+func TestLlrb_UpdateKey(t *testing.T) {
+	tree := New()
+	n := 100
+	txs := getRandomBytes(n)
+	perm := rand.Perm(n)
+	var nks []*NodeKey
+	for i := 0; i < n; i++ {
+		nk := &NodeKey{Priority: uint64(perm[i])}
+		tree.Insert(*nk, txs[perm[i]])
+		nks = append(nks, nk)
+	}
+	for i := 0; i < n; i++ {
+		newKey := *nks[i]
+		newKey.Priority += 100
+		err := tree.UpdateKey(newKey, *nks[i])
+		require.Error(t, err, "expecting error when updating existed keys")
+		err = tree.UpdateKey(*nks[i], newKey)
+		require.NoError(t, err, "expecting no error when updating existed keys")
+		data, _ := tree.Remove(newKey)
+		require.True(t, bytes.Equal(data.([]byte), txs[perm[i]]), "expecting same tx after updating keys")
+	}
+}
+
 func TestGetNext(t *testing.T) {
 	testCases := []struct {
 		priorities      []uint64 // Priority of each tx
