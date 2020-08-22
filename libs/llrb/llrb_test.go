@@ -130,7 +130,7 @@ func TestLlrb_UpdateKey(t *testing.T) {
 		newKey := *nks[i]
 		newKey.Priority += 100
 		err := tree.UpdateKey(newKey, *nks[i])
-		require.Error(t, err, "expecting error when updating existed keys")
+		require.Error(t, err, "expecting error when updating nonexistent keys")
 		err = tree.UpdateKey(*nks[i], newKey)
 		require.NoError(t, err, "expecting no error when updating existed keys")
 		data, _ := tree.Remove(newKey)
