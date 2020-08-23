@@ -644,3 +644,26 @@ func abciResponses(n int, code uint32) []*abcix.ResponseDeliverTx {
 	}
 	return responses
 }
+
+func TestCListMempool_RemoveTxs(t *testing.T) {
+	app := kvstore.NewApplication()
+	cc := proxy.NewLegacyLocalClientCreator(app)
+	mempool, cleanup := newMempoolWithApp(cc)
+	defer cleanup()
+
+	txs := []types.Tx{[]byte{0x01}, []byte{0x02}}
+	mempool.CheckTx(txs[0], nil, TxInfo{})
+	mempool.CheckTx(txs[1], nil, TxInfo{})
+	assert.EqualValues(t, 2, mempool.TxsBytes())
+
+	err := mempool.RemoveTxs(txs[1:])
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, mempool.TxsBytes())
+
+	err = mempool.RemoveTxs(txs[0:1])
+	require.NoError(t, err)
+	assert.EqualValues(t, 0, mempool.TxsBytes())
+
+	err = mempool.RemoveTxs(txs[1:])
+	require.Error(t, err)
+}
