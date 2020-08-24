@@ -162,13 +162,13 @@ func (mem *LlrbMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
 }
 
 func (mem *LlrbMempool) getNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
-	var prevElement lElement
+	var prevNodeKey *llrb.NodeKey
 	if len(starter) > 0 {
 		if e, ok := mem.txsMap.Load(TxKey(starter)); ok {
-			prevElement = *e.(*lElement)
+			prevNodeKey = &e.(*lElement).nodeKey
 		}
 	}
-	memTx, err := mem.txs.GetNext(&(prevElement.nodeKey), func(i interface{}) bool {
+	memTx, err := mem.txs.GetNext(prevNodeKey, func(i interface{}) bool {
 		return ((*i.(**mempoolTx)).gasWanted <= remainGas) && (int64(len((*i.(**mempoolTx)).tx)) <= remainBytes)
 	})
 	if err != nil {
@@ -179,20 +179,7 @@ func (mem *LlrbMempool) getNextTxBytes(remainBytes int64, remainGas int64, start
 }
 
 func (mem *LlrbMempool) deleteAll() {
-	var e *lElement
-	for {
-		memTx, err := mem.txs.GetNext(nil, nil)
-		if err != nil {
-			break
-		}
-		tx := (*memTx.(**mempoolTx)).tx
-		if i, ok := mem.txsMap.Load(TxKey(tx)); ok {
-			e = i.(*lElement)
-		}
-		if _, err := mem.txs.Remove(e.nodeKey); err != nil {
-			panic(err)
-		}
-	}
+	mem.txs = llrb.New()
 	mem.txsMap.Range(func(key, _ interface{}) bool {
 		mem.txsMap.Delete(key)
 		return true

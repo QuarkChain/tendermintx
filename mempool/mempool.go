@@ -281,7 +281,7 @@ func (mem *basemempool) globalCb(req *abcix.Request, res *abcix.Response) {
 func (mem *basemempool) InitWAL() error {
 	var (
 		walDir  = mem.config.WalDir()
-		walFile = walDir + "/lwal"
+		walFile = walDir + "/wal"
 	)
 
 	const perm = 0700
@@ -445,6 +445,7 @@ func (mem *basemempool) Update(
 		//   100
 		// https://github.com/tendermint/tendermint/issues/3322.
 		mem.removeCommittedTx(tx)
+		atomic.AddInt64(&mem.txsBytes, int64(-len(tx)))
 	}
 
 	// Either recheck non-committed txs to see if they became invalid

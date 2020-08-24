@@ -84,7 +84,7 @@ func (mem *CListMempool) TxsWaitChan() <-chan struct{} {
 }
 
 // RemoveTxByKey removes a transaction from the mempool by its TxKey index.
-func (mem *CListMempool) RemoveTxByKey(txKey [TxKeySize]byte) {
+func (mem *CListMempool) removeTxByKey(txKey [TxKeySize]byte) {
 	if e, ok := mem.txsMap.Load(txKey); ok {
 		memTx := e.(*clist.CElement).Value.(*mempoolTx)
 		if memTx != nil {
@@ -247,7 +247,7 @@ func (mem *CListMempool) recordNewSender(tx types.Tx, txInfo TxInfo) {
 
 func (mem *CListMempool) removeCommittedTx(tx types.Tx) {
 	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
-		mem.removeTx(tx, e.(*clist.CElement), false)
+		mem.removeTx(tx, e.(*clist.CElement))
 	}
 }
 
