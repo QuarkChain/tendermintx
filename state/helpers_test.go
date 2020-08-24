@@ -2,6 +2,7 @@ package state_test
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
 	"time"
 
@@ -265,6 +266,36 @@ func (app *testApp) CheckTx(req abcix.RequestCheckTx) abcix.ResponseCheckTx {
 
 func (app *testApp) Commit() abcix.ResponseCommit {
 	return abcix.ResponseCommit{RetainHeight: 1}
+}
+
+func (app *testApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckBlock {
+	if req.Height == 1 {
+		return abcix.ResponseCheckBlock{
+			Code: 1,
+		}
+	}
+	if req.Height == 2 {
+		return abcix.ResponseCheckBlock{
+			DeliverTxs: []*abcix.ResponseDeliverTx{
+				{
+					Code: 1,
+				},
+			},
+		}
+	}
+
+	randomHash := make([]byte, 20)
+	_, err := rand.Read(make([]byte, 20))
+	if err != nil {
+		panic("failed to generate random hash value")
+	}
+	if req.Height == 3 {
+		return abcix.ResponseCheckBlock{
+			ResultHash: randomHash,
+		}
+	}
+
+	return abcix.ResponseCheckBlock{}
 }
 
 func (app *testApp) Query(reqQuery abcix.RequestQuery) (resQuery abcix.ResponseQuery) {

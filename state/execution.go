@@ -2,7 +2,6 @@ package state
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"time"
 
@@ -287,11 +286,14 @@ func (blockExec *BlockExecutor) CheckBlock(block *types.Block) error {
 	}
 	for _, tx := range resp.DeliverTxs {
 		if tx.Code != 0 {
-			return errors.New("invalid transaction")
+			return fmt.Errorf("invalid transaction, code: %d", tx.Code)
 		}
 	}
 	if !bytes.Equal(resp.ResultHash, block.Header.LastResultsHash.Bytes()) {
-		return errors.New("mismatch between header and CheckBlock response")
+		return fmt.Errorf(
+			"mismatch between header and CheckBlock response\n"+
+				"ResultHash of response: %X\n LastResultHash in block header: %X",
+			resp.ResultHash, block.Header.LastResultsHash)
 	}
 
 	return err

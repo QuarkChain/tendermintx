@@ -202,7 +202,7 @@ func (app *adaptedApp) Commit() (resp abcix.ResponseCommit) {
 }
 
 func (app *adaptedApp) CheckBlock(req abcix.RequestCheckBlock) (resp abcix.ResponseCheckBlock) {
-	resp.Data = req.Header.LastResultsHash
+	resp.ResultHash = req.Header.LastResultsHash
 	return
 }
 

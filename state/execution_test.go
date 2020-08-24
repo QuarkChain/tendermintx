@@ -404,3 +404,111 @@ func TestEndBlockValidatorUpdatesResultingInEmptySet(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.NotEmpty(t, state.NextValidators.Validators)
 }
+
+func TestCheckBlockWithAppError(t *testing.T) {
+	app := &testApp{}
+	cc := proxy.NewLocalClientCreator(app)
+	proxyApp := proxy.NewAppConns(cc)
+	err := proxyApp.Start()
+	require.Nil(t, err)
+	defer proxyApp.Stop() //nolint:errcheck // ignore for tests
+
+	state, stateDB, _ := makeState(1, 1)
+	blockExec := sm.NewBlockExecutor(
+		stateDB,
+		log.TestingLogger(),
+		proxyApp.Consensus(),
+		mock.Mempool{},
+		sm.MockEvidencePool{},
+	)
+
+	block := makeBlock(state, 1)
+	err = blockExec.CheckBlock(block)
+	assert.Error(t, err)
+}
+
+func TestCheckBlockWithInvalidTx(t *testing.T) {
+	app := &testApp{}
+	cc := proxy.NewLocalClientCreator(app)
+	proxyApp := proxy.NewAppConns(cc)
+	err := proxyApp.Start()
+	require.Nil(t, err)
+	defer proxyApp.Stop() //nolint:errcheck // ignore for tests
+
+	state, stateDB, _ := makeState(2, 2)
+	blockExec := sm.NewBlockExecutor(
+		stateDB,
+		log.TestingLogger(),
+		proxyApp.Consensus(),
+		mock.Mempool{},
+		sm.MockEvidencePool{},
+	)
+
+	prevHash := state.LastBlockID.Hash
+	prevParts := types.PartSetHeader{}
+	prevBlockID := types.BlockID{Hash: prevHash, PartSetHeader: prevParts}
+
+	var (
+		now        = tmtime.Now()
+		commitSig0 = types.NewCommitSigForBlock(
+			[]byte("Signature1"),
+			state.Validators.Validators[0].Address,
+			now)
+		commitSig1 = types.NewCommitSigForBlock(
+			[]byte("Signature2"),
+			state.Validators.Validators[1].Address,
+			now)
+	)
+
+	lastCommit := types.NewCommit(1, 0, prevBlockID, []types.CommitSig{commitSig0, commitSig1})
+
+	// block for height 2
+	block, _ := state.MakeBlock(2, makeTxs(2), lastCommit, nil, state.Validators.GetProposer().Address)
+	err = blockExec.CheckBlock(block)
+	assert.Error(t, err)
+}
+
+func TestCheckBlockWithMismatchResultHash(t *testing.T) {
+	app := &testApp{}
+	cc := proxy.NewLocalClientCreator(app)
+	proxyApp := proxy.NewAppConns(cc)
+	err := proxyApp.Start()
+	require.Nil(t, err)
+	defer proxyApp.Stop() //nolint:errcheck // ignore for tests
+
+	state, stateDB, _ := makeState(3, 3)
+	blockExec := sm.NewBlockExecutor(
+		stateDB,
+		log.TestingLogger(),
+		proxyApp.Consensus(),
+		mock.Mempool{},
+		sm.MockEvidencePool{},
+	)
+
+	prevHash := state.LastBlockID.Hash
+	prevParts := types.PartSetHeader{}
+	prevBlockID := types.BlockID{Hash: prevHash, PartSetHeader: prevParts}
+
+	var (
+		now        = tmtime.Now()
+		commitSig0 = types.NewCommitSigForBlock(
+			[]byte("Signature1"),
+			state.Validators.Validators[0].Address,
+			now)
+		commitSig1 = types.NewCommitSigForBlock(
+			[]byte("Signature2"),
+			state.Validators.Validators[1].Address,
+			now)
+		commitSig2 = types.NewCommitSigForBlock(
+			[]byte("Signature3"),
+			state.Validators.Validators[2].Address,
+			now)
+	)
+
+	lastCommit := types.NewCommit(2, 0, prevBlockID, []types.CommitSig{commitSig0, commitSig1, commitSig2})
+
+	// block for height 2
+	block, _ := state.MakeBlock(3, makeTxs(3), lastCommit, nil, state.Validators.GetProposer().Address)
+	err = blockExec.CheckBlock(block)
+	assert.Error(t, err)
+}
