@@ -1,10 +1,14 @@
 package llrb
 
-import "time"
+import (
+	"crypto/sha256"
+	"time"
+)
 
 type NodeKey struct {
 	Priority uint64
 	TS       time.Time
+	Hash     [sha256.Size]byte
 }
 
 type LLRB interface {
@@ -12,6 +16,7 @@ type LLRB interface {
 	GetNext(starter *NodeKey, predicate func(interface{}) bool) (interface{}, error)
 	Insert(key NodeKey, data interface{}) error
 	Remove(key NodeKey) (interface{}, error)
+	UpdateKey(oldKey NodeKey, newKey NodeKey) error
 }
 
 func New() LLRB {
