@@ -283,14 +283,14 @@ func (blockExec *BlockExecutor) CheckBlock(block *types.Block) error {
 		return err
 	}
 	if resp.Code != 0 {
-		return errors.New("application error during CheckBlock")
+		return fmt.Errorf("application error during CheckBlock, code: %d", resp.Code)
 	}
 	for _, tx := range resp.DeliverTxs {
 		if tx.Code != 0 {
 			return errors.New("invalid transaction")
 		}
 	}
-	if !bytes.Equal(resp.Data, block.Header.LastResultsHash.Bytes()) {
+	if !bytes.Equal(resp.ResultHash, block.Header.LastResultsHash.Bytes()) {
 		return errors.New("mismatch between header and CheckBlock response")
 	}
 
