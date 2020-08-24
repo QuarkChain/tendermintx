@@ -27,7 +27,7 @@ func (a NodeKey) compare(b NodeKey) int {
 	if a.TS.After(b.TS) {
 		return -1
 	}
-	return bytes.Compare(a.TxHash[:], b.TxHash[:])
+	return bytes.Compare(a.Hash[:], b.Hash[:])
 }
 
 type node struct {

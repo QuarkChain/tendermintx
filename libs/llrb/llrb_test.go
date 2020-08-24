@@ -19,7 +19,7 @@ func getNodeKeys(priorities []uint64, txs [][]byte) []*NodeKey {
 		nk := &NodeKey{
 			Priority: priorities[i],
 			TS:       time.Now(),
-			TxHash:   txHash(txs[i]),
+			Hash:     txHash(txs[i]),
 		}
 		nks = append(nks, nk)
 	}
@@ -36,10 +36,10 @@ func getRandomBytes(count int) [][]byte {
 	return txs
 }
 
-func getFixedBytes(bytelen []int) [][]byte {
+func getFixedBytes(byteLength []int) [][]byte {
 	var txs [][]byte
-	for i := 0; i < len(bytelen); i++ {
-		tx := make([]byte, bytelen[i])
+	for i := 0; i < len(byteLength); i++ {
+		tx := make([]byte, byteLength[i])
 		cr.Read(tx)
 		txs = append(txs, tx)
 	}
@@ -61,7 +61,7 @@ func getOrderedTxs(tree LLRB, byteLimit int, txMap *sync.Map) [][]byte {
 	return txs
 }
 
-func txHash(tx []byte) [TxKeySize]byte {
+func txHash(tx []byte) [sha256.Size]byte {
 	return sha256.Sum256(tx)
 }
 

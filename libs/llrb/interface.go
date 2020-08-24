@@ -5,12 +5,10 @@ import (
 	"time"
 )
 
-const TxKeySize = sha256.Size
-
 type NodeKey struct {
 	Priority uint64
 	TS       time.Time
-	TxHash   [TxKeySize]byte
+	Hash     [sha256.Size]byte
 }
 
 type LLRB interface {
