@@ -29,7 +29,7 @@ type Mempool interface {
 	// transactions (~ all available transactions).
 	ReapMaxTxs(max int) types.Txs
 
-	// GetNextTransaction will return transaction with condition that Bytes and Gas
+	// GetNextTxBytes will return transaction with condition that Bytes and Gas
 	// must be less than remainBytes and remainGas, and with highest priority less
 	// than the priority of stater
 	GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error)
