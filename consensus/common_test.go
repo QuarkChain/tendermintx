@@ -699,6 +699,14 @@ func ensureVote(voteCh <-chan tmpubsub.Message, height int64, round int32,
 	}
 }
 
+func ensurePrevoteTimeout(ch <-chan tmpubsub.Message) {
+	select {
+	case <-time.After(ensureTimeout):
+		panic("timeout expired while waiting for the Prevote to Timeout")
+	case <-ch:
+	}
+}
+
 func ensurePrecommitTimeout(ch <-chan tmpubsub.Message) {
 	select {
 	case <-time.After(ensureTimeout):

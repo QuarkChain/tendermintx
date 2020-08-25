@@ -1834,15 +1834,20 @@ func TestStateOutputVoteStats(t *testing.T) {
 }
 
 func TestStateCheckBlockFail(t *testing.T) {
-	cs1, _ := randStateShouldCheckBlockFail(2)
-	height, round := cs1.Height, cs1.Round
+	cs, _ := randStateShouldCheckBlockFail(1)
+	height, round := cs.Height, cs.Round
 
-	voteCh := subscribeUnBuffered(cs1.eventBus, types.EventQueryVote)
+	cs.eventBus.Stop()
+	eventBus := types.NewEventBusWithBufferCapacity(0)
+	eventBus.SetLogger(log.TestingLogger().With("module", "events"))
+	cs.SetEventBus(eventBus)
+	eventBus.Start()
 
+	voteCh := subscribeUnBuffered(cs.eventBus, types.EventQueryVote)
 	// start round and wait for propose and prevote
-	startTestRound(cs1, height, round)
+	startTestRound(cs, height, round)
 
-	ensurePrevote(voteCh, height, round) // prevote
+	assert.Panics(t, func() { ensurePrevoteTimeout(voteCh) })
 }
 
 // subscribe subscribes test client to the given query and returns a channel with cap = 1.
