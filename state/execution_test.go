@@ -33,7 +33,7 @@ var (
 	nTxsPerBlock        = 10
 )
 
-func TestCreateProposalBlock(t *testing.T) {
+func TestCreateProposalBlock_MempoolRemoveTxs(t *testing.T) {
 	var invalidTxs = [][]byte{{0x01}, {0x02}}
 	mockProxyApp := &mocks.AppConnConsensus{}
 
@@ -51,22 +51,18 @@ func TestCreateProposalBlock(t *testing.T) {
 	proposerAddr, _ := state.Validators.GetByIndex(0)
 
 	// Make Mempool
-	memplMetrics := mempl.PrometheusMetrics("node_test")
 	mempool := mempl.NewCListMempool(
 		config.Mempool,
 		proxyApp.Mempool(),
 		state.LastBlockHeight,
-		mempl.WithMetrics(memplMetrics),
-		mempl.WithPreCheck(sm.TxPreCheck(state)),
-		mempl.WithPostCheck(sm.TxPostCheck(state)),
 	)
 	mempool.SetLogger(logger)
 
 	txs := []types.Tx{[]byte{0x01}, []byte{0x02}, []byte{0x03}}
-	for j, tx := range txs {
+	for i, tx := range txs {
 		err := mempool.CheckTx(tx, nil, mempl.TxInfo{})
 		assert.NoError(t, err)
-		assert.EqualValues(t, j+1, mempool.TxsBytes())
+		assert.EqualValues(t, i+1, mempool.TxsBytes())
 	}
 
 	blockExec := sm.NewBlockExecutor(

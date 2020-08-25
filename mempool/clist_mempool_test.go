@@ -656,14 +656,11 @@ func TestCListMempool_RemoveTxs(t *testing.T) {
 	mempool.CheckTx(txs[1], nil, TxInfo{})
 	assert.EqualValues(t, 2, mempool.TxsBytes())
 
+	for i := range txs {
+		err := mempool.RemoveTxs(txs[i : i+1])
+		require.NoError(t, err)
+		assert.EqualValues(t, 1-i, mempool.TxsBytes())
+	}
 	err := mempool.RemoveTxs(txs[1:])
-	require.NoError(t, err)
-	assert.EqualValues(t, 1, mempool.TxsBytes())
-
-	err = mempool.RemoveTxs(txs[0:1])
-	require.NoError(t, err)
-	assert.EqualValues(t, 0, mempool.TxsBytes())
-
-	err = mempool.RemoveTxs(txs[1:])
 	require.Error(t, err)
 }
