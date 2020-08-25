@@ -35,7 +35,7 @@ type BlockExecutor struct {
 
 	// manage the mempool lock during commit
 	// and update both with block results after commit.
-	Mempool mempl.Mempool
+	mempool mempl.Mempool
 	evpool  EvidencePool
 
 	logger log.Logger
@@ -65,7 +65,7 @@ func NewBlockExecutor(
 		db:       db,
 		proxyApp: proxyApp,
 		eventBus: types.NopEventBus{},
-		Mempool:  mempool,
+		mempool:  mempool,
 		evpool:   evpool,
 		logger:   logger,
 		metrics:  NopMetrics(),
@@ -111,7 +111,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		Height:              height,
 		LastCommitInfo:      lastCommitInfo,
 		ByzantineValidators: byzVals,
-	}, abcix.NewMempoolIter(blockExec.Mempool))
+	}, abcix.NewMempoolIter(blockExec.mempool))
 	if err != nil {
 		panic(err)
 	}
@@ -122,9 +122,9 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		invalidTxs[i] = invalidTx
 	}
 
-	blockExec.Mempool.Lock()
-	err = blockExec.Mempool.RemoveTxs(invalidTxs)
-	blockExec.Mempool.Unlock()
+	blockExec.mempool.Lock()
+	err = blockExec.mempool.RemoveTxs(invalidTxs)
+	blockExec.mempool.Unlock()
 	if err != nil {
 		blockExec.logger.Error("Error in mempool.RemoveTxs", "err", err)
 	}
@@ -227,12 +227,12 @@ func (blockExec *BlockExecutor) Commit(
 	block *types.Block,
 	deliverBlockResponse *abcix.ResponseDeliverBlock,
 ) ([]byte, int64, error) {
-	blockExec.Mempool.Lock()
-	defer blockExec.Mempool.Unlock()
+	blockExec.mempool.Lock()
+	defer blockExec.mempool.Unlock()
 
 	// while mempool is Locked, flush to ensure all async requests have completed
 	// in the ABCI app before Commit.
-	err := blockExec.Mempool.FlushAppConn()
+	err := blockExec.mempool.FlushAppConn()
 	if err != nil {
 		blockExec.logger.Error("Client error during mempool.FlushAppConn", "err", err)
 		return nil, 0, err
@@ -257,7 +257,7 @@ func (blockExec *BlockExecutor) Commit(
 	)
 
 	// Update mempool.
-	err = blockExec.Mempool.Update(
+	err = blockExec.mempool.Update(
 		block.Height,
 		block.Txs,
 		deliverBlockResponse.DeliverTxs,
