@@ -712,7 +712,7 @@ func ensurePrevoteWithNilBlock(voteCh <-chan tmpubsub.Message) {
 
 		vote := voteEvent.Vote
 		if vote.BlockID.Hash == nil {
-			panic("expect vote with nil block")
+			panic("vote with nil block as expected")
 		}
 	}
 }

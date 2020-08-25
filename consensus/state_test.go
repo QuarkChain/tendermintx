@@ -1847,7 +1847,7 @@ func TestStateCheckBlockFail(t *testing.T) {
 	// start round and wait for propose and prevote
 	startTestRound(cs, height, round)
 
-	assert.PanicsWithValue(t, "expect vote with nil block", func() { ensurePrevoteWithNilBlock(voteCh) })
+	assert.PanicsWithValue(t, "vote with nil block as expected", func() { ensurePrevoteWithNilBlock(voteCh) })
 
 }
 
