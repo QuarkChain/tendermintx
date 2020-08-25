@@ -2,12 +2,18 @@ package state_test
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
+
+	cfg "github.com/tendermint/tendermint/config"
+	mempl "github.com/tendermint/tendermint/mempool"
+	"github.com/tendermint/tendermint/proxy/mocks"
 
 	abcix "github.com/tendermint/tendermint/abcix/types"
 
 	"github.com/stretchr/testify/assert"
+	tmock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/tendermint/crypto/ed25519"
@@ -26,6 +32,65 @@ var (
 	testPartSize uint32 = 65536
 	nTxsPerBlock        = 10
 )
+
+func TestCreateProposalBlock(t *testing.T) {
+	var invalidTxs = [][]byte{{0x01}, {0x02}}
+	mockProxyApp := &mocks.AppConnConsensus{}
+
+	config := cfg.ResetTestRoot("node_create_proposal")
+	defer os.RemoveAll(config.RootDir)
+	app := &testApp{}
+	cc := proxy.NewLocalClientCreator(app)
+	proxyApp := proxy.NewAppConns(cc)
+	err := proxyApp.Start()
+	require.Nil(t, err)
+	defer proxyApp.Stop() //nolint:errcheck // ignore for tests
+
+	logger := log.TestingLogger()
+	state, stateDB, _ := makeState(1, 1)
+	proposerAddr, _ := state.Validators.GetByIndex(0)
+
+	// Make Mempool
+	memplMetrics := mempl.PrometheusMetrics("node_test")
+	mempool := mempl.NewCListMempool(
+		config.Mempool,
+		proxyApp.Mempool(),
+		state.LastBlockHeight,
+		mempl.WithMetrics(memplMetrics),
+		mempl.WithPreCheck(sm.TxPreCheck(state)),
+		mempl.WithPostCheck(sm.TxPostCheck(state)),
+	)
+	mempool.SetLogger(logger)
+
+	txs := []types.Tx{[]byte{0x01}, []byte{0x02}, []byte{0x03}}
+	for j, tx := range txs {
+		err := mempool.CheckTx(tx, nil, mempl.TxInfo{})
+		assert.NoError(t, err)
+		assert.EqualValues(t, j+1, mempool.TxsBytes())
+	}
+
+	blockExec := sm.NewBlockExecutor(
+		stateDB,
+		logger,
+		mockProxyApp,
+		mempool,
+		sm.MockEvidencePool{},
+	)
+	mockProxyApp.On("CreateBlockSync", tmock.Anything, tmock.Anything).Return(&abcix.ResponseCreateBlock{
+		Txs:        [][]byte{{0x03}},
+		InvalidTxs: invalidTxs,
+	}, nil)
+
+	commit := types.NewCommit(0, 0, types.BlockID{}, nil)
+	block, _ := blockExec.CreateProposalBlock(
+		1,
+		state, commit,
+		proposerAddr,
+	)
+	assert.EqualValues(t, 1, mempool.TxsBytes())
+	err = blockExec.ValidateBlock(state, block)
+	assert.NoError(t, err)
+}
 
 func TestApplyBlock(t *testing.T) {
 	app := &testApp{}

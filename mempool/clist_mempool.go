@@ -192,7 +192,7 @@ func (mem *CListMempool) TxsBytes() int64 {
 	return atomic.LoadInt64(&mem.txsBytes)
 }
 
-// Lock() must be help by the caller during execution.
+// Lock() must be held by the caller during execution.
 func (mem *CListMempool) FlushAppConn() error {
 	return mem.proxyAppConn.FlushSync()
 }
@@ -580,7 +580,7 @@ func (mem *CListMempool) ReapMaxTxs(max int) types.Txs {
 	return txs
 }
 
-// Lock() must be help by the caller during execution.
+// Lock() must be held by the caller during execution.
 func (mem *CListMempool) Update(
 	height int64,
 	txs types.Txs,
@@ -701,7 +701,7 @@ func (mem *CListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, star
 	return candidate.Value.(*mempoolTx).tx, nil
 }
 
-// Lock() must be help by the caller during execution.
+// Lock() must be held by the caller during execution.
 func (mem *CListMempool) RemoveTxs(txs types.Txs) error {
 	for _, tx := range txs {
 		mem.cache.Remove(tx)

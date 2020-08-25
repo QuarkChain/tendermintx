@@ -35,7 +35,7 @@ type BlockExecutor struct {
 
 	// manage the mempool lock during commit
 	// and update both with block results after commit.
-	mempool mempl.Mempool
+	Mempool mempl.Mempool
 	evpool  EvidencePool
 
 	logger log.Logger
@@ -65,7 +65,7 @@ func NewBlockExecutor(
 		db:       db,
 		proxyApp: proxyApp,
 		eventBus: types.NopEventBus{},
-		mempool:  mempool,
+		Mempool:  mempool,
 		evpool:   evpool,
 		logger:   logger,
 		metrics:  NopMetrics(),
@@ -111,7 +111,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		Height:              height,
 		LastCommitInfo:      lastCommitInfo,
 		ByzantineValidators: byzVals,
-	}, abcix.NewMempoolIter(blockExec.mempool))
+	}, abcix.NewMempoolIter(blockExec.Mempool))
 	if err != nil {
 		panic(err)
 	}
@@ -119,14 +119,15 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	// remove invalid txs from mempool
 	var invalidTxs = make([]types.Tx, len(resp.InvalidTxs))
 	for i, invalidTx := range resp.InvalidTxs {
-		copy(invalidTxs[i], invalidTx)
+		invalidTxs[i] = invalidTx
 	}
-	blockExec.mempool.Lock()
-	err = blockExec.mempool.RemoveTxs(invalidTxs)
+
+	blockExec.Mempool.Lock()
+	err = blockExec.Mempool.RemoveTxs(invalidTxs)
+	blockExec.Mempool.Unlock()
 	if err != nil {
 		blockExec.logger.Error("Error in mempool.RemoveTxs", "err", err)
 	}
-	blockExec.mempool.Unlock()
 
 	for _, txBytes := range resp.Txs {
 		txs = append(txs, txBytes)
@@ -226,12 +227,12 @@ func (blockExec *BlockExecutor) Commit(
 	block *types.Block,
 	deliverBlockResponse *abcix.ResponseDeliverBlock,
 ) ([]byte, int64, error) {
-	blockExec.mempool.Lock()
-	defer blockExec.mempool.Unlock()
+	blockExec.Mempool.Lock()
+	defer blockExec.Mempool.Unlock()
 
 	// while mempool is Locked, flush to ensure all async requests have completed
 	// in the ABCI app before Commit.
-	err := blockExec.mempool.FlushAppConn()
+	err := blockExec.Mempool.FlushAppConn()
 	if err != nil {
 		blockExec.logger.Error("Client error during mempool.FlushAppConn", "err", err)
 		return nil, 0, err
@@ -256,7 +257,7 @@ func (blockExec *BlockExecutor) Commit(
 	)
 
 	// Update mempool.
-	err = blockExec.mempool.Update(
+	err = blockExec.Mempool.Update(
 		block.Height,
 		block.Txs,
 		deliverBlockResponse.DeliverTxs,
