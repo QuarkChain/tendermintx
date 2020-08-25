@@ -39,23 +39,20 @@ func TestCreateProposalBlock_MempoolRemoveTxs(t *testing.T) {
 	config := cfg.ResetTestRoot("node_create_proposal")
 	defer os.RemoveAll(config.RootDir)
 	app := &testApp{}
-	cc := proxy.NewLocalClientCreator(app)
-	proxyApp := proxy.NewAppConns(cc)
+	proxyApp := proxy.NewAppConns(proxy.NewLocalClientCreator(app))
 	err := proxyApp.Start()
 	require.Nil(t, err)
-	defer proxyApp.Stop() //nolint:errcheck // ignore for tests
+	defer proxyApp.Stop()
 
 	logger := log.TestingLogger()
 	state, stateDB, _ := makeState(1, 1)
 	proposerAddr, _ := state.Validators.GetByIndex(0)
 
-	// Make Mempool
 	mempool := mempl.NewCListMempool(
 		config.Mempool,
 		proxyApp.Mempool(),
 		state.LastBlockHeight,
 	)
-	mempool.SetLogger(logger)
 
 	txs := []types.Tx{[]byte{0x01}, []byte{0x02}, []byte{0x03}}
 	for i, tx := range txs {
@@ -90,7 +87,7 @@ func TestCreateProposalBlock_MempoolRemoveTxs(t *testing.T) {
 
 	tx, err = mempool.GetNextTxBytes(2, 1, tx)
 	assert.NoError(t, err)
-	assert.EqualValues(t, []byte(nil), tx)
+	assert.Nil(t, tx)
 }
 
 func TestApplyBlock(t *testing.T) {
