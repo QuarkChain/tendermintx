@@ -3,6 +3,7 @@ package consensus
 import (
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/libs/clist"
+	"github.com/tendermint/tendermint/libs/log"
 	mempl "github.com/tendermint/tendermint/mempool"
 	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
 	"github.com/tendermint/tendermint/proxy"
@@ -47,6 +48,8 @@ func (emptyMempool) TxsWaitChan() <-chan struct{} { return nil }
 
 func (emptyMempool) InitWAL() error { return nil }
 func (emptyMempool) CloseWAL()      {}
+
+func (m emptyMempool) SetLogger(_ log.Logger) {}
 
 //-----------------------------------------------------------------------------
 

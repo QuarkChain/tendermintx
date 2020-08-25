@@ -313,7 +313,7 @@ func onlyValidatorIsUs(state sm.State, pubKey crypto.PubKey) bool {
 }
 
 func createMempoolAndMempoolReactor(config *cfg.Config, proxyApp proxy.AppConns,
-	state sm.State, memplMetrics *mempl.Metrics, logger log.Logger) (*mempl.Reactor, *mempl.CListMempool) {
+	state sm.State, memplMetrics *mempl.Metrics, logger log.Logger) (*mempl.Reactor, mempl.Mempool) {
 
 	mempool := mempl.NewCListMempool(
 		config.Mempool,
@@ -377,7 +377,7 @@ func createConsensusReactor(config *cfg.Config,
 	state sm.State,
 	blockExec *sm.BlockExecutor,
 	blockStore sm.BlockStore,
-	mempool *mempl.CListMempool,
+	mempool mempl.Mempool,
 	evidencePool *evidence.Pool,
 	privValidator types.PrivValidator,
 	csMetrics *cs.Metrics,

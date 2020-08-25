@@ -3,6 +3,7 @@ package mock
 import (
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/libs/clist"
+	"github.com/tendermint/tendermint/libs/log"
 	mempl "github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/types"
 )
@@ -43,3 +44,5 @@ func (Mempool) TxsWaitChan() <-chan struct{} { return nil }
 
 func (Mempool) InitWAL() error { return nil }
 func (Mempool) CloseWAL()      {}
+
+func (m Mempool) SetLogger(_ log.Logger) {}

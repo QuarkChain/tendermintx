@@ -39,8 +39,8 @@ const (
 	llrbMempool
 )
 
-func newMempoolWithAppAndConfig(cc proxy.ClientCreator, config *cfg.Config, i int) (*basemempool, cleanupFunc) {
-	var mempool *basemempool
+func newMempoolWithAppAndConfig(cc proxy.ClientCreator, config *cfg.Config, i int) (Mempool, cleanupFunc) {
+	var mempool Mempool
 	appConnMem, _ := cc.NewABCIClient()
 	appConnMem.SetLogger(log.TestingLogger().With("module", "abci-client", "connection", "mempool"))
 	err := appConnMem.Start()
@@ -48,19 +48,18 @@ func newMempoolWithAppAndConfig(cc proxy.ClientCreator, config *cfg.Config, i in
 		panic(err)
 	}
 	legacyProxyAppConnMem := proxy.NewAppConnMempool(appConnMem)
-	if i == clistMempool {
+	switch i {
+	case clistMempool:
 		mempool = NewCListMempool(config.Mempool, legacyProxyAppConnMem, 0)
-	} else if i == llrbMempool {
+	case llrbMempool:
 		mempool = NewLlrbMempool(config.Mempool, legacyProxyAppConnMem, 0)
-	} else {
-		panic("wrong mempool")
 	}
 	mempool.SetLogger(log.TestingLogger())
 	return mempool, func() { os.RemoveAll(config.RootDir) }
 }
 
-func newLegacyMempoolWithAppAndConfig(cc proxy.LegacyClientCreator, config *cfg.Config, i int) (*basemempool, cleanupFunc) {
-	var mempool *basemempool
+func newLegacyMempoolWithAppAndConfig(cc proxy.LegacyClientCreator, config *cfg.Config, i int) (Mempool, cleanupFunc) {
+	var mempool Mempool
 	appConnMem, _ := cc.NewABCIClient()
 	appConnMem.SetLogger(log.TestingLogger().With("module", "abci-client", "connection", "mempool"))
 	err := appConnMem.Start()
@@ -68,12 +67,11 @@ func newLegacyMempoolWithAppAndConfig(cc proxy.LegacyClientCreator, config *cfg.
 		panic(err)
 	}
 	legacyProxyAppConnMem := proxy.NewLegacyAppConnMempool(appConnMem)
-	if i == clistMempool {
+	switch i {
+	case clistMempool:
 		mempool = NewCListMempool(config.Mempool, proxy.AdaptLegacy(legacyProxyAppConnMem), 0)
-	} else if i == llrbMempool {
+	case llrbMempool:
 		mempool = NewLlrbMempool(config.Mempool, proxy.AdaptLegacy(legacyProxyAppConnMem), 0)
-	} else {
-		panic("wrong mempool")
 	}
 	mempool.SetLogger(log.TestingLogger())
 	return mempool, func() { os.RemoveAll(config.RootDir) }
@@ -107,7 +105,7 @@ func checkTxs(t *testing.T, mempool Mempool, peerID uint16, priorityList []uint6
 		tx := "k" + strconv.Itoa(i) + "=v" + strconv.Itoa(i) + ","
 		extra := 20 - len(tx) - len(priority) - 1 // use extra to fill up [20]byte
 		tx = tx + strings.Repeat("f", extra) + "," + priority
-		copy(txBytes[:], tx)
+		copy(txBytes, tx)
 		txs[i-start] = txBytes
 		if err := mempool.CheckTx(txBytes, nil, txInfo); err != nil {
 			// Skip invalid txs.
@@ -376,7 +374,7 @@ func TestMempoolCloseWAL(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, wcfg, i)
 		defer cleanup()
-		mempool.height = 10
+		mempool.(*basemempool).height = 10
 		mempool.InitWAL()
 
 		// 4. Ensure that the directory contains the WAL file
@@ -386,7 +384,7 @@ func TestMempoolCloseWAL(t *testing.T) {
 
 		// 5. Write some contents to the WAL
 		mempool.CheckTx(types.Tx([]byte("foo")), nil, TxInfo{})
-		walFilepath := mempool.wal.Path
+		walFilepath := mempool.(*basemempool).wal.Path
 		sum1 := checksumFile(walFilepath, t)
 		// 6. Sanity check to ensure that the written TX matches the expectation.
 		if i == 0 {
@@ -592,7 +590,7 @@ func TestBaseMempool_GetNextTxBytes(t *testing.T) {
 	}
 }
 
-func getTxswithPriority(mempool *basemempool, remainBytes int64) []types.Tx {
+func getTxswithPriority(mempool Mempool, remainBytes int64) []types.Tx {
 	var txs []types.Tx
 	starter, _ := mempool.GetNextTxBytes(remainBytes, 1, nil)
 	for starter != nil {

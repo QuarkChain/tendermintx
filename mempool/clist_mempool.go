@@ -47,8 +47,8 @@ func NewCListMempool(
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
-	options ...basemempoolOption,
-) *basemempool {
+	options ...Option,
+) Mempool {
 
 	clistMempool := &CListMempool{txs: clist.New()}
 	ret := newbasemempool(clistMempool, config, proxyAppConn, height, options...)
@@ -81,16 +81,6 @@ func (mem *CListMempool) TxsFront() *clist.CElement {
 // Safe for concurrent use by multiple goroutines.
 func (mem *CListMempool) TxsWaitChan() <-chan struct{} {
 	return mem.txs.WaitChan()
-}
-
-// RemoveTxByKey removes a transaction from the mempool by its TxKey index.
-func (mem *CListMempool) removeTxByKey(txKey [TxKeySize]byte) {
-	if e, ok := mem.txsMap.Load(txKey); ok {
-		memTx := e.(*clist.CElement).Value.(*mempoolTx)
-		if memTx != nil {
-			mem.removeTx(memTx.tx, e.(*clist.CElement))
-		}
-	}
 }
 
 // Safe for concurrent use by multiple goroutines.

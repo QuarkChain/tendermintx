@@ -90,6 +90,8 @@ type Mempool interface {
 	// CloseWAL closes and discards the underlying WAL file.
 	// Any further writes will not be relayed to disk.
 	CloseWAL()
+
+	SetLogger(l log.Logger)
 }
 
 //--------------------------------------------------------------------------------
@@ -198,14 +200,14 @@ type mempoolImpl interface {
 }
 
 // basemempoolOption sets an optional parameter on the basemempool.
-type basemempoolOption func(*basemempool)
+type Option func(*basemempool)
 
 func newbasemempool(
 	impl mempoolImpl,
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
-	options ...basemempoolOption,
+	options ...Option,
 ) *basemempool {
 	mempool := &basemempool{
 		mempoolImpl:  impl,
@@ -241,19 +243,19 @@ func (mem *basemempool) SetLogger(l log.Logger) {
 // WithPreCheck sets a filter for the mempool to reject a tx if f(tx) returns
 // false. This is ran before CheckTx. Only applies to the first created block.
 // After that, Update overwrites the existing value.
-func WithPreCheck(f PreCheckFunc) basemempoolOption {
+func WithPreCheck(f PreCheckFunc) Option {
 	return func(mem *basemempool) { mem.preCheck = f }
 }
 
 // WithPostCheck sets a filter for the mempool to reject a tx if f(tx) returns
 // false. This is ran after CheckTx. Only applies to the first created block.
 // After that, Update overwrites the existing value.
-func WithPostCheck(f PostCheckFunc) basemempoolOption {
+func WithPostCheck(f PostCheckFunc) Option {
 	return func(mem *basemempool) { mem.postCheck = f }
 }
 
 // WithMetrics sets the metrics.
-func WithMetrics(metrics *Metrics) basemempoolOption {
+func WithMetrics(metrics *Metrics) Option {
 	return func(mem *basemempool) { mem.metrics = metrics }
 }
 
