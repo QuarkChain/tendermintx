@@ -47,8 +47,8 @@ func NewCListMempool(
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
-	options ...basemempoolOption,
-) *basemempool {
+	options ...Option,
+) Mempool {
 
 	clistMempool := &CListMempool{txs: clist.New()}
 	ret := newbasemempool(clistMempool, config, proxyAppConn, height, options...)
@@ -81,16 +81,6 @@ func (mem *CListMempool) TxsFront() *clist.CElement {
 // Safe for concurrent use by multiple goroutines.
 func (mem *CListMempool) TxsWaitChan() <-chan struct{} {
 	return mem.txs.WaitChan()
-}
-
-// RemoveTxByKey removes a transaction from the mempool by its TxKey index.
-func (mem *CListMempool) removeTxByKey(txKey [TxKeySize]byte) {
-	if e, ok := mem.txsMap.Load(txKey); ok {
-		memTx := e.(*clist.CElement).Value.(*mempoolTx)
-		if memTx != nil {
-			mem.removeTx(memTx.tx, e.(*clist.CElement))
-		}
-	}
 }
 
 // Safe for concurrent use by multiple goroutines.
@@ -126,36 +116,6 @@ func (mem *CListMempool) updaterecheckFlag() {
 	} else {
 		mem.recheckCursor = mem.recheckCursor.Next()
 	}
-}
-
-func (mem *CListMempool) reapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
-	var (
-		totalBytes int64
-		totalGas   int64
-	)
-	// TODO: we will get a performance boost if we have a good estimate of avg
-	// size per tx, and set the initial capacity based off of that.
-	// txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Len(), max/mem.avgTxSize))
-	txs := make([]types.Tx, 0, mem.txs.Len())
-	for e := mem.txs.Front(); e != nil; e = e.Next() {
-		memTx := e.Value.(*mempoolTx)
-		// Check total size requirement
-		if maxBytes > -1 && totalBytes+int64(len(memTx.tx)) > maxBytes {
-			return txs
-		}
-		totalBytes += int64(len(memTx.tx))
-		// Check total gas requirement.
-		// If maxGas is negative, skip this check.
-		// Since newTotalGas < masGas, which
-		// must be non-negative, it follows that this won't overflow.
-		newTotalGas := totalGas + memTx.gasWanted
-		if maxGas > -1 && newTotalGas > maxGas {
-			return txs
-		}
-		totalGas = newTotalGas
-		txs = append(txs, memTx.tx)
-	}
-	return txs
 }
 
 func (mem *CListMempool) reapMaxTxs(max int) types.Txs {

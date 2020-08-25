@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	gogotypes "github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/proto"
 	tmrand "github.com/tendermint/tendermint/libs/rand"
 
 	"github.com/stretchr/testify/assert"
@@ -39,8 +39,8 @@ const (
 	llrbMempool
 )
 
-func newMempoolWithAppAndConfig(cc proxy.ClientCreator, config *cfg.Config, i int) (*basemempool, cleanupFunc) {
-	var mempool *basemempool
+func newMempoolWithAppAndConfig(cc proxy.ClientCreator, config *cfg.Config, i int) (Mempool, cleanupFunc) {
+	var mempool Mempool
 	appConnMem, _ := cc.NewABCIClient()
 	appConnMem.SetLogger(log.TestingLogger().With("module", "abci-client", "connection", "mempool"))
 	err := appConnMem.Start()
@@ -48,19 +48,18 @@ func newMempoolWithAppAndConfig(cc proxy.ClientCreator, config *cfg.Config, i in
 		panic(err)
 	}
 	legacyProxyAppConnMem := proxy.NewAppConnMempool(appConnMem)
-	if i == clistMempool {
+	switch i {
+	case clistMempool:
 		mempool = NewCListMempool(config.Mempool, legacyProxyAppConnMem, 0)
-	} else if i == llrbMempool {
+	case llrbMempool:
 		mempool = NewLlrbMempool(config.Mempool, legacyProxyAppConnMem, 0)
-	} else {
-		panic("wrong mempool")
 	}
 	mempool.SetLogger(log.TestingLogger())
 	return mempool, func() { os.RemoveAll(config.RootDir) }
 }
 
-func newLegacyMempoolWithAppAndConfig(cc proxy.LegacyClientCreator, config *cfg.Config, i int) (*basemempool, cleanupFunc) {
-	var mempool *basemempool
+func newLegacyMempoolWithAppAndConfig(cc proxy.LegacyClientCreator, config *cfg.Config, i int) (Mempool, cleanupFunc) {
+	var mempool Mempool
 	appConnMem, _ := cc.NewABCIClient()
 	appConnMem.SetLogger(log.TestingLogger().With("module", "abci-client", "connection", "mempool"))
 	err := appConnMem.Start()
@@ -68,12 +67,11 @@ func newLegacyMempoolWithAppAndConfig(cc proxy.LegacyClientCreator, config *cfg.
 		panic(err)
 	}
 	legacyProxyAppConnMem := proxy.NewLegacyAppConnMempool(appConnMem)
-	if i == clistMempool {
+	switch i {
+	case clistMempool:
 		mempool = NewCListMempool(config.Mempool, proxy.AdaptLegacy(legacyProxyAppConnMem), 0)
-	} else if i == llrbMempool {
+	case llrbMempool:
 		mempool = NewLlrbMempool(config.Mempool, proxy.AdaptLegacy(legacyProxyAppConnMem), 0)
-	} else {
-		panic("wrong mempool")
 	}
 	mempool.SetLogger(log.TestingLogger())
 	return mempool, func() { os.RemoveAll(config.RootDir) }
@@ -107,7 +105,7 @@ func checkTxs(t *testing.T, mempool Mempool, peerID uint16, priorityList []uint6
 		tx := "k" + strconv.Itoa(i) + "=v" + strconv.Itoa(i) + ","
 		extra := 20 - len(tx) - len(priority) - 1 // use extra to fill up [20]byte
 		tx = tx + strings.Repeat("f", extra) + "," + priority
-		copy(txBytes[:], tx)
+		copy(txBytes, tx)
 		txs[i-start] = txBytes
 		if err := mempool.CheckTx(txBytes, nil, txInfo); err != nil {
 			// Skip invalid txs.
@@ -247,117 +245,6 @@ func TestTxsAvailable(t *testing.T) {
 	}
 }
 
-func TestSerialReap(t *testing.T) {
-	app := counter.NewApplication(true)
-	app.SetOption(abci.RequestSetOption{Key: "serial", Value: "on"})
-	cc := proxy.NewLegacyLocalClientCreator(app)
-
-	mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), clistMempool)
-	defer cleanup()
-
-	appConnCon, _ := cc.NewABCIClient()
-	appConnCon.SetLogger(log.TestingLogger().With("module", "abci-client", "connection", "consensus"))
-	err := appConnCon.Start()
-	require.Nil(t, err)
-
-	cacheMap := make(map[string]struct{})
-	deliverTxsRange := func(start, end int) {
-		// Deliver some txs.
-		for i := start; i < end; i++ {
-
-			// This will succeed
-			txBytes := make([]byte, 8)
-			binary.BigEndian.PutUint64(txBytes, uint64(i))
-			err := mempool.CheckTx(txBytes, nil, TxInfo{})
-			_, cached := cacheMap[string(txBytes)]
-			if cached {
-				require.NotNil(t, err, "expected error for cached tx")
-			} else {
-				require.Nil(t, err, "expected no err for uncached tx")
-			}
-			cacheMap[string(txBytes)] = struct{}{}
-
-			// Duplicates are cached and should return error
-			err = mempool.CheckTx(txBytes, nil, TxInfo{})
-			require.NotNil(t, err, "Expected error after CheckTx on duplicated tx")
-		}
-	}
-
-	reapCheck := func(exp int) {
-		txs := mempool.ReapMaxBytesMaxGas(-1, -1)
-		require.Equal(t, len(txs), exp, fmt.Sprintf("Expected to reap %v txs but got %v", exp, len(txs)))
-	}
-
-	updateRange := func(start, end int) {
-		txs := make([]types.Tx, 0)
-		for i := start; i < end; i++ {
-			txBytes := make([]byte, 8)
-			binary.BigEndian.PutUint64(txBytes, uint64(i))
-			txs = append(txs, txBytes)
-		}
-		if err := mempool.Update(0, txs, abciResponses(len(txs), abci.CodeTypeOK), nil, nil); err != nil {
-			t.Error(err)
-		}
-	}
-
-	commitRange := func(start, end int) {
-		// Deliver some txs.
-		for i := start; i < end; i++ {
-			txBytes := make([]byte, 8)
-			binary.BigEndian.PutUint64(txBytes, uint64(i))
-			res, err := appConnCon.DeliverTxSync(abci.RequestDeliverTx{Tx: txBytes})
-			if err != nil {
-				t.Errorf("client error committing tx: %v", err)
-			}
-			if res.IsErr() {
-				t.Errorf("error committing tx. Code:%v result:%X log:%v",
-					res.Code, res.Data, res.Log)
-			}
-		}
-		res, err := appConnCon.CommitSync()
-		if err != nil {
-			t.Errorf("client error committing: %v", err)
-		}
-		if len(res.Data) != 8 {
-			t.Errorf("error committing. Hash:%X", res.Data)
-		}
-	}
-
-	//----------------------------------------
-
-	// Deliver some txs.
-	deliverTxsRange(0, 100)
-
-	// Reap the txs.
-	reapCheck(100)
-
-	// Reap again.  We should get the same amount
-	reapCheck(100)
-
-	// Deliver 0 to 999, we should reap 900 new txs
-	// because 100 were already counted.
-	deliverTxsRange(0, 1000)
-
-	// Reap the txs.
-	reapCheck(1000)
-
-	// Reap again.  We should get the same amount
-	reapCheck(1000)
-
-	// Commit from the conensus AppConn
-	commitRange(0, 500)
-	updateRange(0, 500)
-
-	// We should have 500 left.
-	reapCheck(500)
-
-	// Deliver 100 invalid txs and 100 valid txs
-	deliverTxsRange(900, 1100)
-
-	// We should have 600 now.
-	reapCheck(600)
-}
-
 func TestMempoolCloseWAL(t *testing.T) {
 	// 1. Create the temporary directory for mempool and WAL testing.
 	rootDir, err := ioutil.TempDir("", "mempool-test")
@@ -376,7 +263,7 @@ func TestMempoolCloseWAL(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, wcfg, i)
 		defer cleanup()
-		mempool.height = 10
+		mempool.(*basemempool).height = 10
 		mempool.InitWAL()
 
 		// 4. Ensure that the directory contains the WAL file
@@ -386,7 +273,7 @@ func TestMempoolCloseWAL(t *testing.T) {
 
 		// 5. Write some contents to the WAL
 		mempool.CheckTx(types.Tx([]byte("foo")), nil, TxInfo{})
-		walFilepath := mempool.wal.Path
+		walFilepath := mempool.(*basemempool).wal.Path
 		sum1 := checksumFile(walFilepath, t)
 		// 6. Sanity check to ensure that the written TX matches the expectation.
 		if i == 0 {
@@ -592,7 +479,7 @@ func TestBaseMempool_GetNextTxBytes(t *testing.T) {
 	}
 }
 
-func getTxswithPriority(mempool *basemempool, remainBytes int64) []types.Tx {
+func getTxswithPriority(mempool Mempool, remainBytes int64) []types.Tx {
 	var txs []types.Tx
 	starter, _ := mempool.GetNextTxBytes(remainBytes, 1, nil)
 	for starter != nil {

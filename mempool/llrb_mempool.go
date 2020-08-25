@@ -47,8 +47,8 @@ func NewLlrbMempool(
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
-	options ...basemempoolOption,
-) *basemempool {
+	options ...Option,
+) Mempool {
 	llrbMempool := &LlrbMempool{txs: llrb.New()}
 	ret := newbasemempool(llrbMempool, config, proxyAppConn, height, options...)
 
@@ -100,10 +100,6 @@ func (mem *LlrbMempool) updaterecheckFlag() {
 			}
 		}
 	}
-}
-
-func (mem *LlrbMempool) reapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
-	panic("implement me!")
 }
 
 func (mem *LlrbMempool) reapMaxTxs(max int) types.Txs {

@@ -12,28 +12,8 @@ import (
 	"github.com/tendermint/tendermint/proxy"
 )
 
-func BenchmarkReap(b *testing.B) {
-	app := kvstore.NewApplication()
-	cc := proxy.NewLegacyLocalClientCreator(app)
-	for i := 0; i < 2; i++ {
-		mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), i)
-		defer cleanup()
 
-		size := 10000
-		for j := 0; j < size; j++ {
-			tx := make([]byte, 8)
-			binary.BigEndian.PutUint64(tx, uint64(i))
-			mempool.CheckTx(tx, nil, TxInfo{})
-		}
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			mempool.ReapMaxBytesMaxGas(100000000, 10000000)
-		}
-	}
-}
-
-// BenchmarkClistCheckTx-8   	11604837	        97.9 ns/op
-func BenchmarkClistCheckTx(b *testing.B) {
+func BenchmarkCheckTx(b *testing.B) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLegacyLocalClientCreator(app)
 	mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), 0)

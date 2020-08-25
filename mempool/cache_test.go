@@ -77,7 +77,7 @@ func TestCacheAfterUpdate(t *testing.T) {
 				_ = mempool.CheckTx(tx, nil, TxInfo{})
 			}
 
-			cache := mempool.cache.(*mapTxCache)
+			cache := mempool.(*basemempool).cache.(*mapTxCache)
 			node := cache.list.Front()
 			counter := 0
 			for node != nil {

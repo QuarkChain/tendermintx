@@ -26,19 +26,12 @@ type Mempool interface {
 	// its validity and whether it should be added to the mempool.
 	CheckTx(tx types.Tx, callback func(*abcix.Response), txInfo TxInfo) error
 
-	// ReapMaxBytesMaxGas reaps transactions from the mempool up to maxBytes
-	// bytes total with the condition that the total gasWanted must be less than
-	// maxGas.
-	// If both maxes are negative, there is no cap on the size of all returned
-	// transactions (~ all available transactions).
-	ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs
-
 	// ReapMaxTxs reaps up to max transactions from the mempool.
 	// If max is negative, there is no cap on the size of all returned
 	// transactions (~ all available transactions).
 	ReapMaxTxs(max int) types.Txs
 
-	// GetNextTransaction will return transaction with condition that Bytes and Gas
+	// GetNextTxBytes will return transaction with condition that Bytes and Gas
 	// must be less than remainBytes and remainGas, and with highest priority less
 	// than the priority of stater
 	GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error)
@@ -90,6 +83,8 @@ type Mempool interface {
 	// CloseWAL closes and discards the underlying WAL file.
 	// Any further writes will not be relayed to disk.
 	CloseWAL()
+
+	SetLogger(l log.Logger)
 }
 
 //--------------------------------------------------------------------------------
@@ -186,7 +181,6 @@ type mempoolImpl interface {
 	addTx(*mempoolTx, uint64)
 	removeTx(types.Tx, ...interface{})
 	updaterecheckFlag()
-	reapMaxBytesMaxGas(int64, int64) types.Txs
 	reapMaxTxs(int) types.Txs
 	recheckTxs(proxy.AppConnMempool)
 	getNextTxBytes(int64, int64, []byte) ([]byte, error)
@@ -198,14 +192,14 @@ type mempoolImpl interface {
 }
 
 // basemempoolOption sets an optional parameter on the basemempool.
-type basemempoolOption func(*basemempool)
+type Option func(*basemempool)
 
 func newbasemempool(
 	impl mempoolImpl,
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
-	options ...basemempoolOption,
+	options ...Option,
 ) *basemempool {
 	mempool := &basemempool{
 		mempoolImpl:  impl,
@@ -241,19 +235,19 @@ func (mem *basemempool) SetLogger(l log.Logger) {
 // WithPreCheck sets a filter for the mempool to reject a tx if f(tx) returns
 // false. This is ran before CheckTx. Only applies to the first created block.
 // After that, Update overwrites the existing value.
-func WithPreCheck(f PreCheckFunc) basemempoolOption {
+func WithPreCheck(f PreCheckFunc) Option {
 	return func(mem *basemempool) { mem.preCheck = f }
 }
 
 // WithPostCheck sets a filter for the mempool to reject a tx if f(tx) returns
 // false. This is ran after CheckTx. Only applies to the first created block.
 // After that, Update overwrites the existing value.
-func WithPostCheck(f PostCheckFunc) basemempoolOption {
+func WithPostCheck(f PostCheckFunc) Option {
 	return func(mem *basemempool) { mem.postCheck = f }
 }
 
 // WithMetrics sets the metrics.
-func WithMetrics(metrics *Metrics) basemempoolOption {
+func WithMetrics(metrics *Metrics) Option {
 	return func(mem *basemempool) { mem.metrics = metrics }
 }
 
@@ -569,13 +563,6 @@ func (mem *basemempool) notifyTxsAvailable() {
 		default:
 		}
 	}
-}
-
-func (mem *basemempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
-	mem.updateMtx.RLock()
-	defer mem.updateMtx.RUnlock()
-
-	return mem.reapMaxBytesMaxGas(maxBytes, maxGas)
 }
 
 func (mem *basemempool) ReapMaxTxs(max int) types.Txs {

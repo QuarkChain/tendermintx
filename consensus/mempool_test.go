@@ -3,6 +3,7 @@ package consensus
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 	"os"
 	"testing"
 	"time"
@@ -171,7 +172,10 @@ func TestMempoolRmBadTx(t *testing.T) {
 
 		// check for the tx
 		for {
-			txs := assertMempool(cs.txNotifier).ReapMaxBytesMaxGas(int64(len(txBytes)), -1)
+			txs, err := assertMempool(cs.txNotifier).GetNextTxBytes(int64(len(txBytes)), math.MaxInt64, nil)
+			if err != nil {
+				continue
+			}
 			if len(txs) == 0 {
 				emptyMempoolCh <- struct{}{}
 				return

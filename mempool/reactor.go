@@ -34,7 +34,7 @@ const (
 type Reactor struct {
 	p2p.BaseReactor
 	config  *cfg.MempoolConfig
-	mempool *basemempool
+	mempool Mempool
 	ids     *mempoolIDs
 }
 
@@ -102,7 +102,7 @@ func newMempoolIDs() *mempoolIDs {
 }
 
 // NewReactor returns a new Reactor with the given config and mempool.
-func NewReactor(config *cfg.MempoolConfig, mempool *basemempool) *Reactor {
+func NewReactor(config *cfg.MempoolConfig, mempool Mempool) *Reactor {
 	memR := &Reactor{
 		config:  config,
 		mempool: mempool,
@@ -121,7 +121,7 @@ func (memR *Reactor) InitPeer(peer p2p.Peer) p2p.Peer {
 // SetLogger sets the Logger on the reactor and the underlying mempool.
 func (memR *Reactor) SetLogger(l log.Logger) {
 	memR.Logger = l
-	memR.mempool.SetLogger(l)
+	memR.mempool.(*basemempool).SetLogger(l)
 }
 
 // OnStart implements p2p.BaseReactor.
@@ -189,6 +189,7 @@ type PeerState interface {
 // Send new mempool txs to peer.
 func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 	peerID := memR.ids.GetForPeer(peer)
+	// TODO: implement TxsWaitChan for LlrbMempool, Safe for concurrent use by multiple goroutines.
 	var next *clist.CElement
 	for {
 		// In case of both next.NextWaitChan() and peer.Quit() are variable at the same time
@@ -200,8 +201,8 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 		// start from the beginning.
 		if next == nil {
 			select {
-			case <-memR.mempool.mempoolImpl.(*CListMempool).TxsWaitChan(): // Wait until a tx is available
-				if next = memR.mempool.mempoolImpl.(*CListMempool).TxsFront(); next == nil {
+			case <-memR.mempool.(*basemempool).mempoolImpl.(*CListMempool).TxsWaitChan(): // Wait until a tx is available
+				if next = memR.mempool.(*basemempool).mempoolImpl.(*CListMempool).TxsFront(); next == nil {
 					continue
 				}
 			case <-peer.Quit():
