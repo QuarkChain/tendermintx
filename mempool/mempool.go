@@ -85,6 +85,9 @@ type Mempool interface {
 	CloseWAL()
 
 	SetLogger(l log.Logger)
+
+	// RemoveTxs removes invalid txs from mempool included in ResponseCreateBlock
+	RemoveTxs(blockTxs types.Txs) error
 }
 
 //--------------------------------------------------------------------------------
@@ -189,6 +192,7 @@ type mempoolImpl interface {
 	removeCommittedTx(types.Tx)
 	isrecheckCursorNil() bool
 	getrecheckCursorTx() *mempoolTx
+	removeTxs(types.Tx) error
 }
 
 // basemempoolOption sets an optional parameter on the basemempool.
@@ -641,4 +645,15 @@ func (mem *basemempool) GetNextTxBytes(remainBytes int64, remainGas int64, start
 	defer mem.updateMtx.RUnlock()
 
 	return mem.getNextTxBytes(remainBytes, remainGas, starter)
+}
+
+func (mem *basemempool) RemoveTxs(txs types.Txs) error {
+	for _, tx := range txs {
+		mem.cache.Remove(tx)
+		if err := mem.removeTxs(tx); err != nil {
+			return err
+		}
+		atomic.AddInt64(&mem.txsBytes, int64(-len(tx)))
+	}
+	return nil
 }

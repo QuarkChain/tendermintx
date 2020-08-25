@@ -1,6 +1,7 @@
 package mempool
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -204,4 +205,13 @@ func (mem *LlrbMempool) isrecheckCursorNil() bool {
 
 func (mem *LlrbMempool) getrecheckCursorTx() *mempoolTx {
 	return mem.recheckCursor.tx
+}
+
+func (mem *LlrbMempool) removeTxs(tx types.Tx) error {
+	e, ok := mem.txsMap.Load(TxKey(tx))
+	if !ok {
+		return errors.New("fail to load tx from mempool")
+	}
+	mem.removeTx(tx, e.(*lElement))
+	return nil
 }

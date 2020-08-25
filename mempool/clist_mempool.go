@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"container/list"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -217,6 +218,15 @@ func (mem *CListMempool) isrecheckCursorNil() bool {
 
 func (mem *CListMempool) getrecheckCursorTx() *mempoolTx {
 	return mem.recheckCursor.Value.(*mempoolTx)
+}
+
+func (mem *CListMempool) removeTxs(tx types.Tx) error {
+	e, ok := mem.txsMap.Load(TxKey(tx))
+	if !ok {
+		return errors.New("fail to load tx from mempool")
+	}
+	mem.removeTx(tx, e.(*clist.CElement))
+	return nil
 }
 
 //--------------------------------------------------------------------------------

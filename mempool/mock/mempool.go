@@ -44,4 +44,5 @@ func (Mempool) TxsWaitChan() <-chan struct{} { return nil }
 func (Mempool) InitWAL() error { return nil }
 func (Mempool) CloseWAL()      {}
 
-func (m Mempool) SetLogger(_ log.Logger) {}
+func (m Mempool) SetLogger(_ log.Logger)    {}
+func (Mempool) RemoveTxs(_ types.Txs) error { return nil }

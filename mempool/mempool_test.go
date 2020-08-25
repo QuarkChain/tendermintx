@@ -479,6 +479,28 @@ func TestBaseMempool_GetNextTxBytes(t *testing.T) {
 	}
 }
 
+func TestCListMempool_RemoveTxs(t *testing.T) {
+	app := kvstore2.NewApplication()
+	cc := proxy.NewLegacyLocalClientCreator(app)
+	for i := 0; i < 2; i++ {
+		mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), i)
+		defer cleanup()
+
+		txs := []types.Tx{[]byte{0x01}, []byte{0x02}}
+		mempool.CheckTx(txs[0], nil, TxInfo{})
+		mempool.CheckTx(txs[1], nil, TxInfo{})
+		assert.EqualValues(t, 2, mempool.TxsBytes())
+
+		for j := range txs {
+			err := mempool.RemoveTxs(txs[j : j+1])
+			require.NoError(t, err)
+			assert.EqualValues(t, 1-j, mempool.TxsBytes())
+		}
+		err := mempool.RemoveTxs(txs[1:])
+		require.Error(t, err)
+	}
+}
+
 func getTxswithPriority(mempool Mempool, remainBytes int64) []types.Tx {
 	var txs []types.Tx
 	starter, _ := mempool.GetNextTxBytes(remainBytes, 1, nil)

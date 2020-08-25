@@ -45,8 +45,9 @@ func (emptyMempool) TxsBytes() int64               { return 0 }
 func (emptyMempool) TxsFront() *clist.CElement    { return nil }
 func (emptyMempool) TxsWaitChan() <-chan struct{} { return nil }
 
-func (emptyMempool) InitWAL() error { return nil }
-func (emptyMempool) CloseWAL()      {}
+func (emptyMempool) InitWAL() error              { return nil }
+func (emptyMempool) CloseWAL()                   {}
+func (emptyMempool) RemoveTxs(_ types.Txs) error { return nil }
 
 func (m emptyMempool) SetLogger(_ log.Logger) {}
 
