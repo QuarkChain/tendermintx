@@ -701,6 +701,8 @@ func ensureVote(voteCh <-chan tmpubsub.Message, height int64, round int32,
 
 func ensurePrevoteWithNilBlock(voteCh <-chan tmpubsub.Message) {
 	select {
+	case <-time.After(ensureTimeout):
+		panic("Timeout expired while waiting for NewVote event")
 	case msg := <-voteCh:
 		voteEvent, ok := msg.Data().(types.EventDataVote)
 		if !ok {
