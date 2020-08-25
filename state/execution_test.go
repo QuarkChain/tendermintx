@@ -87,6 +87,10 @@ func TestCreateProposalBlock_MempoolRemoveTxs(t *testing.T) {
 	tx, err := mempool.GetNextTxBytes(2, 1, nil)
 	assert.NoError(t, err)
 	assert.EqualValues(t, []byte{0x03}, tx)
+
+	tx, err = mempool.GetNextTxBytes(2, 1, tx)
+	assert.NoError(t, err)
+	assert.EqualValues(t, []byte(nil), tx)
 }
 
 func TestApplyBlock(t *testing.T) {
