@@ -168,16 +168,6 @@ func TestMempoolRmBadTx(t *testing.T) {
 			t.Errorf("error after CheckTx: %v", err)
 			return
 		}
-
-		// check for the tx
-		for {
-			txs := assertMempool(cs.txNotifier).ReapMaxBytesMaxGas(int64(len(txBytes)), -1)
-			if len(txs) == 0 {
-				emptyMempoolCh <- struct{}{}
-				return
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
 	}()
 
 	// Wait until the tx returns

@@ -102,10 +102,6 @@ func (mem *LlrbMempool) updaterecheckFlag() {
 	}
 }
 
-func (mem *LlrbMempool) reapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
-	panic("implement me!")
-}
-
 func (mem *LlrbMempool) reapMaxTxs(max int) types.Txs {
 	if max < 0 {
 		max = mem.txs.Size()

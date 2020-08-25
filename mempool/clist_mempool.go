@@ -118,36 +118,6 @@ func (mem *CListMempool) updaterecheckFlag() {
 	}
 }
 
-func (mem *CListMempool) reapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
-	var (
-		totalBytes int64
-		totalGas   int64
-	)
-	// TODO: we will get a performance boost if we have a good estimate of avg
-	// size per tx, and set the initial capacity based off of that.
-	// txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Len(), max/mem.avgTxSize))
-	txs := make([]types.Tx, 0, mem.txs.Len())
-	for e := mem.txs.Front(); e != nil; e = e.Next() {
-		memTx := e.Value.(*mempoolTx)
-		// Check total size requirement
-		if maxBytes > -1 && totalBytes+int64(len(memTx.tx)) > maxBytes {
-			return txs
-		}
-		totalBytes += int64(len(memTx.tx))
-		// Check total gas requirement.
-		// If maxGas is negative, skip this check.
-		// Since newTotalGas < masGas, which
-		// must be non-negative, it follows that this won't overflow.
-		newTotalGas := totalGas + memTx.gasWanted
-		if maxGas > -1 && newTotalGas > maxGas {
-			return txs
-		}
-		totalGas = newTotalGas
-		txs = append(txs, memTx.tx)
-	}
-	return txs
-}
-
 func (mem *CListMempool) reapMaxTxs(max int) types.Txs {
 	if max < 0 {
 		max = mem.txs.Len()

@@ -23,8 +23,7 @@ func (emptyMempool) Size() int { return 0 }
 func (emptyMempool) CheckTx(_ types.Tx, _ func(*abcix.Response), _ mempl.TxInfo) error {
 	return nil
 }
-func (emptyMempool) ReapMaxBytesMaxGas(_, _ int64) types.Txs { return types.Txs{} }
-func (emptyMempool) ReapMaxTxs(n int) types.Txs              { return types.Txs{} }
+func (emptyMempool) ReapMaxTxs(n int) types.Txs { return types.Txs{} }
 func (emptyMempool) GetNextTxBytes(_ int64, _ int64, _ []byte) ([]byte, error) {
 	return types.Tx{}, nil
 }

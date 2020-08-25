@@ -26,13 +26,6 @@ type Mempool interface {
 	// its validity and whether it should be added to the mempool.
 	CheckTx(tx types.Tx, callback func(*abcix.Response), txInfo TxInfo) error
 
-	// ReapMaxBytesMaxGas reaps transactions from the mempool up to maxBytes
-	// bytes total with the condition that the total gasWanted must be less than
-	// maxGas.
-	// If both maxes are negative, there is no cap on the size of all returned
-	// transactions (~ all available transactions).
-	ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs
-
 	// ReapMaxTxs reaps up to max transactions from the mempool.
 	// If max is negative, there is no cap on the size of all returned
 	// transactions (~ all available transactions).
@@ -188,7 +181,6 @@ type mempoolImpl interface {
 	addTx(*mempoolTx, uint64)
 	removeTx(types.Tx, ...interface{})
 	updaterecheckFlag()
-	reapMaxBytesMaxGas(int64, int64) types.Txs
 	reapMaxTxs(int) types.Txs
 	recheckTxs(proxy.AppConnMempool)
 	getNextTxBytes(int64, int64, []byte) ([]byte, error)
@@ -571,13 +563,6 @@ func (mem *basemempool) notifyTxsAvailable() {
 		default:
 		}
 	}
-}
-
-func (mem *basemempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
-	mem.updateMtx.RLock()
-	defer mem.updateMtx.RUnlock()
-
-	return mem.reapMaxBytesMaxGas(maxBytes, maxGas)
 }
 
 func (mem *basemempool) ReapMaxTxs(max int) types.Txs {
