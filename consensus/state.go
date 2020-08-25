@@ -1739,15 +1739,15 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 			return added, err
 		}
 
-		cs.ProposalBlock = block
-		// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
-		cs.Logger.Info("Received complete proposal block", "height", cs.ProposalBlock.Height, "hash", cs.ProposalBlock.Hash())
-		cs.eventBus.PublishEventCompleteProposal(cs.CompleteProposalEvent())
-
 		if err = cs.blockExec.CheckBlock(block); err != nil {
 			cs.Logger.Error("Error on CheckBlock", "err", err)
 			return false, err
 		}
+
+		cs.ProposalBlock = block
+		// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
+		cs.Logger.Info("Received complete proposal block", "height", cs.ProposalBlock.Height, "hash", cs.ProposalBlock.Hash())
+		cs.eventBus.PublishEventCompleteProposal(cs.CompleteProposalEvent())
 
 		// Update Valid* if we can.
 		prevotes := cs.Votes.Prevotes(cs.Round)

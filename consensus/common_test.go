@@ -699,11 +699,19 @@ func ensureVote(voteCh <-chan tmpubsub.Message, height int64, round int32,
 	}
 }
 
-func ensurePrevoteTimeout(ch <-chan tmpubsub.Message) {
+func ensurePrevoteWithNilBlock(voteCh <-chan tmpubsub.Message) {
 	select {
-	case <-time.After(ensureTimeout):
-		panic("timeout expired while waiting for the Prevote to Timeout")
-	case <-ch:
+	case msg := <-voteCh:
+		voteEvent, ok := msg.Data().(types.EventDataVote)
+		if !ok {
+			panic(fmt.Sprintf("expected a EventDataVote, got %T. Wrong subscription channel?",
+				msg.Data()))
+		}
+
+		vote := voteEvent.Vote
+		if vote.BlockID.Hash == nil {
+			panic("expect vote with nil block")
+		}
 	}
 }
 
