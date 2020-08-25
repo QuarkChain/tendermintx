@@ -12,8 +12,7 @@ import (
 	"github.com/tendermint/tendermint/proxy"
 )
 
-
-func BenchmarkCheckTx(b *testing.B) {
+func BenchmarkClistCheckTx(b *testing.B) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLegacyLocalClientCreator(app)
 	mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), 0)
