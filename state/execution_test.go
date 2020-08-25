@@ -34,7 +34,6 @@ var (
 )
 
 func TestCreateProposalBlock_MempoolRemoveTxs(t *testing.T) {
-	var invalidTxs = [][]byte{{0x01}, {0x02}}
 	mockProxyApp := &mocks.AppConnConsensus{}
 
 	config := cfg.ResetTestRoot("node_create_proposal")
@@ -74,7 +73,7 @@ func TestCreateProposalBlock_MempoolRemoveTxs(t *testing.T) {
 	)
 	mockProxyApp.On("CreateBlockSync", tmock.Anything, tmock.Anything).Return(&abcix.ResponseCreateBlock{
 		Txs:        [][]byte{{0x03}},
-		InvalidTxs: invalidTxs,
+		InvalidTxs: [][]byte{{0x01}, {0x02}},
 	}, nil)
 
 	commit := types.NewCommit(0, 0, types.BlockID{}, nil)
