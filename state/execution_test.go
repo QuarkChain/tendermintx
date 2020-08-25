@@ -77,14 +77,15 @@ func TestCreateProposalBlock_MempoolRemoveTxs(t *testing.T) {
 	}, nil)
 
 	commit := types.NewCommit(0, 0, types.BlockID{}, nil)
-	block, _ := blockExec.CreateProposalBlock(
+	blockExec.CreateProposalBlock(
 		1,
 		state, commit,
 		proposerAddr,
 	)
 	assert.EqualValues(t, 1, mempool.TxsBytes())
-	err = blockExec.ValidateBlock(state, block)
+	tx, err := mempool.GetNextTxBytes(2, 1, nil)
 	assert.NoError(t, err)
+	assert.EqualValues(t, []byte{0x03}, tx)
 }
 
 func TestApplyBlock(t *testing.T) {
