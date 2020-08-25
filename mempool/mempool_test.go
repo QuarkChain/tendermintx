@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	gogotypes "github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/proto"
 	tmrand "github.com/tendermint/tendermint/libs/rand"
 
 	"github.com/stretchr/testify/assert"
