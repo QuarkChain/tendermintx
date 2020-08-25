@@ -81,6 +81,9 @@ type Mempool interface {
 	// CloseWAL closes and discards the underlying WAL file.
 	// Any further writes will not be relayed to disk.
 	CloseWAL()
+
+	// RemoveTxs removes invalid txs from mempool included in ResponseCreateBlock
+	RemoveTxs(blockTxs types.Txs) error
 }
 
 //--------------------------------------------------------------------------------
