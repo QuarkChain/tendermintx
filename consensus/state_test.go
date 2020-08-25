@@ -1833,6 +1833,18 @@ func TestStateOutputVoteStats(t *testing.T) {
 
 }
 
+func TestStateCheckBlockFail(t *testing.T) {
+	cs1, _ := randStateShouldCheckBlockFail(2)
+	height, round := cs1.Height, cs1.Round
+
+	voteCh := subscribeUnBuffered(cs1.eventBus, types.EventQueryVote)
+
+	// start round and wait for propose and prevote
+	startTestRound(cs1, height, round)
+
+	ensurePrevote(voteCh, height, round) // prevote
+}
+
 // subscribe subscribes test client to the given query and returns a channel with cap = 1.
 func subscribe(eventBus *types.EventBus, q tmpubsub.Query) <-chan tmpubsub.Message {
 	sub, err := eventBus.Subscribe(context.Background(), testSubscriber, q)

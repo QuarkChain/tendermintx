@@ -434,6 +434,24 @@ func randState(nValidators int) (*State, []*validatorStub) {
 	return cs, vss
 }
 
+func randStateShouldCheckBlockFail(nValidators int) (*State, []*validatorStub) {
+	// Get State
+	state, privVals := randGenesisState(nValidators, false, 10)
+
+	vss := make([]*validatorStub, nValidators)
+
+	badxApp := &badxApp{}
+	cs := newState(state, privVals[0], badxApp)
+
+	for i := 0; i < nValidators; i++ {
+		vss[i] = newValidatorStub(privVals[i], int32(i))
+	}
+	// since cs1 starts at 1
+	incrementHeight(vss[1:]...)
+
+	return cs, vss
+}
+
 func randStateWithEvpool(nValidators int) (*State, []*validatorStub, *evidence.Pool) {
 	state, privVals := randGenesisState(nValidators, false, 10)
 
@@ -903,4 +921,15 @@ func newPersistentKVStore() abcix.Application {
 
 func newPersistentKVStoreWithPath(dbDir string) abcix.Application {
 	return adapter.AdaptToABCIx(kvstore.NewPersistentKVStoreApplication(dbDir))
+}
+
+//------------------------------------
+type badxApp struct {
+	abcix.BaseApplication
+}
+
+func (app *badxApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckBlock {
+	return abcix.ResponseCheckBlock{
+		Code: 1,
+	}
 }
