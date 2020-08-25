@@ -228,6 +228,16 @@ func newbasemempool(
 	return mempool
 }
 
+// NOTE: not thread safe - should only be called once, on startup
+func (mem *basemempool) EnableTxsAvailable() {
+	mem.txsAvailable = make(chan struct{}, 1)
+}
+
+// SetLogger sets the Logger.
+func (mem *basemempool) SetLogger(l log.Logger) {
+	mem.logger = l
+}
+
 // WithPreCheck sets a filter for the mempool to reject a tx if f(tx) returns
 // false. This is ran before CheckTx. Only applies to the first created block.
 // After that, Update overwrites the existing value.
@@ -245,37 +255,6 @@ func WithPostCheck(f PostCheckFunc) basemempoolOption {
 // WithMetrics sets the metrics.
 func WithMetrics(metrics *Metrics) basemempoolOption {
 	return func(mem *basemempool) { mem.metrics = metrics }
-}
-
-// NOTE: not thread safe - should only be called once, on startup
-func (mem *basemempool) EnableTxsAvailable() {
-	mem.txsAvailable = make(chan struct{}, 1)
-}
-
-// SetLogger sets the Logger.
-func (mem *basemempool) SetLogger(l log.Logger) {
-	mem.logger = l
-}
-
-// Global callback that will be called after every ABCI response.
-// Having a single global callback avoids needing to set a callback for each request.
-// However, processing the checkTx response requires the peerID (so we can track which txs we heard from who),
-// and peerID is not included in the ABCI request, so we have to set request-specific callbacks that
-// include this information. If we're not in the midst of a recheck, this function will just return,
-// so the request specific callback can do the work.
-//
-// When rechecking, we don't need the peerID, so the recheck callback happens
-// here.
-func (mem *basemempool) globalCb(req *abcix.Request, res *abcix.Response) {
-	if mem.isrecheckCursorNil() {
-		return
-	}
-
-	mem.metrics.RecheckTimes.Add(1)
-	mem.resCbRecheck(req, res)
-
-	// update metrics
-	mem.metrics.Size.Set(float64(mem.Size()))
 }
 
 func (mem *basemempool) InitWAL() error {
@@ -305,17 +284,6 @@ func (mem *basemempool) CloseWAL() {
 	mem.wal = nil
 }
 
-// XXX: Unsafe! Calling Flush may leave mempool in inconsistent state.
-func (mem *basemempool) Flush() {
-	mem.updateMtx.RLock()
-	defer mem.updateMtx.RUnlock()
-
-	_ = atomic.SwapInt64(&mem.txsBytes, 0)
-	mem.cache.Reset()
-
-	mem.deleteAll()
-}
-
 // Safe for concurrent use by multiple goroutines.
 func (mem *basemempool) Lock() {
 	mem.updateMtx.Lock()
@@ -326,18 +294,25 @@ func (mem *basemempool) Unlock() {
 	mem.updateMtx.Unlock()
 }
 
-func (mem *basemempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
-	mem.updateMtx.RLock()
-	defer mem.updateMtx.RUnlock()
-
-	return mem.reapMaxBytesMaxGas(maxBytes, maxGas)
+// Safe for concurrent use by multiple goroutines.
+func (mem *basemempool) TxsBytes() int64 {
+	return atomic.LoadInt64(&mem.txsBytes)
 }
 
-func (mem *basemempool) ReapMaxTxs(max int) types.Txs {
+// Lock() must be help by the caller during execution.
+func (mem *basemempool) FlushAppConn() error {
+	return mem.proxyAppConn.FlushSync()
+}
+
+// XXX: Unsafe! Calling Flush may leave mempool in inconsistent state.
+func (mem *basemempool) Flush() {
 	mem.updateMtx.RLock()
 	defer mem.updateMtx.RUnlock()
 
-	return mem.reapMaxTxs(max)
+	_ = atomic.SwapInt64(&mem.txsBytes, 0)
+	mem.cache.Reset()
+
+	mem.deleteAll()
 }
 
 // It blocks if we're waiting on Update() or Reap().
@@ -406,6 +381,210 @@ func (mem *basemempool) CheckTx(tx types.Tx, cb func(*abcix.Response), txInfo Tx
 	return nil
 }
 
+// Global callback that will be called after every ABCI response.
+// Having a single global callback avoids needing to set a callback for each request.
+// However, processing the checkTx response requires the peerID (so we can track which txs we heard from who),
+// and peerID is not included in the ABCI request, so we have to set request-specific callbacks that
+// include this information. If we're not in the midst of a recheck, this function will just return,
+// so the request specific callback can do the work.
+//
+// When rechecking, we don't need the peerID, so the recheck callback happens
+// here.
+func (mem *basemempool) globalCb(req *abcix.Request, res *abcix.Response) {
+	if mem.isrecheckCursorNil() {
+		return
+	}
+
+	mem.metrics.RecheckTimes.Add(1)
+	mem.resCbRecheck(req, res)
+
+	// update metrics
+	mem.metrics.Size.Set(float64(mem.Size()))
+}
+
+// Request specific callback that should be set on individual reqRes objects
+// to incorporate local information when processing the response.
+// This allows us to track the peer that sent us this tx, so we can avoid sending it back to them.
+// NOTE: alternatively, we could include this information in the ABCI request itself.
+//
+// External callers of CheckTx, like the RPC, can also pass an externalCb through here that is called
+// when all other response processing is complete.
+//
+// Used in CheckTx to record PeerID who sent us the tx.
+func (mem *basemempool) reqResCb(
+	tx []byte,
+	peerID uint16,
+	peerP2PID p2p.ID,
+	externalCb func(*abcix.Response),
+) func(res *abcix.Response) {
+	return func(res *abcix.Response) {
+		if !mem.isrecheckCursorNil() {
+			// this should never happen
+			panic("recheck cursor is not nil in reqResCb")
+		}
+
+		mem.resCbFirstTime(tx, peerID, peerP2PID, res)
+
+		// update metrics
+		mem.metrics.Size.Set(float64(mem.Size()))
+
+		// passed in by the caller of CheckTx, eg. the RPC
+		if externalCb != nil {
+			externalCb(res)
+		}
+	}
+}
+
+func (mem *basemempool) isFull(txSize int) error {
+	var (
+		memSize  = mem.Size()
+		txsBytes = mem.TxsBytes()
+	)
+
+	if memSize >= mem.config.Size || int64(txSize)+txsBytes > mem.config.MaxTxsBytes {
+		return ErrMempoolIsFull{
+			memSize, mem.config.Size,
+			txsBytes, mem.config.MaxTxsBytes,
+		}
+	}
+
+	return nil
+}
+
+// callback, which is called after the app checked the tx for the first time.
+//
+// The case where the app checks the tx for the second and subsequent times is
+// handled by the resCbRecheck callback.
+func (mem *basemempool) resCbFirstTime(
+	tx []byte,
+	peerID uint16,
+	peerP2PID p2p.ID,
+	res *abcix.Response,
+) {
+	switch r := res.Value.(type) {
+	case *abcix.Response_CheckTx:
+		var postCheckErr error
+		if mem.postCheck != nil {
+			postCheckErr = mem.postCheck(tx, r.CheckTx)
+		}
+		if (r.CheckTx.Code == abcix.CodeTypeOK) && postCheckErr == nil {
+			// Check mempool isn't full again to reduce the chance of exceeding the
+			// limits.
+			if err := mem.isFull(len(tx)); err != nil {
+				// remove from cache (mempool might have a space later)
+				mem.cache.Remove(tx)
+				mem.logger.Error(err.Error())
+				return
+			}
+
+			memTx := &mempoolTx{
+				height:    mem.height,
+				gasWanted: r.CheckTx.GasWanted,
+				tx:        tx,
+			}
+			memTx.senders.Store(peerID, true)
+			mem.addTx(memTx, r.CheckTx.Priority)
+			atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx)))
+			mem.metrics.TxSizeBytes.Observe(float64(len(memTx.tx)))
+			mem.logger.Info("Added good transaction",
+				"tx", txID(tx),
+				"res", r,
+				"height", memTx.height,
+				"total", mem.Size(),
+			)
+			mem.notifyTxsAvailable()
+		} else {
+			// ignore bad transaction
+			mem.logger.Info("Rejected bad transaction",
+				"tx", txID(tx), "peerID", peerP2PID, "res", r, "err", postCheckErr)
+			mem.metrics.FailedTxs.Add(1)
+			// remove from cache (it might be good later)
+			mem.cache.Remove(tx)
+		}
+	default:
+		// ignore other messages
+	}
+}
+
+// callback, which is called after the app rechecked the tx.
+//
+// The case where the app checks the tx for the first time is handled by the
+// resCbFirstTime callback.
+func (mem *basemempool) resCbRecheck(req *abcix.Request, res *abcix.Response) {
+	switch r := res.Value.(type) {
+	case *abcix.Response_CheckTx:
+		tx := req.GetCheckTx().Tx
+		memTx := mem.getrecheckCursorTx()
+		if !bytes.Equal(tx, memTx.tx) {
+			panic(fmt.Sprintf(
+				"Unexpected tx response from proxy during recheck\nExpected %X, got %X",
+				memTx.tx,
+				tx))
+		}
+		var postCheckErr error
+		if mem.postCheck != nil {
+			postCheckErr = mem.postCheck(tx, r.CheckTx)
+		}
+		if (r.CheckTx.Code == abcix.CodeTypeOK) && postCheckErr == nil {
+			// Good, nothing to do.
+		} else {
+			// Tx became invalidated due to newly committed block.
+			mem.logger.Info("Tx is no longer valid", "tx", txID(tx), "res", r, "err", postCheckErr)
+			// NOTE: we remove tx from the cache because it might be good later
+			mem.Lock()
+			mem.removeTx(tx)
+			mem.Unlock()
+			atomic.AddInt64(&mem.txsBytes, int64(-len(tx)))
+			mem.cache.Remove(tx)
+		}
+		mem.updaterecheckFlag()
+		if mem.isrecheckCursorNil() {
+			// Done!
+			mem.logger.Info("Done rechecking txs")
+
+			// incase the recheck removed all txs
+			if mem.Size() > 0 {
+				mem.notifyTxsAvailable()
+			}
+		}
+	default:
+		// ignore other messages
+	}
+}
+
+// Safe for concurrent use by multiple goroutines.
+func (mem *basemempool) TxsAvailable() <-chan struct{} {
+	return mem.txsAvailable
+}
+
+func (mem *basemempool) notifyTxsAvailable() {
+	if mem.Size() == 0 {
+		panic("notified txs available but mempool is empty!")
+	}
+	if mem.txsAvailable != nil && !mem.notifiedTxsAvailable {
+		// channel cap is 1, so this will send once
+		mem.notifiedTxsAvailable = true
+		select {
+		case mem.txsAvailable <- struct{}{}:
+		default:
+		}
+	}
+}
+
+func (mem *basemempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
+	mem.updateMtx.RLock()
+	defer mem.updateMtx.RUnlock()
+
+	return mem.reapMaxBytesMaxGas(maxBytes, maxGas)
+}
+
+func (mem *basemempool) ReapMaxTxs(max int) types.Txs {
+	mem.updateMtx.RLock()
+	defer mem.updateMtx.RUnlock()
+
+	return mem.reapMaxTxs(max)
+}
+
 // Lock() must be help by the caller during execution.
 func (mem *basemempool) Update(
 	height int64,
@@ -466,185 +645,6 @@ func (mem *basemempool) Update(
 	mem.metrics.Size.Set(float64(mem.Size()))
 
 	return nil
-}
-
-// Safe for concurrent use by multiple goroutines.
-func (mem *basemempool) TxsBytes() int64 {
-	return atomic.LoadInt64(&mem.txsBytes)
-}
-
-// Lock() must be help by the caller during execution.
-func (mem *basemempool) FlushAppConn() error {
-	return mem.proxyAppConn.FlushSync()
-}
-
-// Safe for concurrent use by multiple goroutines.
-func (mem *basemempool) TxsAvailable() <-chan struct{} {
-	return mem.txsAvailable
-}
-
-func (mem *basemempool) notifyTxsAvailable() {
-	if mem.Size() == 0 {
-		panic("notified txs available but mempool is empty!")
-	}
-	if mem.txsAvailable != nil && !mem.notifiedTxsAvailable {
-		// channel cap is 1, so this will send once
-		mem.notifiedTxsAvailable = true
-		select {
-		case mem.txsAvailable <- struct{}{}:
-		default:
-		}
-	}
-}
-
-func (mem *basemempool) isFull(txSize int) error {
-	var (
-		memSize  = mem.Size()
-		txsBytes = mem.TxsBytes()
-	)
-
-	if memSize >= mem.config.Size || int64(txSize)+txsBytes > mem.config.MaxTxsBytes {
-		return ErrMempoolIsFull{
-			memSize, mem.config.Size,
-			txsBytes, mem.config.MaxTxsBytes,
-		}
-	}
-
-	return nil
-}
-
-// callback, which is called after the app rechecked the tx.
-//
-// The case where the app checks the tx for the first time is handled by the
-// resCbFirstTime callback.
-func (mem *basemempool) resCbRecheck(req *abcix.Request, res *abcix.Response) {
-	switch r := res.Value.(type) {
-	case *abcix.Response_CheckTx:
-		tx := req.GetCheckTx().Tx
-		memTx := mem.getrecheckCursorTx()
-		if !bytes.Equal(tx, memTx.tx) {
-			panic(fmt.Sprintf(
-				"Unexpected tx response from proxy during recheck\nExpected %X, got %X",
-				memTx.tx,
-				tx))
-		}
-		var postCheckErr error
-		if mem.postCheck != nil {
-			postCheckErr = mem.postCheck(tx, r.CheckTx)
-		}
-		if (r.CheckTx.Code == abcix.CodeTypeOK) && postCheckErr == nil {
-			// Good, nothing to do.
-		} else {
-			// Tx became invalidated due to newly committed block.
-			mem.logger.Info("Tx is no longer valid", "tx", txID(tx), "res", r, "err", postCheckErr)
-			// NOTE: we remove tx from the cache because it might be good later
-			mem.Lock()
-			mem.removeTx(tx)
-			mem.Unlock()
-			atomic.AddInt64(&mem.txsBytes, int64(-len(tx)))
-			mem.cache.Remove(tx)
-		}
-		mem.updaterecheckFlag()
-		if mem.isrecheckCursorNil() {
-			// Done!
-			mem.logger.Info("Done rechecking txs")
-
-			// incase the recheck removed all txs
-			if mem.Size() > 0 {
-				mem.notifyTxsAvailable()
-			}
-		}
-	default:
-		// ignore other messages
-	}
-}
-
-// callback, which is called after the app checked the tx for the first time.
-//
-// The case where the app checks the tx for the second and subsequent times is
-// handled by the resCbRecheck callback.
-func (mem *basemempool) resCbFirstTime(
-	tx []byte,
-	peerID uint16,
-	peerP2PID p2p.ID,
-	res *abcix.Response,
-) {
-	switch r := res.Value.(type) {
-	case *abcix.Response_CheckTx:
-		var postCheckErr error
-		if mem.postCheck != nil {
-			postCheckErr = mem.postCheck(tx, r.CheckTx)
-		}
-		if (r.CheckTx.Code == abcix.CodeTypeOK) && postCheckErr == nil {
-			// Check mempool isn't full again to reduce the chance of exceeding the
-			// limits.
-			if err := mem.isFull(len(tx)); err != nil {
-				// remove from cache (mempool might have a space later)
-				mem.cache.Remove(tx)
-				mem.logger.Error(err.Error())
-				return
-			}
-
-			memTx := &mempoolTx{
-				height:    mem.height,
-				gasWanted: r.CheckTx.GasWanted,
-				tx:        tx,
-			}
-			memTx.senders.Store(peerID, true)
-			mem.addTx(memTx, r.CheckTx.Priority)
-			atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx)))
-			mem.metrics.TxSizeBytes.Observe(float64(len(memTx.tx)))
-			mem.logger.Info("Added good transaction",
-				"tx", txID(tx),
-				"res", r,
-				"height", memTx.height,
-				"total", mem.Size(),
-			)
-			mem.notifyTxsAvailable()
-		} else {
-			// ignore bad transaction
-			mem.logger.Info("Rejected bad transaction",
-				"tx", txID(tx), "peerID", peerP2PID, "res", r, "err", postCheckErr)
-			mem.metrics.FailedTxs.Add(1)
-			// remove from cache (it might be good later)
-			mem.cache.Remove(tx)
-		}
-	default:
-		// ignore other messages
-	}
-}
-
-// Request specific callback that should be set on individual reqRes objects
-// to incorporate local information when processing the response.
-// This allows us to track the peer that sent us this tx, so we can avoid sending it back to them.
-// NOTE: alternatively, we could include this information in the ABCI request itself.
-//
-// External callers of CheckTx, like the RPC, can also pass an externalCb through here that is called
-// when all other response processing is complete.
-//
-// Used in CheckTx to record PeerID who sent us the tx.
-func (mem *basemempool) reqResCb(
-	tx []byte,
-	peerID uint16,
-	peerP2PID p2p.ID,
-	externalCb func(*abcix.Response),
-) func(res *abcix.Response) {
-	return func(res *abcix.Response) {
-		if !mem.isrecheckCursorNil() {
-			// this should never happen
-			panic("recheck cursor is not nil in reqResCb")
-		}
-
-		mem.resCbFirstTime(tx, peerID, peerP2PID, res)
-
-		// update metrics
-		mem.metrics.Size.Set(float64(mem.Size()))
-
-		// passed in by the caller of CheckTx, eg. the RPC
-		if externalCb != nil {
-			externalCb(res)
-		}
-	}
 }
 
 // GetNextTxBytes finds satisfied tx with two iterations which cost O(N) time, will be optimized with balance tree
