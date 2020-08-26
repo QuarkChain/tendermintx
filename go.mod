@@ -12,6 +12,7 @@ require (
 	github.com/go-logfmt/logfmt v0.5.0
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.2
+	github.com/google/btree v1.0.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/gtank/merlin v0.1.1
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a
