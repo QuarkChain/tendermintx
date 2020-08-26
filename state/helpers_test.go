@@ -2,7 +2,6 @@ package state_test
 
 import (
 	"bytes"
-	"crypto/rand"
 	"fmt"
 	"time"
 
@@ -283,15 +282,14 @@ func (app *testApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckB
 			},
 		}
 	}
-
-	randomHash := make([]byte, 20)
-	_, err := rand.Read(make([]byte, 20))
-	if err != nil {
-		panic("failed to generate random hash value")
-	}
 	if req.Height == 3 {
 		return abcix.ResponseCheckBlock{
-			ResultHash: randomHash,
+			ResultHash: tmrand.Bytes(20),
+		}
+	}
+	if req.Height == 4 {
+		return abcix.ResponseCheckBlock{
+			AppHash: tmrand.Bytes(20),
 		}
 	}
 

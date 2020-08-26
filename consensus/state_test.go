@@ -1848,7 +1848,6 @@ func TestStateCheckBlockFail(t *testing.T) {
 	startTestRound(cs, height, round)
 
 	assert.PanicsWithValue(t, "vote with nil block as expected", func() { ensurePrevoteWithNilBlock(voteCh) })
-
 }
 
 // subscribe subscribes test client to the given query and returns a channel with cap = 1.

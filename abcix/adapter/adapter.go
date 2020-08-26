@@ -1,6 +1,7 @@
 package adapter
 
 import (
+	"bytes"
 	"errors"
 	"reflect"
 
@@ -24,7 +25,9 @@ var (
 )
 
 type adaptedApp struct {
-	abciApp abci.Application
+	abciApp    abci.Application
+	resultHash []byte
+	appHash    []byte
 }
 
 type AdaptedApp interface {
@@ -179,6 +182,7 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 		respDeliverTx.Code = abcix.CodeTypeOK
 		resp.DeliverTxs = append(resp.DeliverTxs, &respDeliverTx)
 	}
+	app.resultHash = req.Header.LastResultsHash
 
 	if err := app.applyLegacyABCI(&req, &resp, endblock); err != nil {
 		panic("failed to adapt the ABCI legacy methods: " + err.Error())
@@ -198,11 +202,17 @@ func (app *adaptedApp) Commit() (resp abcix.ResponseCommit) {
 		// TODO: panic for debugging purposes. better error handling soon!
 		panic(err)
 	}
+	app.appHash = resp.Data
 	return
 }
 
 func (app *adaptedApp) CheckBlock(req abcix.RequestCheckBlock) (resp abcix.ResponseCheckBlock) {
-	resp.ResultHash = req.Header.LastResultsHash
+	if !bytes.Equal(app.resultHash, req.Header.LastResultsHash) {
+		panic("resultHash mismatch")
+	}
+	if !bytes.Equal(resp.AppHash, req.Header.AppHash) {
+		panic("appHash mismatch")
+	}
 	return
 }
 

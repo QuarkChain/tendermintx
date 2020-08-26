@@ -291,9 +291,13 @@ func (blockExec *BlockExecutor) CheckBlock(block *types.Block) error {
 	}
 	if !bytes.Equal(resp.ResultHash, block.Header.LastResultsHash.Bytes()) {
 		return fmt.Errorf(
-			"mismatch between header and CheckBlock response\n"+
-				"ResultHash of response: %X\n LastResultHash in block header: %X",
+			"resultHash mismatch\nResultHash in ResponseCheckBlock: %X\n ResultHash in block header: %X",
 			resp.ResultHash, block.Header.LastResultsHash)
+	}
+	if !bytes.Equal(resp.AppHash, block.Header.AppHash.Bytes()) {
+		return fmt.Errorf(
+			"appHash mismatch\nAppHash in ResponseCheckBlock: %X\n AppHash in block header: %X",
+			resp.AppHash, block.Header.AppHash)
 	}
 
 	return err

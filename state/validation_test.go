@@ -66,7 +66,6 @@ func TestValidateBlockHeader(t *testing.T) {
 		{"ValidatorsHash wrong", func(block *types.Block) { block.ValidatorsHash = wrongHash }},
 		{"NextValidatorsHash wrong", func(block *types.Block) { block.NextValidatorsHash = wrongHash }},
 		{"ConsensusHash wrong", func(block *types.Block) { block.ConsensusHash = wrongHash }},
-		{"AppHash wrong", func(block *types.Block) { block.AppHash = wrongHash }},
 
 		{"EvidenceHash wrong", func(block *types.Block) { block.EvidenceHash = wrongHash }},
 		{"Proposer wrong", func(block *types.Block) { block.ProposerAddress = ed25519.GenPrivKey().PubKey().Address() }},

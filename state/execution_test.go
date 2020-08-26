@@ -468,7 +468,7 @@ func TestCheckBlockWithInvalidTx(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestCheckBlockWithMismatchResultHash(t *testing.T) {
+func TestCheckBlockWithMismatchHashes(t *testing.T) {
 	app := &testApp{}
 	cc := proxy.NewLocalClientCreator(app)
 	proxyApp := proxy.NewAppConns(cc)
@@ -476,7 +476,7 @@ func TestCheckBlockWithMismatchResultHash(t *testing.T) {
 	require.Nil(t, err)
 	defer proxyApp.Stop() //nolint:errcheck // ignore for tests
 
-	state, stateDB, _ := makeState(3, 3)
+	state, stateDB, _ := makeState(2, 3)
 	blockExec := sm.NewBlockExecutor(
 		stateDB,
 		log.TestingLogger(),
@@ -499,16 +499,19 @@ func TestCheckBlockWithMismatchResultHash(t *testing.T) {
 			[]byte("Signature2"),
 			state.Validators.Validators[1].Address,
 			now)
-		commitSig2 = types.NewCommitSigForBlock(
-			[]byte("Signature3"),
-			state.Validators.Validators[2].Address,
-			now)
 	)
 
-	lastCommit := types.NewCommit(2, 0, prevBlockID, []types.CommitSig{commitSig0, commitSig1, commitSig2})
+	lastCommit := types.NewCommit(2, 0, prevBlockID, []types.CommitSig{commitSig0, commitSig1})
 
-	// block for height 2
+	// block for height 3
 	block, _ := state.MakeBlock(3, makeTxs(3), lastCommit, nil, state.Validators.GetProposer().Address)
 	err = blockExec.CheckBlock(block)
+	assert.Error(t, err)
+
+	lastCommit2 := types.NewCommit(3, 0, prevBlockID, []types.CommitSig{commitSig0, commitSig1})
+
+	// block for height 4
+	block2, _ := state.MakeBlock(4, makeTxs(4), lastCommit2, nil, state.Validators.GetProposer().Address)
+	err = blockExec.CheckBlock(block2)
 	assert.Error(t, err)
 }
