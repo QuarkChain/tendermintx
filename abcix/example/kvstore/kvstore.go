@@ -154,6 +154,10 @@ func (app *Application) DeliverBlock(req types.RequestDeliverBlock) types.Respon
 	return ret
 }
 
+func (app *Application) CheckBlock(req types.RequestCheckBlock) types.ResponseCheckBlock {
+	return types.ResponseCheckBlock{ResultHash: req.Header.LastResultsHash}
+}
+
 func (app *Application) Commit() types.ResponseCommit {
 	// Using a memdb - just return the big endian size of the db
 	appHash := make([]byte, 8)
