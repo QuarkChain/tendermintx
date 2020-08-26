@@ -111,7 +111,7 @@ func (mem *CListMempool) removeTx(tx types.Tx, elem ...interface{}) {
 	mem.txsMap.Delete(TxKey(tx))
 }
 
-func (mem *CListMempool) updaterecheckFlag() {
+func (mem *CListMempool) updateRecheckFlag() {
 	if mem.recheckCursor == mem.recheckEnd {
 		mem.recheckCursor = nil
 	} else {
@@ -212,11 +212,11 @@ func (mem *CListMempool) removeCommittedTx(tx types.Tx) {
 	}
 }
 
-func (mem *CListMempool) isrecheckCursorNil() bool {
+func (mem *CListMempool) isRecheckCursorNil() bool {
 	return mem.recheckCursor == nil
 }
 
-func (mem *CListMempool) getrecheckCursorTx() *mempoolTx {
+func (mem *CListMempool) getRecheckCursorTx() *mempoolTx {
 	return mem.recheckCursor.Value.(*mempoolTx)
 }
 

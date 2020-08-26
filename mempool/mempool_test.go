@@ -52,7 +52,7 @@ func newMempoolWithAppAndConfig(cc proxy.ClientCreator, config *cfg.Config, i in
 	case clistMempool:
 		mempool = NewCListMempool(config.Mempool, legacyProxyAppConnMem, 0)
 	case llrbMempool:
-		mempool = NewLlrbMempool(config.Mempool, legacyProxyAppConnMem, 0)
+		mempool = NewLLRBMempool(config.Mempool, legacyProxyAppConnMem, 0)
 	}
 	mempool.SetLogger(log.TestingLogger())
 	return mempool, func() { os.RemoveAll(config.RootDir) }
@@ -71,7 +71,7 @@ func newLegacyMempoolWithAppAndConfig(cc proxy.LegacyClientCreator, config *cfg.
 	case clistMempool:
 		mempool = NewCListMempool(config.Mempool, proxy.AdaptLegacy(legacyProxyAppConnMem), 0)
 	case llrbMempool:
-		mempool = NewLlrbMempool(config.Mempool, proxy.AdaptLegacy(legacyProxyAppConnMem), 0)
+		mempool = NewLLRBMempool(config.Mempool, proxy.AdaptLegacy(legacyProxyAppConnMem), 0)
 	}
 	mempool.SetLogger(log.TestingLogger())
 	return mempool, func() { os.RemoveAll(config.RootDir) }
@@ -149,14 +149,17 @@ func TestMempoolFilters(t *testing.T) {
 		{10, PreCheckMaxBytes(20), PostCheckMaxGas(1), 10},
 		{10, PreCheckMaxBytes(20), PostCheckMaxGas(0), 0},
 	}
-	for i := 0; i < 2; i++ {
-		mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), i)
-		defer cleanup()
+	clistmempool, clistcleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), clistMempool)
+	defer clistcleanup()
+	llrbmempool, llrbcleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), llrbMempool)
+	defer llrbcleanup()
+	mps := []Mempool{clistmempool, llrbmempool}
+	for _, mp := range mps {
 		for tcIndex, tt := range tests {
-			mempool.Update(1, emptyTxArr, abciResponses(len(emptyTxArr), abci.CodeTypeOK), tt.preFilter, tt.postFilter)
-			checkTxs(t, mempool, UnknownPeerID, make([]uint64, tt.numTxsToCreate), 0)
-			require.Equal(t, tt.expectedNumTxs, mempool.Size(), "mempool had the incorrect size, on test case %d", tcIndex)
-			mempool.Flush()
+			mp.Update(1, emptyTxArr, abciResponses(len(emptyTxArr), abci.CodeTypeOK), tt.preFilter, tt.postFilter)
+			checkTxs(t, mp, UnknownPeerID, make([]uint64, tt.numTxsToCreate), 0)
+			require.Equal(t, tt.expectedNumTxs, mp.Size(), "mempool had the incorrect size, on test case %d", tcIndex)
+			mp.Flush()
 		}
 	}
 }
@@ -165,13 +168,16 @@ func TestMempoolUpdate(t *testing.T) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLocalClientCreator(app)
 
-	for i := 0; i < 2; i++ {
-		mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), i)
-		defer cleanup()
+	clistmempool, clistcleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), clistMempool)
+	defer clistcleanup()
+	llrbmempool, llrbcleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), llrbMempool)
+	defer llrbcleanup()
+	mps := []Mempool{clistmempool, llrbmempool}
+	for _, mp := range mps {
 		// 1. Adds valid txs to the cache
 		{
-			mempool.Update(1, []types.Tx{[]byte{0x01}}, abciResponses(1, abci.CodeTypeOK), nil, nil)
-			err := mempool.CheckTx([]byte{0x01}, nil, TxInfo{})
+			mp.Update(1, []types.Tx{[]byte{0x01}}, abciResponses(1, abci.CodeTypeOK), nil, nil)
+			err := mp.CheckTx([]byte{0x01}, nil, TxInfo{})
 			if assert.Error(t, err) {
 				assert.Equal(t, ErrTxInCache, err)
 			}
@@ -179,20 +185,20 @@ func TestMempoolUpdate(t *testing.T) {
 
 		// 2. Removes valid txs from the mempool
 		{
-			err := mempool.CheckTx([]byte{0x02}, nil, TxInfo{})
+			err := mp.CheckTx([]byte{0x02}, nil, TxInfo{})
 			require.NoError(t, err)
-			mempool.Update(1, []types.Tx{[]byte{0x02}}, abciResponses(1, abci.CodeTypeOK), nil, nil)
-			assert.Zero(t, mempool.Size())
+			mp.Update(1, []types.Tx{[]byte{0x02}}, abciResponses(1, abci.CodeTypeOK), nil, nil)
+			assert.Zero(t, mp.Size())
 		}
 
 		// 3. Removes invalid transactions from the cache and the mempool (if present)
 		{
-			err := mempool.CheckTx([]byte{0x03}, nil, TxInfo{})
+			err := mp.CheckTx([]byte{0x03}, nil, TxInfo{})
 			require.NoError(t, err)
-			mempool.Update(1, []types.Tx{[]byte{0x03}}, abciResponses(1, 1), nil, nil)
-			assert.Zero(t, mempool.Size())
+			mp.Update(1, []types.Tx{[]byte{0x03}}, abciResponses(1, 1), nil, nil)
+			assert.Zero(t, mp.Size())
 
-			err = mempool.CheckTx([]byte{0x03}, nil, TxInfo{})
+			err = mp.CheckTx([]byte{0x03}, nil, TxInfo{})
 			assert.NoError(t, err)
 		}
 	}
@@ -202,46 +208,49 @@ func TestTxsAvailable(t *testing.T) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLocalClientCreator(app)
 
-	for i := 0; i < 2; i++ {
-		mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), i)
-		defer cleanup()
-		mempool.EnableTxsAvailable()
+	clistmempool, clistcleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), clistMempool)
+	defer clistcleanup()
+	llrbmempool, llrbcleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), llrbMempool)
+	defer llrbcleanup()
+	mps := []Mempool{clistmempool, llrbmempool}
+	for _, mp := range mps {
+		mp.EnableTxsAvailable()
 
 		timeoutMS := 500
 
 		// with no txs, it shouldnt fire
-		ensureNoFire(t, mempool.TxsAvailable(), timeoutMS)
+		ensureNoFire(t, mp.TxsAvailable(), timeoutMS)
 
 		// send a bunch of txs, it should only fire once
-		txs := checkTxs(t, mempool, UnknownPeerID, make([]uint64, 100), 0)
-		ensureFire(t, mempool.TxsAvailable(), timeoutMS)
-		ensureNoFire(t, mempool.TxsAvailable(), timeoutMS)
+		txs := checkTxs(t, mp, UnknownPeerID, make([]uint64, 100), 0)
+		ensureFire(t, mp.TxsAvailable(), timeoutMS)
+		ensureNoFire(t, mp.TxsAvailable(), timeoutMS)
 
 		// call update with half the txs.
 		// it should fire once now for the new height
 		// since there are still txs left
 		committedTxs, txs := txs[:50], txs[50:]
-		if err := mempool.Update(1, committedTxs, abciResponses(len(committedTxs), abci.CodeTypeOK), nil, nil); err != nil {
+		if err := mp.Update(1, committedTxs, abciResponses(len(committedTxs), abci.CodeTypeOK), nil, nil); err != nil {
 			t.Error(err)
 		}
-		ensureFire(t, mempool.TxsAvailable(), timeoutMS)
-		ensureNoFire(t, mempool.TxsAvailable(), timeoutMS)
+		ensureFire(t, mp.TxsAvailable(), timeoutMS)
+		ensureNoFire(t, mp.TxsAvailable(), timeoutMS)
 
 		// send a bunch more txs. we already fired for this height so it shouldnt fire again
-		moreTxs := checkTxs(t, mempool, UnknownPeerID, make([]uint64, 50), 100)
-		ensureNoFire(t, mempool.TxsAvailable(), timeoutMS)
+		moreTxs := checkTxs(t, mp, UnknownPeerID, make([]uint64, 50), 100)
+		ensureNoFire(t, mp.TxsAvailable(), timeoutMS)
 
 		// now call update with all the txs. it should not fire as there are no txs left
 		committedTxs = append(txs, moreTxs...) //nolint: gocritic
-		if err := mempool.Update(2, committedTxs, abciResponses(len(committedTxs), abci.CodeTypeOK), nil, nil); err != nil {
+		if err := mp.Update(2, committedTxs, abciResponses(len(committedTxs), abci.CodeTypeOK), nil, nil); err != nil {
 			t.Error(err)
 		}
-		ensureNoFire(t, mempool.TxsAvailable(), timeoutMS)
+		ensureNoFire(t, mp.TxsAvailable(), timeoutMS)
 
 		// send a bunch more txs, it should only fire once
-		checkTxs(t, mempool, UnknownPeerID, make([]uint64, 100), 150)
-		ensureFire(t, mempool.TxsAvailable(), timeoutMS)
-		ensureNoFire(t, mempool.TxsAvailable(), timeoutMS)
+		checkTxs(t, mp, UnknownPeerID, make([]uint64, 100), 150)
+		ensureFire(t, mp.TxsAvailable(), timeoutMS)
+		ensureNoFire(t, mp.TxsAvailable(), timeoutMS)
 	}
 }
 
@@ -260,11 +269,14 @@ func TestMempoolCloseWAL(t *testing.T) {
 	app := kvstore2.NewApplication()
 	cc := proxy.NewLegacyLocalClientCreator(app)
 	// 3. Create the mempool
-	for i := 0; i < 2; i++ {
-		mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, wcfg, i)
-		defer cleanup()
-		mempool.(*basemempool).height = 10
-		mempool.InitWAL()
+	clistmempool, clistcleanup := newLegacyMempoolWithAppAndConfig(cc, wcfg, clistMempool)
+	defer clistcleanup()
+	llrbmempool, llrbcleanup := newLegacyMempoolWithAppAndConfig(cc, wcfg, llrbMempool)
+	defer llrbcleanup()
+	mps := []Mempool{clistmempool, llrbmempool}
+	for i, mp := range mps {
+		mp.(*basemempool).height = 10
+		mp.InitWAL()
 
 		// 4. Ensure that the directory contains the WAL file
 		m2, err := filepath.Glob(filepath.Join(rootDir, "*"))
@@ -272,11 +284,11 @@ func TestMempoolCloseWAL(t *testing.T) {
 		require.Equal(t, 1, len(m2), "expecting the wal match in")
 
 		// 5. Write some contents to the WAL
-		mempool.CheckTx(types.Tx([]byte("foo")), nil, TxInfo{})
-		walFilepath := mempool.(*basemempool).wal.Path
+		mp.CheckTx(types.Tx([]byte("foo")), nil, TxInfo{})
+		walFilepath := mp.(*basemempool).wal.Path
 		sum1 := checksumFile(walFilepath, t)
 		// 6. Sanity check to ensure that the written TX matches the expectation.
-		if i == 0 {
+		if i == clistMempool {
 			require.Equal(t, sum1, checksumIt([]byte("foo\n")), "foo with a newline should be written")
 		} else {
 			require.Equal(t, sum1, checksumIt([]byte("foo\nfoo\n")), "foo with a newline should be written")
@@ -284,8 +296,8 @@ func TestMempoolCloseWAL(t *testing.T) {
 
 		// 7. Invoke CloseWAL() and ensure it discards the
 		// WAL thus any other write won't go through.
-		mempool.CloseWAL()
-		mempool.CheckTx(types.Tx([]byte("bar")), nil, TxInfo{})
+		mp.CloseWAL()
+		mp.CheckTx(types.Tx([]byte("bar")), nil, TxInfo{})
 		sum2 := checksumFile(walFilepath, t)
 		require.Equal(t, sum1, sum2, "expected no change to the WAL after invoking CloseWAL() since it was discarded")
 
@@ -325,14 +337,17 @@ func TestMempoolMaxMsgSize(t *testing.T) {
 		{maxMsgSize, true},
 		{maxMsgSize + 1, true},
 	}
-	for i := 0; i < 2; i++ {
-		mempl, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), i)
-		defer cleanup()
+	clistmempool, clistcleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), clistMempool)
+	defer clistcleanup()
+	llrbmempool, llrbcleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), llrbMempool)
+	defer llrbcleanup()
+	mps := []Mempool{clistmempool, llrbmempool}
+	for _, mp := range mps {
 		for i, testCase := range testCases {
 			caseString := fmt.Sprintf("case %d, len %d", i, testCase.len)
 
 			tx := tmrand.Bytes(testCase.len)
-			err := mempl.CheckTx(tx, nil, TxInfo{})
+			err := mp.CheckTx(tx, nil, TxInfo{})
 			bv := gogotypes.BytesValue{Value: tx}
 			bz, err2 := bv.Marshal()
 			require.NoError(t, err2)
@@ -349,12 +364,13 @@ func TestMempoolMaxMsgSize(t *testing.T) {
 }
 
 func TestMempoolTxsBytes(t *testing.T) {
-	for i := 0; i < 2; i++ {
+	mempoolImpl := []int{clistMempool, llrbMempool}
+	for _, impl := range mempoolImpl {
 		app := kvstore2.NewApplication()
 		cc := proxy.NewLegacyLocalClientCreator(app)
 		config := cfg.ResetTestRoot("mempool_test")
 		config.Mempool.MaxTxsBytes = 10
-		mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, config, i)
+		mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, config, impl)
 		defer cleanup()
 
 		// 1. zero by default
@@ -388,7 +404,7 @@ func TestMempoolTxsBytes(t *testing.T) {
 		// 6. zero after tx is rechecked and removed due to not being valid anymore
 		app2 := counter.NewApplication(true)
 		cc = proxy.NewLegacyLocalClientCreator(app2)
-		mempool, cleanup = newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), i)
+		mempool, cleanup = newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), impl)
 		defer cleanup()
 
 		txBytes := make([]byte, 8)
@@ -456,25 +472,28 @@ func TestBaseMempool_GetNextTxBytes(t *testing.T) {
 			order:      []uint64{0, 1, 2, 3},
 		},
 	}
-	for i := 0; i < 2; i++ {
-		mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), i)
-		defer cleanup()
+	clistmempool, clistcleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), clistMempool)
+	defer clistcleanup()
+	llrbmempool, llrbcleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), llrbMempool)
+	defer llrbcleanup()
+	mps := []Mempool{clistmempool, llrbmempool}
+	for _, mp := range mps {
 		for i, testCase := range testCases {
-			originalTxs := checkTxs(t, mempool, UnknownPeerID, testCase.priorities, 0)
+			originalTxs := checkTxs(t, mp, UnknownPeerID, testCase.priorities, 0)
 			remainBytes := 20
 			if testCase.hasError {
 				remainBytes = 10
 			}
-			orderedTxs := getTxswithPriority(mempool, int64(remainBytes))
+			orderedTxs := getTxswithPriority(mp, int64(remainBytes))
 			if testCase.hasError {
 				require.Nil(t, orderedTxs, "Failed at testcase %d", i)
-				mempool.Flush()
+				mp.Flush()
 				continue
 			}
 			for j, k := range testCase.order {
 				require.Equal(t, originalTxs[j], orderedTxs[k], "Failed at testcase %d", i)
 			}
-			mempool.Flush()
+			mp.Flush()
 		}
 	}
 }

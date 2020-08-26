@@ -55,13 +55,16 @@ func TestCacheAfterUpdate(t *testing.T) {
 		{2, []int{2}, []int{}, []int{2, 1, 0}}, // update adds new tx to cache
 		{2, []int{1}, []int{1}, []int{1, 0}},   // re-adding after update doesn't make dupe
 	}
-	for i := 0; i < 2; i++ {
-		mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), i)
-		defer cleanup()
+	clistmempool, clistcleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), clistMempool)
+	defer clistcleanup()
+	llrbmempool, llrbcleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), llrbMempool)
+	defer llrbcleanup()
+	mps := []Mempool{clistmempool, llrbmempool}
+	for _, mp := range mps {
 		for tcIndex, tc := range tests {
 			for i := 0; i < tc.numTxsToCreate; i++ {
 				tx := types.Tx{byte(i)}
-				err := mempool.CheckTx(tx, nil, TxInfo{})
+				err := mp.CheckTx(tx, nil, TxInfo{})
 				require.NoError(t, err)
 			}
 
@@ -70,14 +73,14 @@ func TestCacheAfterUpdate(t *testing.T) {
 				tx := types.Tx{byte(v)}
 				updateTxs = append(updateTxs, tx)
 			}
-			mempool.Update(int64(tcIndex), updateTxs, abciResponses(len(updateTxs), abci.CodeTypeOK), nil, nil)
+			mp.Update(int64(tcIndex), updateTxs, abciResponses(len(updateTxs), abci.CodeTypeOK), nil, nil)
 
 			for _, v := range tc.reAddIndices {
 				tx := types.Tx{byte(v)}
-				_ = mempool.CheckTx(tx, nil, TxInfo{})
+				_ = mp.CheckTx(tx, nil, TxInfo{})
 			}
 
-			cache := mempool.(*basemempool).cache.(*mapTxCache)
+			cache := mp.(*basemempool).cache.(*mapTxCache)
 			node := cache.list.Front()
 			counter := 0
 			for node != nil {
@@ -100,7 +103,7 @@ func TestCacheAfterUpdate(t *testing.T) {
 			}
 			require.Equal(t, len(tc.txsInCache), counter,
 				"cache smaller than expected on testcase %d", tcIndex)
-			mempool.Flush()
+			mp.Flush()
 		}
 	}
 }

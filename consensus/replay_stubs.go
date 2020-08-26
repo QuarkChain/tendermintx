@@ -49,7 +49,7 @@ func (emptyMempool) InitWAL() error              { return nil }
 func (emptyMempool) CloseWAL()                   {}
 func (emptyMempool) RemoveTxs(_ types.Txs) error { return nil }
 
-func (m emptyMempool) SetLogger(_ log.Logger) {}
+func (emptyMempool) SetLogger(_ log.Logger) {}
 
 //-----------------------------------------------------------------------------
 

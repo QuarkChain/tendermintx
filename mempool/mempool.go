@@ -181,17 +181,19 @@ type basemempool struct {
 
 type mempoolImpl interface {
 	Size() int
+
+	// all private methods will assume locks are held by basemempool so the impl themselves won't need to
 	addTx(*mempoolTx, uint64)
 	removeTx(types.Tx, ...interface{})
-	updaterecheckFlag()
+	updateRecheckFlag()
 	reapMaxTxs(int) types.Txs
 	recheckTxs(proxy.AppConnMempool)
 	getNextTxBytes(int64, int64, []byte) ([]byte, error)
 	deleteAll()
 	recordNewSender(types.Tx, TxInfo)
 	removeCommittedTx(types.Tx)
-	isrecheckCursorNil() bool
-	getrecheckCursorTx() *mempoolTx
+	isRecheckCursorNil() bool
+	getRecheckCursorTx() *mempoolTx
 	removeTxs(types.Tx) error
 }
 
@@ -389,7 +391,7 @@ func (mem *basemempool) CheckTx(tx types.Tx, cb func(*abcix.Response), txInfo Tx
 // When rechecking, we don't need the peerID, so the recheck callback happens
 // here.
 func (mem *basemempool) globalCb(req *abcix.Request, res *abcix.Response) {
-	if mem.isrecheckCursorNil() {
+	if mem.isRecheckCursorNil() {
 		return
 	}
 
@@ -416,7 +418,7 @@ func (mem *basemempool) reqResCb(
 	externalCb func(*abcix.Response),
 ) func(res *abcix.Response) {
 	return func(res *abcix.Response) {
-		if !mem.isrecheckCursorNil() {
+		if !mem.isRecheckCursorNil() {
 			// this should never happen
 			panic("recheck cursor is not nil in reqResCb")
 		}
@@ -512,7 +514,7 @@ func (mem *basemempool) resCbRecheck(req *abcix.Request, res *abcix.Response) {
 	switch r := res.Value.(type) {
 	case *abcix.Response_CheckTx:
 		tx := req.GetCheckTx().Tx
-		memTx := mem.getrecheckCursorTx()
+		memTx := mem.getRecheckCursorTx()
 		if !bytes.Equal(tx, memTx.tx) {
 			panic(fmt.Sprintf(
 				"Unexpected tx response from proxy during recheck\nExpected %X, got %X",
@@ -535,8 +537,8 @@ func (mem *basemempool) resCbRecheck(req *abcix.Request, res *abcix.Response) {
 			atomic.AddInt64(&mem.txsBytes, int64(-len(tx)))
 			mem.cache.Remove(tx)
 		}
-		mem.updaterecheckFlag()
-		if mem.isrecheckCursorNil() {
+		mem.updateRecheckFlag()
+		if mem.isRecheckCursorNil() {
 			// Done!
 			mem.logger.Info("Done rechecking txs")
 

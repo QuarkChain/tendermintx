@@ -43,8 +43,8 @@ type LlrbMempool struct {
 	recheckEnd    *lElement // re-checking stops here
 }
 
-// NewLlrbMempool returns a new mempool with the given configuration and connection to an application.
-func NewLlrbMempool(
+// NewLLRBMempool returns a new mempool with the given configuration and connection to an application.
+func NewLLRBMempool(
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
@@ -87,7 +87,7 @@ func (mem *LlrbMempool) removeTx(tx types.Tx, elem ...interface{}) {
 
 }
 
-func (mem *LlrbMempool) updaterecheckFlag() {
+func (mem *LlrbMempool) updateRecheckFlag() {
 	if mem.recheckCursor == mem.recheckEnd {
 		mem.recheckCursor = nil
 	} else {
@@ -199,11 +199,11 @@ func (mem *LlrbMempool) removeCommittedTx(tx types.Tx) {
 	}
 }
 
-func (mem *LlrbMempool) isrecheckCursorNil() bool {
+func (mem *LlrbMempool) isRecheckCursorNil() bool {
 	return mem.recheckCursor == nil
 }
 
-func (mem *LlrbMempool) getrecheckCursorTx() *mempoolTx {
+func (mem *LlrbMempool) getRecheckCursorTx() *mempoolTx {
 	return mem.recheckCursor.tx
 }
 
