@@ -24,12 +24,12 @@ type lElement struct {
 
 //--------------------------------------------------------------------------------
 
-// LlrbMempool is an ordered in-memory pool for transactions before they are
+// llrbmempool is an ordered in-memory pool for transactions before they are
 // proposed in a consensus round. Transaction validity is checked using the
 // CheckTx abci message before the transaction is added to the pool. The
 // mempool uses a left-leaning red-black tree structure for storing transactions that can
 // be efficiently accessed by multiple concurrent readers.
-type LlrbMempool struct {
+type llrbMempool struct {
 	txs llrb.LLRB // left-leaning red-black tree of good txs
 
 	// Map for quick access to txs to record sender in CheckTx.
@@ -50,20 +50,20 @@ func NewLLRBMempool(
 	height int64,
 	options ...Option,
 ) Mempool {
-	llrbMempool := &LlrbMempool{txs: llrb.New()}
+	llrbMempool := &llrbMempool{txs: llrb.New()}
 	ret := newbasemempool(llrbMempool, config, proxyAppConn, height, options...)
 
 	return ret
 }
 
 // Safe for concurrent use by multiple goroutines.
-func (mem *LlrbMempool) Size() int {
+func (mem *llrbMempool) Size() int {
 	return mem.txs.Size()
 }
 
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
-func (mem *LlrbMempool) addTx(memTx *mempoolTx, priority uint64) {
+func (mem *llrbMempool) addTx(memTx *mempoolTx, priority uint64) {
 	timeStamp := time.Now()
 	e := &lElement{nodeKey: llrb.NodeKey{Priority: priority, TS: timeStamp}}
 	if err := mem.txs.Insert(e.nodeKey, &memTx); err != nil {
@@ -75,7 +75,7 @@ func (mem *LlrbMempool) addTx(memTx *mempoolTx, priority uint64) {
 // Called from:
 //  - Update (lock held) if tx was committed
 // 	- resCbRecheck (lock not held) if tx was invalidated
-func (mem *LlrbMempool) removeTx(tx types.Tx, elem ...interface{}) {
+func (mem *llrbMempool) removeTx(tx types.Tx, elem ...interface{}) {
 	var e *lElement
 	if elem == nil {
 		e = mem.recheckCursor
@@ -87,7 +87,7 @@ func (mem *LlrbMempool) removeTx(tx types.Tx, elem ...interface{}) {
 
 }
 
-func (mem *LlrbMempool) updateRecheckFlag() {
+func (mem *llrbMempool) updateRecheckFlag() {
 	if mem.recheckCursor == mem.recheckEnd {
 		mem.recheckCursor = nil
 	} else {
@@ -103,7 +103,7 @@ func (mem *LlrbMempool) updateRecheckFlag() {
 	}
 }
 
-func (mem *LlrbMempool) reapMaxTxs(max int) types.Txs {
+func (mem *llrbMempool) reapMaxTxs(max int) types.Txs {
 	if max < 0 {
 		max = mem.txs.Size()
 	}
@@ -120,7 +120,7 @@ func (mem *LlrbMempool) reapMaxTxs(max int) types.Txs {
 	return txs
 }
 
-func (mem *LlrbMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
+func (mem *llrbMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
 	var tempE lElement
 	if mem.Size() == 0 {
 		panic("recheckTxs is called, but the mempool is empty")
@@ -158,7 +158,7 @@ func (mem *LlrbMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
 	proxyAppConn.FlushAsync()
 }
 
-func (mem *LlrbMempool) getNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
+func (mem *llrbMempool) getNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
 	var prevNodeKey *llrb.NodeKey
 	if len(starter) > 0 {
 		if e, ok := mem.txsMap.Load(TxKey(starter)); ok {
@@ -175,7 +175,7 @@ func (mem *LlrbMempool) getNextTxBytes(remainBytes int64, remainGas int64, start
 	return tx, nil
 }
 
-func (mem *LlrbMempool) deleteAll() {
+func (mem *llrbMempool) deleteAll() {
 	mem.txs = llrb.New()
 	mem.txsMap.Range(func(key, _ interface{}) bool {
 		mem.txsMap.Delete(key)
@@ -183,7 +183,7 @@ func (mem *LlrbMempool) deleteAll() {
 	})
 }
 
-func (mem *LlrbMempool) recordNewSender(tx types.Tx, txInfo TxInfo) {
+func (mem *llrbMempool) recordNewSender(tx types.Tx, txInfo TxInfo) {
 	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
 		memTx := e.(*lElement).tx
 		memTx.senders.LoadOrStore(txInfo.SenderID, true)
@@ -193,21 +193,21 @@ func (mem *LlrbMempool) recordNewSender(tx types.Tx, txInfo TxInfo) {
 	}
 }
 
-func (mem *LlrbMempool) removeCommittedTx(tx types.Tx) {
+func (mem *llrbMempool) removeCommittedTx(tx types.Tx) {
 	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
 		mem.removeTx(tx, e.(*lElement))
 	}
 }
 
-func (mem *LlrbMempool) isRecheckCursorNil() bool {
+func (mem *llrbMempool) isRecheckCursorNil() bool {
 	return mem.recheckCursor == nil
 }
 
-func (mem *LlrbMempool) getRecheckCursorTx() *mempoolTx {
+func (mem *llrbMempool) getRecheckCursorTx() *mempoolTx {
 	return mem.recheckCursor.tx
 }
 
-func (mem *LlrbMempool) removeTxs(tx types.Tx) error {
+func (mem *llrbMempool) removeTxs(tx types.Tx) error {
 	e, ok := mem.txsMap.Load(TxKey(tx))
 	if !ok {
 		return errors.New("fail to load tx from mempool")

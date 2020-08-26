@@ -12,9 +12,9 @@ import (
 func BenchmarkCheckTx(b *testing.B) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLegacyLocalClientCreator(app)
-	clistmempool, clistcleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), clistMempool)
+	clistmempool, clistcleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), clistmempool)
 	defer clistcleanup()
-	llrbmempool, llrbcleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), llrbMempool)
+	llrbmempool, llrbcleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), llrbmempool)
 	defer llrbcleanup()
 	mps := []Mempool{clistmempool, llrbmempool}
 	for _, mp := range mps {
