@@ -1,4 +1,4 @@
-package llrb
+package balancedtree
 
 import (
 	"crypto/sha256"
@@ -11,7 +11,7 @@ type NodeKey struct {
 	Hash     [sha256.Size]byte
 }
 
-type LLRB interface {
+type BalancedTree interface {
 	Size() int
 	GetNext(starter *NodeKey, predicate func(interface{}) bool) (interface{}, error)
 	Insert(key NodeKey, data interface{}) error
@@ -19,6 +19,6 @@ type LLRB interface {
 	UpdateKey(oldKey NodeKey, newKey NodeKey) error
 }
 
-func New() LLRB {
+func NewLLRB() BalancedTree {
 	return newLLRB(maxSize)
 }

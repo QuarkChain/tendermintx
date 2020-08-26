@@ -1,4 +1,4 @@
-package llrb
+package balancedtree
 
 import (
 	"bytes"
@@ -46,7 +46,7 @@ func getFixedBytes(byteLength []int) [][]byte {
 	return txs
 }
 
-func getOrderedTxs(tree LLRB, byteLimit int, txMap *sync.Map) [][]byte {
+func getOrderedTxs(tree BalancedTree, byteLimit int, txMap *sync.Map) [][]byte {
 	var starter *NodeKey
 	var txs [][]byte
 	for {
@@ -66,7 +66,7 @@ func txHash(tx []byte) [sha256.Size]byte {
 }
 
 func TestBasics(t *testing.T) {
-	tree := New()
+	tree := NewLLRB()
 	txs := getRandomBytes(2)
 	nks := getNodeKeys([]uint64{1, 2}, txs)
 	tree.Insert(*nks[0], txs[0])
@@ -81,7 +81,7 @@ func TestBasics(t *testing.T) {
 }
 
 func TestRandomInsertSequenceDelete(t *testing.T) {
-	tree := New()
+	tree := NewLLRB()
 	n := 10
 	txs := getRandomBytes(n)
 	perm := rand.Perm(n)
@@ -99,7 +99,7 @@ func TestRandomInsertSequenceDelete(t *testing.T) {
 }
 
 func TestRandomInsertDeleteNonExistent(t *testing.T) {
-	tree := New()
+	tree := NewLLRB()
 	n := 100
 	txs := getRandomBytes(n)
 	perm := rand.Perm(n)
@@ -122,7 +122,7 @@ func TestRandomInsertDeleteNonExistent(t *testing.T) {
 }
 
 func TestLlrb_UpdateKey(t *testing.T) {
-	tree := New()
+	tree := NewLLRB()
 	n := 100
 	txs := getRandomBytes(n)
 	perm := rand.Perm(n)
@@ -208,7 +208,7 @@ func TestGetNext(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		tree := New()
+		tree := NewLLRB()
 		txs := getRandomBytes(len(tc.priorities))
 		nks := getNodeKeys(tc.priorities, txs)
 		limit := 20

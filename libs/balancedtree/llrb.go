@@ -1,4 +1,4 @@
-package llrb
+package balancedtree
 
 import (
 	"bytes"
