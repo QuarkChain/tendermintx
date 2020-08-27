@@ -427,7 +427,7 @@ func TestCheckBlockWithAppError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestCheckBlockWithInvalidTx(t *testing.T) {
+func TestCheckBlockWithErrors(t *testing.T) {
 	app := &testApp{}
 	cc := proxy.NewLocalClientCreator(app)
 	proxyApp := proxy.NewAppConns(cc)
@@ -435,7 +435,7 @@ func TestCheckBlockWithInvalidTx(t *testing.T) {
 	require.Nil(t, err)
 	defer proxyApp.Stop() //nolint:errcheck // ignore for tests
 
-	state, stateDB, _ := makeState(2, 2)
+	state, stateDB, _ := makeState(2, 4)
 	blockExec := sm.NewBlockExecutor(
 		stateDB,
 		log.TestingLogger(),
@@ -443,6 +443,11 @@ func TestCheckBlockWithInvalidTx(t *testing.T) {
 		mock.Mempool{},
 		sm.MockEvidencePool{},
 	)
+
+	// block for height 1: Response with error code 1
+	block1 := makeBlock(state, 1)
+	err = blockExec.CheckBlock(block1)
+	assert.EqualError(t, err, "application error during CheckBlock, code: 1")
 
 	prevHash := state.LastBlockID.Hash
 	prevParts := types.PartSetHeader{}
@@ -460,58 +465,21 @@ func TestCheckBlockWithInvalidTx(t *testing.T) {
 			now)
 	)
 
-	lastCommit := types.NewCommit(1, 0, prevBlockID, []types.CommitSig{commitSig0, commitSig1})
-
-	// block for height 2
-	block, _ := state.MakeBlock(2, makeTxs(2), lastCommit, nil, state.Validators.GetProposer().Address)
-	err = blockExec.CheckBlock(block)
-	assert.Error(t, err)
-}
-
-func TestCheckBlockWithMismatchHashes(t *testing.T) {
-	app := &testApp{}
-	cc := proxy.NewLocalClientCreator(app)
-	proxyApp := proxy.NewAppConns(cc)
-	err := proxyApp.Start()
-	require.Nil(t, err)
-	defer proxyApp.Stop() //nolint:errcheck // ignore for tests
-
-	state, stateDB, _ := makeState(2, 3)
-	blockExec := sm.NewBlockExecutor(
-		stateDB,
-		log.TestingLogger(),
-		proxyApp.Consensus(),
-		mock.Mempool{},
-		sm.MockEvidencePool{},
-	)
-
-	prevHash := state.LastBlockID.Hash
-	prevParts := types.PartSetHeader{}
-	prevBlockID := types.BlockID{Hash: prevHash, PartSetHeader: prevParts}
-
-	var (
-		now        = tmtime.Now()
-		commitSig0 = types.NewCommitSigForBlock(
-			[]byte("Signature1"),
-			state.Validators.Validators[0].Address,
-			now)
-		commitSig1 = types.NewCommitSigForBlock(
-			[]byte("Signature2"),
-			state.Validators.Validators[1].Address,
-			now)
-	)
-
-	lastCommit := types.NewCommit(2, 0, prevBlockID, []types.CommitSig{commitSig0, commitSig1})
-
-	// block for height 3
-	block, _ := state.MakeBlock(3, makeTxs(3), lastCommit, nil, state.Validators.GetProposer().Address)
-	err = blockExec.CheckBlock(block)
-	assert.Error(t, err)
-
-	lastCommit2 := types.NewCommit(3, 0, prevBlockID, []types.CommitSig{commitSig0, commitSig1})
-
-	// block for height 4
-	block2, _ := state.MakeBlock(4, makeTxs(4), lastCommit2, nil, state.Validators.GetProposer().Address)
+	// block for height 2: Response with invalid tx
+	lastCommit1 := types.NewCommit(1, 0, prevBlockID, []types.CommitSig{commitSig0, commitSig1})
+	block2, _ := state.MakeBlock(2, makeTxs(2), lastCommit1, nil, state.Validators.GetProposer().Address)
 	err = blockExec.CheckBlock(block2)
-	assert.Error(t, err)
+	assert.EqualError(t, err, "invalid transaction, code: 1")
+
+	// block for height 3: Response with mismatch ResultHash
+	lastCommit2 := types.NewCommit(2, 0, prevBlockID, []types.CommitSig{commitSig0, commitSig1})
+	block3, _ := state.MakeBlock(3, makeTxs(3), lastCommit2, nil, state.Validators.GetProposer().Address)
+	err = blockExec.CheckBlock(block3)
+	assert.Contains(t, err.Error(), "resultHash")
+
+	// block for height 4: Response with mismatch AppHash
+	lastCommit3 := types.NewCommit(3, 0, prevBlockID, []types.CommitSig{commitSig0, commitSig1})
+	block4, _ := state.MakeBlock(4, makeTxs(4), lastCommit3, nil, state.Validators.GetProposer().Address)
+	err = blockExec.CheckBlock(block4)
+	assert.Contains(t, err.Error(), "appHash")
 }
