@@ -8,29 +8,37 @@ import (
 
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	cfg "github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/libs/llrb"
 	tmmath "github.com/tendermint/tendermint/libs/math"
+	"github.com/tendermint/tendermint/libs/tree"
 	"github.com/tendermint/tendermint/proxy"
 	"github.com/tendermint/tendermint/types"
 )
 
 //--------------------------------------------------------------------------------
 
-// lElement is used to insert, remove, or recheck transactions
-type lElement struct {
-	nodeKey llrb.NodeKey
+type treeEnum int
+
+const (
+	enumllrb treeEnum = iota
+	enumbtree
+)
+
+// tElement is used to insert, remove, or recheck transactions
+type tElement struct {
+	nodeKey tree.NodeKey
 	tx      *mempoolTx
 }
 
 //--------------------------------------------------------------------------------
 
-// enumllrbmempool is an ordered in-memory pool for transactions before they are
+// enumtreemempool is an ordered in-memory pool for transactions before they are
 // proposed in a consensus round. Transaction validity is checked using the
 // CheckTx abci message before the transaction is added to the pool. The
-// mempool uses a left-leaning red-black tree structure for storing transactions that can
+// mempool uses a balanced tree structure for storing transactions that can
 // be efficiently accessed by multiple concurrent readers.
-type llrbMempool struct {
-	txs llrb.LLRB // left-leaning red-black tree of good txs
+type treeMempool struct {
+	txs  tree.BalancedTree // balanced tree of good txs
+	enum treeEnum
 
 	// Map for quick access to txs to record sender in CheckTx.
 	// txsMap: txKey -> lElement
@@ -39,45 +47,65 @@ type llrbMempool struct {
 	// Track whether we're rechecking txs.
 	// These are not protected by a mutex and are expected to be mutated in
 	// serial (ie. by abci responses which are called in serial).
-	recheckCursor *lElement    // next expected response
-	recheckEnd    llrb.NodeKey // re-checking stops here
+	recheckCursor *tElement    // next expected response
+	recheckEnd    tree.NodeKey // re-checking stops here
 }
 
-// NewLLRBMempool returns a new mempool with the given configuration and connection to an application.
+// NewTREEMempool returns a new mempool with the given configuration and connection to an application.
+func NewTREEMempool(
+	config *cfg.MempoolConfig,
+	proxyAppConn proxy.AppConnMempool,
+	height int64,
+	enum treeEnum,
+	options ...Option,
+) Mempool {
+	treeMempool := &treeMempool{txs: treeGen(enum), enum: enum}
+	return newBasemempool(treeMempool, config, proxyAppConn, height, options...)
+}
+
 func NewLLRBMempool(
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
 	options ...Option,
 ) Mempool {
-	llrbMempool := &llrbMempool{txs: llrb.New()}
-	return newBasemempool(llrbMempool, config, proxyAppConn, height, options...)
+	return NewTREEMempool(config, proxyAppConn, height, enumllrb, options...)
+}
+
+func treeGen(enum treeEnum) tree.BalancedTree {
+	switch enum {
+	case enumllrb:
+		return tree.NewLLRB()
+	case enumbtree:
+		return nil
+	}
+	return nil
 }
 
 // Safe for concurrent use by multiple goroutines.
-func (mem *llrbMempool) Size() int {
+func (mem *treeMempool) Size() int {
 	return mem.txs.Size()
 }
 
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
-func (mem *llrbMempool) addTx(memTx *mempoolTx, priority uint64) {
+func (mem *treeMempool) addTx(memTx *mempoolTx, priority uint64) {
 	hash := TxKey(memTx.tx)
-	nodeKey := llrb.NodeKey{Priority: priority, TS: time.Now(), Hash: hash}
+	nodeKey := tree.NodeKey{Priority: priority, TS: time.Now(), Hash: hash}
 	if err := mem.txs.Insert(nodeKey, memTx); err != nil {
 		// TODO: better error handling here
-		panic("failed to insert tx into llrb mempool: " + err.Error())
+		panic("failed to insert tx into tree mempool: " + err.Error())
 	}
-	mem.txsMap.Store(hash, &lElement{nodeKey, memTx})
+	mem.txsMap.Store(hash, &tElement{nodeKey, memTx})
 }
 
 // Called from:
 //  - Update (lock held) if tx was committed
 //  - resCbRecheck (lock not held) if tx was invalidated
 //  - RemoveTxs (lock held) for invalid txs from CreateBlock response
-func (mem *llrbMempool) removeTx(tx types.Tx) (elemRemoved bool) {
+func (mem *treeMempool) removeTx(tx types.Tx) (elemRemoved bool) {
 	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
-		elem := e.(*lElement)
+		elem := e.(*tElement)
 		if _, err := mem.txs.Remove(elem.nodeKey); err != nil {
 			// TODO: better error handling here
 			// considering this function may be called concurrently from resCbRecheck,
@@ -90,7 +118,7 @@ func (mem *llrbMempool) removeTx(tx types.Tx) (elemRemoved bool) {
 	return
 }
 
-func (mem *llrbMempool) updateRecheckCursor() {
+func (mem *treeMempool) updateRecheckCursor() {
 	if mem.recheckCursor.nodeKey == mem.recheckEnd {
 		mem.recheckCursor = nil
 	} else {
@@ -98,19 +126,19 @@ func (mem *llrbMempool) updateRecheckCursor() {
 		if err != nil {
 			mem.recheckCursor = nil
 		} else {
-			mem.recheckCursor = &lElement{nodeKey: next, tx: memTx.(*mempoolTx)}
+			mem.recheckCursor = &tElement{nodeKey: next, tx: memTx.(*mempoolTx)}
 		}
 	}
 }
 
-func (mem *llrbMempool) reapMaxTxs(max int) types.Txs {
+func (mem *treeMempool) reapMaxTxs(max int) types.Txs {
 	if max < 0 {
 		max = mem.txs.Size()
 	}
 
 	txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Size(), max))
 
-	var starter *llrb.NodeKey
+	var starter *tree.NodeKey
 	for len(txs) <= max {
 		memTx, next, err := mem.txs.GetNext(starter, nil)
 		if err != nil {
@@ -122,7 +150,7 @@ func (mem *llrbMempool) reapMaxTxs(max int) types.Txs {
 	return txs
 }
 
-func (mem *llrbMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
+func (mem *treeMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
 	if mem.Size() == 0 {
 		panic("recheckTxs is called, but the mempool is empty")
 	}
@@ -130,7 +158,7 @@ func (mem *llrbMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
 	mem.recheckCursor = nil
 	// Push txs to proxyAppConn
 	// NOTE: globalCb may be called concurrently.
-	var starter *llrb.NodeKey
+	var starter *tree.NodeKey
 	for {
 		result, next, err := mem.txs.GetNext(starter, nil)
 		if err != nil {
@@ -143,7 +171,7 @@ func (mem *llrbMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
 
 		mptx := result.(*mempoolTx)
 		if mem.recheckCursor == nil {
-			mem.recheckCursor = &lElement{nodeKey: next, tx: mptx}
+			mem.recheckCursor = &tElement{nodeKey: next, tx: mptx}
 		}
 
 		proxyAppConn.CheckTxAsync(abcix.RequestCheckTx{
@@ -157,43 +185,43 @@ func (mem *llrbMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
 	proxyAppConn.FlushAsync()
 }
 
-func (mem *llrbMempool) getNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
-	var prevNodeKey *llrb.NodeKey
+func (mem *treeMempool) getNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
+	var prevNodeKey *tree.NodeKey
 	if len(starter) > 0 {
 		if e, ok := mem.txsMap.Load(TxKey(starter)); ok {
-			prevNodeKey = &e.(*lElement).nodeKey
+			prevNodeKey = &e.(*tElement).nodeKey
 		}
 	}
 	memTx, _, err := mem.txs.GetNext(prevNodeKey, func(i interface{}) bool {
 		return i.(*mempoolTx).gasWanted <= remainGas && (int64(len(i.(*mempoolTx).tx)) <= remainBytes)
 	})
-	if err == llrb.ErrorStopIteration {
+	if err == tree.ErrorStopIteration {
 		return nil, nil
 	} else if err != nil {
-		return nil, errors.Wrap(err, "failed to get next tx from llrb")
+		return nil, errors.Wrap(err, "failed to get next tx from tree")
 	}
 	return memTx.(*mempoolTx).tx, nil
 }
 
-func (mem *llrbMempool) deleteAll() {
-	mem.txs = llrb.New()
+func (mem *treeMempool) deleteAll() {
+	mem.txs = treeGen(mem.enum)
 	mem.txsMap.Range(func(key, _ interface{}) bool {
 		mem.txsMap.Delete(key)
 		return true
 	})
 }
 
-func (mem *llrbMempool) isRecheckCursorNil() bool {
+func (mem *treeMempool) isRecheckCursorNil() bool {
 	return mem.recheckCursor == nil
 }
 
-func (mem *llrbMempool) getRecheckCursorTx() *mempoolTx {
+func (mem *treeMempool) getRecheckCursorTx() *mempoolTx {
 	return mem.recheckCursor.tx
 }
 
-func (mem *llrbMempool) getMempoolTx(tx types.Tx) *mempoolTx {
+func (mem *treeMempool) getMempoolTx(tx types.Tx) *mempoolTx {
 	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
-		return e.(*lElement).tx
+		return e.(*tElement).tx
 	}
 	return nil
 }

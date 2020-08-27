@@ -291,7 +291,7 @@ func TestMempoolCloseWAL(t *testing.T) {
 		switch mp.(*basemempool).mempoolImpl.(type) {
 		case *cListMempool:
 			require.Equal(t, sum1, checksumIt([]byte("foo\n")), "foo with a newline should be written")
-		case *llrbMempool:
+		case *treeMempool:
 			require.Equal(t, sum1, checksumIt([]byte("foo\nfoo\n")), "foo with a newline should be written")
 		}
 

@@ -1,4 +1,4 @@
-package balancedtree
+package tree
 
 import (
 	"bytes"
