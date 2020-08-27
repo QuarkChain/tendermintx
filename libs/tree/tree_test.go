@@ -102,8 +102,16 @@ func testTreeBasics(t *testing.T, enum treeEnum) {
 	require.Error(t, err, "expecting error when removing nonexistent node")
 }
 
-func TestRandomInsertSequenceDelete(t *testing.T) {
-	tree := NewLLRB()
+func TestLLRBRandomInsertSequenceDelete(t *testing.T) {
+	testRandomInsertSequenceDelete(t, enumllrb)
+}
+
+func TestBTREERandomInsertSequenceDelete(t *testing.T) {
+	testRandomInsertSequenceDelete(t, enumbtree)
+}
+
+func testRandomInsertSequenceDelete(t *testing.T, enum treeEnum) {
+	tree := treeGen(enum)
 	n := 10
 	txs := getRandomBytes(n)
 	perm := rand.Perm(n)
@@ -120,8 +128,16 @@ func TestRandomInsertSequenceDelete(t *testing.T) {
 	}
 }
 
-func TestRandomInsertDeleteNonExistent(t *testing.T) {
-	tree := NewLLRB()
+func TestLLRBRandomInsertDeleteNonExistent(t *testing.T) {
+	testRandomInsertDeleteNonExistent(t, enumllrb)
+}
+
+func TestBTREERandomInsertDeleteNonExistent(t *testing.T) {
+	testRandomInsertDeleteNonExistent(t, enumbtree)
+}
+
+func testRandomInsertDeleteNonExistent(t *testing.T, enum treeEnum) {
+	tree := treeGen(enum)
 	n := 100
 	txs := getRandomBytes(n)
 	perm := rand.Perm(n)
@@ -143,8 +159,12 @@ func TestRandomInsertDeleteNonExistent(t *testing.T) {
 	require.Error(t, err, "expecting error when removing nonexistent node")
 }
 
-func TestLlrb_UpdateKey(t *testing.T) {
-	tree := NewLLRB()
+func TestLLRBUpdatekey(t *testing.T) {
+	testUpdateKey(t, enumllrb)
+}
+
+func testUpdateKey(t *testing.T, enum treeEnum) {
+	tree := treeGen(enum)
 	n := 100
 	txs := getRandomBytes(n)
 	perm := rand.Perm(n)
