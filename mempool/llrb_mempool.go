@@ -41,6 +41,12 @@ type llrbMempool struct {
 	// serial (ie. by abci responses which are called in serial).
 	recheckCursor *lElement    // next expected response
 	recheckEnd    llrb.NodeKey // re-checking stops here
+
+	waitChWrapper struct {
+		ch     chan struct{}
+		closed bool
+		mtx    sync.RWMutex
+	}
 }
 
 // NewLLRBMempool returns a new mempool with the given configuration and connection to an application.
@@ -51,6 +57,7 @@ func NewLLRBMempool(
 	options ...Option,
 ) Mempool {
 	llrbMempool := &llrbMempool{txs: llrb.New()}
+	llrbMempool.waitChWrapper.ch = make(chan struct{})
 	return newBasemempool(llrbMempool, config, proxyAppConn, height, options...)
 }
 
@@ -62,6 +69,7 @@ func (mem *llrbMempool) Size() int {
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
 func (mem *llrbMempool) addTx(memTx *mempoolTx, priority uint64) {
+	prevSize := mem.txs.Size()
 	hash := TxKey(memTx.tx)
 	nodeKey := llrb.NodeKey{Priority: priority, TS: time.Now(), Hash: hash}
 	if err := mem.txs.Insert(nodeKey, memTx); err != nil {
@@ -69,6 +77,18 @@ func (mem *llrbMempool) addTx(memTx *mempoolTx, priority uint64) {
 		panic("failed to insert tx into llrb mempool: " + err.Error())
 	}
 	mem.txsMap.Store(hash, &lElement{nodeKey, memTx})
+
+	// Notify subscribers now have at least one tx. Note we may have
+	// race closing the channel based only on `mem.txs`, thus a bool flag
+	// is used to avoid closing an already closed channel
+	if prevSize == 0 {
+		mem.waitChWrapper.mtx.Lock()
+		if !mem.waitChWrapper.closed {
+			close(mem.waitChWrapper.ch)
+			mem.waitChWrapper.closed = true
+		}
+		mem.waitChWrapper.mtx.Unlock()
+	}
 }
 
 // Called from:
@@ -87,6 +107,16 @@ func (mem *llrbMempool) removeTx(tx types.Tx) (elemRemoved bool) {
 		elemRemoved = true
 	}
 	mem.txsMap.Delete(TxKey(tx))
+
+	// Re-init tx wait ch
+	if elemRemoved && mem.txs.Size() == 0 {
+		mem.waitChWrapper.mtx.Lock()
+		if mem.waitChWrapper.closed {
+			mem.waitChWrapper.ch = make(chan struct{})
+			mem.waitChWrapper.closed = false
+		}
+		mem.waitChWrapper.mtx.Unlock()
+	}
 	return
 }
 
@@ -122,6 +152,7 @@ func (mem *llrbMempool) reapMaxTxs(max int) types.Txs {
 	return txs
 }
 
+// iterate txs and recheck them one by one
 func (mem *llrbMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
 	if mem.Size() == 0 {
 		panic("recheckTxs is called, but the mempool is empty")
@@ -175,6 +206,7 @@ func (mem *llrbMempool) getNextTxBytes(remainBytes int64, remainGas int64, start
 	return memTx.(*mempoolTx).tx, nil
 }
 
+// not really being used (unless in unsafe code)
 func (mem *llrbMempool) deleteAll() {
 	mem.txs = llrb.New()
 	mem.txsMap.Range(func(key, _ interface{}) bool {
@@ -196,4 +228,10 @@ func (mem *llrbMempool) getMempoolTx(tx types.Tx) *mempoolTx {
 		return e.(*lElement).tx
 	}
 	return nil
+}
+
+func (mem *llrbMempool) txsWaitChan() <-chan struct{} {
+	mem.waitChWrapper.mtx.RLock()
+	defer mem.waitChWrapper.mtx.RUnlock()
+	return mem.waitChWrapper.ch
 }

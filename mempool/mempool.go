@@ -196,6 +196,13 @@ type mempoolImpl interface {
 	getRecheckCursorTx() *mempoolTx
 	getMempoolTx(types.Tx) *mempoolTx
 	deleteAll()
+
+	// txsWaitChan returns a channel to wait on transactions. It will be closed
+	// once the mempool is not empty (ie. the internal `mem.txs` has at least one
+	// element)
+	//
+	// Safe for concurrent use by multiple goroutines.
+	txsWaitChan() <-chan struct{}
 }
 
 // Option sets an optional parameter on the basemempool.
