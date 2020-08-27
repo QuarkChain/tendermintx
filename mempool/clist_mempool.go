@@ -2,12 +2,9 @@ package mempool
 
 import (
 	"bytes"
-	"container/list"
 	"crypto/sha256"
-	"fmt"
 	"math"
 	"sync"
-	"sync/atomic"
 
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	cfg "github.com/tendermint/tendermint/config"
@@ -195,16 +192,6 @@ func (mem *cListMempool) deleteAll() {
 	})
 }
 
-func (mem *cListMempool) recordNewSender(tx types.Tx, txInfo TxInfo) {
-	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
-		memTx := e.(*clist.CElement).Value.(*mempoolTx)
-		memTx.senders.LoadOrStore(txInfo.SenderID, true)
-		// TODO: consider punishing peer for dups,
-		// its non-trivial since invalid txs can become valid,
-		// but they can spam the same tx with little cost to them atm.
-	}
-}
-
 func (mem *cListMempool) isRecheckCursorNil() bool {
 	return mem.recheckCursor == nil
 }
@@ -213,115 +200,9 @@ func (mem *cListMempool) getRecheckCursorTx() *mempoolTx {
 	return mem.recheckCursor.Value.(*mempoolTx)
 }
 
-//--------------------------------------------------------------------------------
-
-// mempoolTx is a transaction that successfully ran
-type mempoolTx struct {
-	height    int64    // height that this tx had been validated in
-	gasWanted int64    // amount of gas this tx states it will require
-	tx        types.Tx //
-
-	// ids of peers who've sent us this tx (as a map for quick lookups).
-	// senders: PeerID -> bool
-	senders sync.Map
-}
-
-// Height returns the height for this transaction
-func (memTx *mempoolTx) Height() int64 {
-	return atomic.LoadInt64(&memTx.height)
-}
-
-//--------------------------------------------------------------------------------
-
-type txCache interface {
-	Reset()
-	Push(tx types.Tx) bool
-	Remove(tx types.Tx)
-}
-
-// mapTxCache maintains a LRU cache of transactions. This only stores the hash
-// of the tx, due to memory concerns.
-type mapTxCache struct {
-	mtx      sync.Mutex
-	size     int
-	cacheMap map[[TxKeySize]byte]*list.Element
-	list     *list.List
-}
-
-var _ txCache = (*mapTxCache)(nil)
-
-// newMapTxCache returns a new mapTxCache.
-func newMapTxCache(cacheSize int) *mapTxCache {
-	return &mapTxCache{
-		size:     cacheSize,
-		cacheMap: make(map[[TxKeySize]byte]*list.Element, cacheSize),
-		list:     list.New(),
+func (mem *cListMempool) getMempoolTx(tx types.Tx) *mempoolTx {
+	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
+		return e.(*clist.CElement).Value.(*mempoolTx)
 	}
-}
-
-// Reset resets the cache to an empty state.
-func (cache *mapTxCache) Reset() {
-	cache.mtx.Lock()
-	cache.cacheMap = make(map[[TxKeySize]byte]*list.Element, cache.size)
-	cache.list.Init()
-	cache.mtx.Unlock()
-}
-
-// Push adds the given tx to the cache and returns true. It returns
-// false if tx is already in the cache.
-func (cache *mapTxCache) Push(tx types.Tx) bool {
-	cache.mtx.Lock()
-	defer cache.mtx.Unlock()
-
-	// Use the tx hash in the cache
-	txHash := TxKey(tx)
-	if moved, exists := cache.cacheMap[txHash]; exists {
-		cache.list.MoveToBack(moved)
-		return false
-	}
-
-	if cache.list.Len() >= cache.size {
-		popped := cache.list.Front()
-		if popped != nil {
-			poppedTxHash := popped.Value.([TxKeySize]byte)
-			delete(cache.cacheMap, poppedTxHash)
-			cache.list.Remove(popped)
-		}
-	}
-	e := cache.list.PushBack(txHash)
-	cache.cacheMap[txHash] = e
-	return true
-}
-
-// Remove removes the given tx from the cache.
-func (cache *mapTxCache) Remove(tx types.Tx) {
-	cache.mtx.Lock()
-	txHash := TxKey(tx)
-	popped := cache.cacheMap[txHash]
-	delete(cache.cacheMap, txHash)
-	if popped != nil {
-		cache.list.Remove(popped)
-	}
-
-	cache.mtx.Unlock()
-}
-
-type nopTxCache struct{}
-
-var _ txCache = (*nopTxCache)(nil)
-
-func (nopTxCache) Reset()             {}
-func (nopTxCache) Push(types.Tx) bool { return true }
-func (nopTxCache) Remove(types.Tx)    {}
-
-//--------------------------------------------------------------------------------
-
-// TxKey is the fixed length array hash used as the key in maps.
-func TxKey(tx types.Tx) [TxKeySize]byte {
-	return sha256.Sum256(tx)
-}
-
-// txID is the hex encoded hash of the bytes as a types.Tx.
-func txID(tx []byte) string {
-	return fmt.Sprintf("%X", types.Tx(tx).Hash())
+	return nil
 }

@@ -4,13 +4,12 @@ import (
 	"sync"
 	"time"
 
-	tmmath "github.com/tendermint/tendermint/libs/math"
-	"github.com/tendermint/tendermint/types"
-
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/llrb"
+	tmmath "github.com/tendermint/tendermint/libs/math"
 	"github.com/tendermint/tendermint/proxy"
+	"github.com/tendermint/tendermint/types"
 )
 
 //--------------------------------------------------------------------------------
@@ -38,8 +37,8 @@ type llrbMempool struct {
 	// Track whether we're rechecking txs.
 	// These are not protected by a mutex and are expected to be mutated in
 	// serial (ie. by abci responses which are called in serial).
-	recheckCursor *lElement // next expected response
-	recheckEnd    *lElement // re-checking stops here
+	recheckCursor *lElement    // next expected response
+	recheckEnd    llrb.NodeKey // re-checking stops here
 }
 
 // NewLLRBMempool returns a new mempool with the given configuration and connection to an application.
@@ -50,9 +49,7 @@ func NewLLRBMempool(
 	options ...Option,
 ) Mempool {
 	llrbMempool := &llrbMempool{txs: llrb.New()}
-	ret := newBasemempool(llrbMempool, config, proxyAppConn, height, options...)
-
-	return ret
+	return newBasemempool(llrbMempool, config, proxyAppConn, height, options...)
 }
 
 // Safe for concurrent use by multiple goroutines.
@@ -63,12 +60,13 @@ func (mem *llrbMempool) Size() int {
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
 func (mem *llrbMempool) addTx(memTx *mempoolTx, priority uint64) {
-	timeStamp := time.Now()
-	e := &lElement{nodeKey: llrb.NodeKey{Priority: priority, TS: timeStamp}}
-	if err := mem.txs.Insert(e.nodeKey, &memTx); err != nil {
-		panic("failed to insert tx into llrb mempool")
+	hash := TxKey(memTx.tx)
+	nodeKey := llrb.NodeKey{Priority: priority, TS: time.Now(), Hash: hash}
+	if err := mem.txs.Insert(nodeKey, memTx); err != nil {
+		// TODO: better error handling here
+		panic("failed to insert tx into llrb mempool: " + err.Error())
 	}
-	mem.txsMap.Store(TxKey(memTx.tx), &lElement{e.nodeKey, memTx})
+	mem.txsMap.Store(hash, &lElement{nodeKey, memTx})
 }
 
 // Called from:
@@ -79,6 +77,9 @@ func (mem *llrbMempool) removeTx(tx types.Tx) (elemRemoved bool) {
 	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
 		elem := e.(*lElement)
 		if _, err := mem.txs.Remove(elem.nodeKey); err != nil {
+			// TODO: better error handling here
+			// considering this function may be called concurrently from resCbRecheck,
+			// should probably just log the errors
 			panic("deleting an nonexistent node from tree")
 		}
 		elemRemoved = true
@@ -88,17 +89,14 @@ func (mem *llrbMempool) removeTx(tx types.Tx) (elemRemoved bool) {
 }
 
 func (mem *llrbMempool) updateRecheckCursor() {
-	if mem.recheckCursor == mem.recheckEnd {
+	if mem.recheckCursor.nodeKey == mem.recheckEnd {
 		mem.recheckCursor = nil
 	} else {
-		memTx, err := mem.txs.GetNext(&(mem.recheckCursor.nodeKey), nil)
+		memTx, next, err := mem.txs.GetNext(&mem.recheckCursor.nodeKey, nil)
 		if err != nil {
 			mem.recheckCursor = nil
 		} else {
-			tx := (*memTx.(**mempoolTx)).tx
-			if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
-				mem.recheckCursor = e.(*lElement)
-			}
+			mem.recheckCursor = &lElement{nodeKey: next, tx: memTx.(*mempoolTx)}
 		}
 	}
 }
@@ -109,50 +107,49 @@ func (mem *llrbMempool) reapMaxTxs(max int) types.Txs {
 	}
 
 	txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Size(), max))
+
+	var starter *llrb.NodeKey
 	for len(txs) <= max {
-		memTx, err := mem.txs.GetNext(nil, nil)
+		memTx, next, err := mem.txs.GetNext(starter, nil)
 		if err != nil {
 			break
 		}
-		tx := (*memTx.(**mempoolTx)).tx
-		txs = append(txs, tx)
+		txs = append(txs, memTx.(*mempoolTx).tx)
+		starter = &next
 	}
 	return txs
 }
 
 func (mem *llrbMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
-	var tempE lElement
 	if mem.Size() == 0 {
 		panic("recheckTxs is called, but the mempool is empty")
 	}
 
-	memTx, err := mem.txs.GetNext(nil, nil)
-	if err != nil {
-		mem.recheckCursor = nil
-		mem.recheckEnd = nil
-	} else {
-		tx := (*memTx.(**mempoolTx)).tx
-		if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
-			mem.recheckCursor = e.(*lElement)
-		}
-	}
-
+	mem.recheckCursor = nil
 	// Push txs to proxyAppConn
 	// NOTE: globalCb may be called concurrently.
+	var starter *llrb.NodeKey
 	for {
-		memTx, err := mem.txs.GetNext(&(tempE.nodeKey), nil)
+		result, next, err := mem.txs.GetNext(starter, nil)
 		if err != nil {
-			mem.recheckEnd = &tempE
+			if starter == nil {
+				panic("recheckTxs is called when size > 0, but iteration failed")
+			}
+			mem.recheckEnd = *starter
 			break
 		}
-		tx := (*memTx.(**mempoolTx)).tx
+
+		mptx := result.(*mempoolTx)
+		if mem.recheckCursor == nil {
+			mem.recheckCursor = &lElement{nodeKey: next, tx: mptx}
+		}
+
 		proxyAppConn.CheckTxAsync(abcix.RequestCheckTx{
-			Tx:   tx,
+			Tx:   mptx.tx,
 			Type: abcix.CheckTxType_Recheck,
 		})
-		if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
-			tempE = (*e.(*lElement))
-		}
+
+		starter = &next
 	}
 
 	proxyAppConn.FlushAsync()
@@ -165,13 +162,13 @@ func (mem *llrbMempool) getNextTxBytes(remainBytes int64, remainGas int64, start
 			prevNodeKey = &e.(*lElement).nodeKey
 		}
 	}
-	memTx, err := mem.txs.GetNext(prevNodeKey, func(i interface{}) bool {
-		return ((*i.(**mempoolTx)).gasWanted <= remainGas) && (int64(len((*i.(**mempoolTx)).tx)) <= remainBytes)
+	memTx, _, err := mem.txs.GetNext(prevNodeKey, func(i interface{}) bool {
+		return i.(*mempoolTx).gasWanted <= remainGas && (int64(len(i.(*mempoolTx).tx)) <= remainBytes)
 	})
 	if err != nil {
 		return nil, nil
 	}
-	tx := (*memTx.(**mempoolTx)).tx
+	tx := memTx.(*mempoolTx).tx
 	return tx, nil
 }
 
@@ -183,20 +180,17 @@ func (mem *llrbMempool) deleteAll() {
 	})
 }
 
-func (mem *llrbMempool) recordNewSender(tx types.Tx, txInfo TxInfo) {
-	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
-		memTx := e.(*lElement).tx
-		memTx.senders.LoadOrStore(txInfo.SenderID, true)
-		// TODO: consider punishing peer for dups,
-		// its non-trivial since invalid txs can become valid,
-		// but they can spam the same tx with little cost to them atm.
-	}
-}
-
 func (mem *llrbMempool) isRecheckCursorNil() bool {
 	return mem.recheckCursor == nil
 }
 
 func (mem *llrbMempool) getRecheckCursorTx() *mempoolTx {
 	return mem.recheckCursor.tx
+}
+
+func (mem *llrbMempool) getMempoolTx(tx types.Tx) *mempoolTx {
+	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
+		return e.(*lElement).tx
+	}
+	return nil
 }
