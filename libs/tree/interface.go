@@ -1,4 +1,4 @@
-package balancedtree
+package tree
 
 import (
 	"crypto/sha256"
@@ -23,6 +23,6 @@ func NewLLRB() BalancedTree {
 	return newLLRB(maxSize)
 }
 
-func NewBTREE(degree int) BalancedTree {
-	return newBTREE(degree)
+func NewBTREE() BalancedTree {
+	return newBTREE(maxSize)
 }

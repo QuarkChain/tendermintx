@@ -1,4 +1,4 @@
-package balancedtree
+package tree
 
 import (
 	"bytes"
@@ -10,6 +10,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+)
+
+type treeEnum int
+
+const (
+	enumllrb treeEnum = iota
+	enumbtree
 )
 
 func getNodeKeys(priorities []uint64, txs [][]byte) []*NodeKey {
@@ -63,8 +70,26 @@ func txHash(tx []byte) [sha256.Size]byte {
 	return sha256.Sum256(tx)
 }
 
-func TestBasics(t *testing.T) {
-	tree := NewLLRB()
+func treeGen(enum treeEnum) BalancedTree {
+	switch enum {
+	case enumllrb:
+		return NewLLRB()
+	case enumbtree:
+		return NewBTREE()
+	}
+	return nil
+}
+
+func TestLLRBBasics(t *testing.T) {
+	testTreeBasics(t, enumllrb)
+}
+
+func TestBTREEBasics(t *testing.T) {
+	testTreeBasics(t, enumbtree)
+}
+
+func testTreeBasics(t *testing.T, enum treeEnum) {
+	tree := treeGen(enum)
 	txs := getRandomBytes(2)
 	nks := getNodeKeys([]uint64{1, 2}, txs)
 	tree.Insert(*nks[0], txs[0])
@@ -75,7 +100,6 @@ func TestBasics(t *testing.T) {
 	require.Equal(t, txs[0], data.([]byte), "expecting same data")
 	_, err = tree.Remove(*nks[1])
 	require.Error(t, err, "expecting error when removing nonexistent node")
-
 }
 
 func TestRandomInsertSequenceDelete(t *testing.T) {
