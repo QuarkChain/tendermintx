@@ -1,14 +1,11 @@
 package balancedtree
 
 import (
-	"math"
-
 	gbt "github.com/google/btree"
 )
 
 type btree struct {
 	tree *gbt.BTree
-	//iter *gbt.ItemIterator
 }
 
 type bnode struct {
@@ -23,8 +20,8 @@ func (a bnode) Less(b gbt.Item) bool {
 }
 
 // newBTREE return btree with given maxSize
-func newBTREE(maxSize int) *btree {
-	return &btree{tree: gbt.New(int(math.Sqrt(float64(maxSize))))}
+func newBTREE(degree int) *btree {
+	return &btree{tree: gbt.New(degree)}
 }
 
 // Size returns the number of nodes in the tree
@@ -34,7 +31,17 @@ func (t *btree) Size() int {
 
 // GetNext retrieves a satisfied tx with "largest" nodeKey and "smaller" than starter if provided
 func (t *btree) GetNext(starter *NodeKey, predicate func(interface{}) bool) (interface{}, error) {
-	return nil, nil
+	var next *bnode
+	t.tree.DescendLessOrEqual(bnode{
+		key: *starter,
+	}, func(a gbt.Item) bool {
+		next = a.(*bnode)
+		return predicate(a.(*bnode).data)
+	})
+	if next == nil {
+		return nil, ErrorStopIteration
+	}
+	return next.data, nil
 }
 
 func (t *btree) UpdateKey(oldKey NodeKey, newKey NodeKey) error {
