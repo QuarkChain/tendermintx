@@ -44,8 +44,8 @@ type treeMempool struct {
 	recheckEnd    tree.NodeKey // re-checking stops here
 }
 
-// NewTreeMempool returns a new mempool with the given configuration and connection to an application.
-func NewTreeMempool(
+// newTreeMempool returns a new mempool with the given configuration and connection to an application.
+func newTreeMempool(
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
@@ -62,7 +62,7 @@ func NewLLRBMempool(
 	height int64,
 	options ...Option,
 ) Mempool {
-	return NewTreeMempool(config, proxyAppConn, height, tree.NewLLRB, options...)
+	return newTreeMempool(config, proxyAppConn, height, tree.NewLLRB, options...)
 }
 
 // Safe for concurrent use by multiple goroutines.
