@@ -84,7 +84,7 @@ func TestLLRBBasics(t *testing.T) {
 	testTreeBasics(t, enumllrb)
 }
 
-func TestBTREEBasics(t *testing.T) {
+func TestBTreeBasics(t *testing.T) {
 	testTreeBasics(t, enumbtree)
 }
 
@@ -106,7 +106,7 @@ func TestLLRBRandomInsertSequenceDelete(t *testing.T) {
 	testRandomInsertSequenceDelete(t, enumllrb)
 }
 
-func TestBTREERandomInsertSequenceDelete(t *testing.T) {
+func TestBTreeRandomInsertSequenceDelete(t *testing.T) {
 	testRandomInsertSequenceDelete(t, enumbtree)
 }
 
@@ -132,7 +132,7 @@ func TestLLRBRandomInsertDeleteNonExistent(t *testing.T) {
 	testRandomInsertDeleteNonExistent(t, enumllrb)
 }
 
-func TestBTREERandomInsertDeleteNonExistent(t *testing.T) {
+func TestBTreeRandomInsertDeleteNonExistent(t *testing.T) {
 	testRandomInsertDeleteNonExistent(t, enumbtree)
 }
 
@@ -163,6 +163,10 @@ func TestLLRBUpdatekey(t *testing.T) {
 	testUpdateKey(t, enumllrb)
 }
 
+func TestBTreeUpdatekey(t *testing.T) {
+	testUpdateKey(t, enumbtree)
+}
+
 func testUpdateKey(t *testing.T, enum treeEnum) {
 	tree := treeGen(enum)
 	n := 100
@@ -186,7 +190,15 @@ func testUpdateKey(t *testing.T, enum treeEnum) {
 	}
 }
 
-func TestGetNext(t *testing.T) {
+func TestLLRBGetNext(t *testing.T) {
+	testGetNext(t, enumllrb)
+}
+
+//func TestBTreeGetNext(t *testing.T) {
+//	testGetNext(t, enumbtree)
+//}
+
+func testGetNext(t *testing.T, enum treeEnum) {
 	testCases := []struct {
 		priorities      []uint64 // Priority of each tx
 		byteLength      []int    // Byte length of each tx
@@ -250,7 +262,7 @@ func TestGetNext(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		tree := NewLLRB()
+		tree := treeGen(enum)
 		txs := getRandomBytes(len(tc.priorities))
 		nks := getNodeKeys(tc.priorities, txs)
 		limit := 20
@@ -271,16 +283,36 @@ func TestGetNext(t *testing.T) {
 	}
 }
 
-func BenchmarkInsert(b *testing.B) {
-	tree := new(llrb)
+// BenchmarkLLRBInsert-8   	 1399514	       770 ns/op
+func BenchmarkLLRBInsert(b *testing.B) {
+	benchmarkInsert(b, enumllrb)
+}
+
+// BenchmarkBTreeInsert-8   	 1000000	      1561 ns/op
+func BenchmarkBTreeInsert(b *testing.B) {
+	benchmarkInsert(b, enumbtree)
+}
+
+func benchmarkInsert(b *testing.B, enum treeEnum) {
+	tree := treeGen(enum)
 	for i := 0; i < b.N; i++ {
 		tree.Insert(NodeKey{Priority: uint64(i)}, getRandomBytes(1)[0])
 	}
 }
 
-func BenchmarkRemove(b *testing.B) {
+// BenchmarkLLRBRemove-8   	 1000000	      1382 ns/op
+func BenchmarkLLRBRemove(b *testing.B) {
+	benchmarkRemove(b, enumllrb)
+}
+
+// BenchmarkBTreeRemove-8   	 1607142	       810 ns/op
+func BenchmarkBTreeRemove(b *testing.B) {
+	benchmarkRemove(b, enumbtree)
+}
+
+func benchmarkRemove(b *testing.B, enum treeEnum) {
 	b.StopTimer()
-	tree := new(llrb)
+	tree := treeGen(enum)
 	var nks []*NodeKey
 	for i := 0; i < b.N; i++ {
 		nk := &NodeKey{Priority: uint64(i)}
