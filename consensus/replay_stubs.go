@@ -3,6 +3,7 @@ package consensus
 import (
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/libs/clist"
+	"github.com/tendermint/tendermint/libs/log"
 	mempl "github.com/tendermint/tendermint/mempool"
 	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
 	"github.com/tendermint/tendermint/proxy"
@@ -22,8 +23,7 @@ func (emptyMempool) Size() int { return 0 }
 func (emptyMempool) CheckTx(_ types.Tx, _ func(*abcix.Response), _ mempl.TxInfo) error {
 	return nil
 }
-func (emptyMempool) ReapMaxBytesMaxGas(_, _ int64) types.Txs { return types.Txs{} }
-func (emptyMempool) ReapMaxTxs(n int) types.Txs              { return types.Txs{} }
+func (emptyMempool) ReapMaxTxs(n int) types.Txs { return types.Txs{} }
 func (emptyMempool) GetNextTxBytes(_ int64, _ int64, _ []byte) ([]byte, error) {
 	return types.Tx{}, nil
 }
@@ -48,6 +48,8 @@ func (emptyMempool) TxsWaitChan() <-chan struct{} { return nil }
 func (emptyMempool) InitWAL() error              { return nil }
 func (emptyMempool) CloseWAL()                   {}
 func (emptyMempool) RemoveTxs(_ types.Txs) error { return nil }
+
+func (emptyMempool) SetLogger(_ log.Logger) {}
 
 //-----------------------------------------------------------------------------
 

@@ -3,7 +3,10 @@ package mempool
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"fmt"
 	"testing"
+
+	cfg "github.com/tendermint/tendermint/config"
 
 	"github.com/stretchr/testify/require"
 
@@ -38,8 +41,6 @@ func TestCacheRemove(t *testing.T) {
 func TestCacheAfterUpdate(t *testing.T) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLegacyLocalClientCreator(app)
-	mempool, cleanup := newMempoolWithApp(cc)
-	defer cleanup()
 
 	// reAddIndices & txsInCache can have elements > numTxsToCreate
 	// also assumes max index is 255 for convenience
@@ -55,48 +56,53 @@ func TestCacheAfterUpdate(t *testing.T) {
 		{2, []int{2}, []int{}, []int{2, 1, 0}}, // update adds new tx to cache
 		{2, []int{1}, []int{1}, []int{1, 0}},   // re-adding after update doesn't make dupe
 	}
-	for tcIndex, tc := range tests {
-		for i := 0; i < tc.numTxsToCreate; i++ {
-			tx := types.Tx{byte(i)}
-			err := mempool.CheckTx(tx, nil, TxInfo{})
-			require.NoError(t, err)
+	for _, mpEnum := range mpEnums {
+		config := cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum))
+		mp, cleanup := newLegacyMempoolWithAppAndConfig(cc, config, mpEnum)
+		defer cleanup()
+		for tcIndex, tc := range tests {
+			for i := 0; i < tc.numTxsToCreate; i++ {
+				tx := types.Tx{byte(i)}
+				err := mp.CheckTx(tx, nil, TxInfo{})
+				require.NoError(t, err)
+			}
+
+			updateTxs := []types.Tx{}
+			for _, v := range tc.updateIndices {
+				tx := types.Tx{byte(v)}
+				updateTxs = append(updateTxs, tx)
+			}
+			mp.Update(int64(tcIndex), updateTxs, abciResponses(len(updateTxs), abci.CodeTypeOK), nil, nil)
+
+			for _, v := range tc.reAddIndices {
+				tx := types.Tx{byte(v)}
+				_ = mp.CheckTx(tx, nil, TxInfo{})
+			}
+
+			cache := mp.(*basemempool).cache.(*mapTxCache)
+			node := cache.list.Front()
+			counter := 0
+			for node != nil {
+				require.NotEqual(t, len(tc.txsInCache), counter,
+					"cache larger than expected on testcase %d", tcIndex)
+
+				nodeVal := node.Value.([sha256.Size]byte)
+				expectedBz := sha256.Sum256([]byte{byte(tc.txsInCache[len(tc.txsInCache)-counter-1])})
+				// Reference for reading the errors:
+				// >>> sha256('\x00').hexdigest()
+				// '6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d'
+				// >>> sha256('\x01').hexdigest()
+				// '4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a'
+				// >>> sha256('\x02').hexdigest()
+				// 'dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986'
+
+				require.Equal(t, expectedBz, nodeVal, "Equality failed on index %d, tc %d", counter, tcIndex)
+				counter++
+				node = node.Next()
+			}
+			require.Equal(t, len(tc.txsInCache), counter,
+				"cache smaller than expected on testcase %d", tcIndex)
+			mp.Flush()
 		}
-
-		updateTxs := []types.Tx{}
-		for _, v := range tc.updateIndices {
-			tx := types.Tx{byte(v)}
-			updateTxs = append(updateTxs, tx)
-		}
-		mempool.Update(int64(tcIndex), updateTxs, abciResponses(len(updateTxs), abci.CodeTypeOK), nil, nil)
-
-		for _, v := range tc.reAddIndices {
-			tx := types.Tx{byte(v)}
-			_ = mempool.CheckTx(tx, nil, TxInfo{})
-		}
-
-		cache := mempool.cache.(*mapTxCache)
-		node := cache.list.Front()
-		counter := 0
-		for node != nil {
-			require.NotEqual(t, len(tc.txsInCache), counter,
-				"cache larger than expected on testcase %d", tcIndex)
-
-			nodeVal := node.Value.([sha256.Size]byte)
-			expectedBz := sha256.Sum256([]byte{byte(tc.txsInCache[len(tc.txsInCache)-counter-1])})
-			// Reference for reading the errors:
-			// >>> sha256('\x00').hexdigest()
-			// '6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d'
-			// >>> sha256('\x01').hexdigest()
-			// '4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a'
-			// >>> sha256('\x02').hexdigest()
-			// 'dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986'
-
-			require.Equal(t, expectedBz, nodeVal, "Equality failed on index %d, tc %d", counter, tcIndex)
-			counter++
-			node = node.Next()
-		}
-		require.Equal(t, len(tc.txsInCache), counter,
-			"cache smaller than expected on testcase %d", tcIndex)
-		mempool.Flush()
 	}
 }

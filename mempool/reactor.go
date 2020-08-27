@@ -34,7 +34,7 @@ const (
 type Reactor struct {
 	p2p.BaseReactor
 	config  *cfg.MempoolConfig
-	mempool *CListMempool
+	mempool Mempool
 	ids     *mempoolIDs
 }
 
@@ -102,7 +102,7 @@ func newMempoolIDs() *mempoolIDs {
 }
 
 // NewReactor returns a new Reactor with the given config and mempool.
-func NewReactor(config *cfg.MempoolConfig, mempool *CListMempool) *Reactor {
+func NewReactor(config *cfg.MempoolConfig, mempool Mempool) *Reactor {
 	memR := &Reactor{
 		config:  config,
 		mempool: mempool,
@@ -189,6 +189,15 @@ type PeerState interface {
 // Send new mempool txs to peer.
 func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 	peerID := memR.ids.GetForPeer(peer)
+	// TODO: support LLRB mempool, so we can abstract in basemempool to avoid type casting.
+	basemempool, ok := memR.mempool.(*basemempool)
+	if !ok {
+		panic("can not cast mempool to basemempool")
+	}
+	clistmempool, ok := basemempool.mempoolImpl.(*cListMempool)
+	if !ok {
+		panic("can not cast mempoolImpl to ClistMempool")
+	}
 	var next *clist.CElement
 	for {
 		// In case of both next.NextWaitChan() and peer.Quit() are variable at the same time
@@ -200,8 +209,8 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 		// start from the beginning.
 		if next == nil {
 			select {
-			case <-memR.mempool.TxsWaitChan(): // Wait until a tx is available
-				if next = memR.mempool.TxsFront(); next == nil {
+			case <-clistmempool.TxsWaitChan(): // Wait until a tx is available
+				if next = clistmempool.TxsFront(); next == nil {
 					continue
 				}
 			case <-peer.Quit():
