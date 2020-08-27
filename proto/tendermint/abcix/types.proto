@@ -239,14 +239,15 @@ message ResponseCommit {
 
 message ResponseDeliverBlock {
   uint32                            code                    = 1;
-  repeated        ResponseDeliverTx deliver_txs             = 2;
+  bytes                             app_hash                = 2;
+  repeated        ResponseDeliverTx deliver_txs             = 3;
   // endBlock
-  repeated        ValidatorUpdate   validator_updates       = 3
+  repeated        ValidatorUpdate   validator_updates       = 4
   [(gogoproto.nullable) = false];
-  ConsensusParams                   consensus_param_updates = 4;
-  repeated        Event             events                  = 5
+  ConsensusParams                   consensus_param_updates = 5;
+  repeated        Event             events                  = 6
   [(gogoproto.nullable) = false, (gogoproto.jsontag) = "events,omitempty"];
-  string                            codespace               = 6;
+  string                            codespace               = 7;
 }
 
 message ResponseCheckBlock {

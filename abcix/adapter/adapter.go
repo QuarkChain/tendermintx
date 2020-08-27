@@ -24,7 +24,9 @@ var (
 )
 
 type adaptedApp struct {
-	abciApp abci.Application
+	abciApp    abci.Application
+	resultHash []byte
+	appHash    []byte
 }
 
 type AdaptedApp interface {
@@ -179,6 +181,7 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 		respDeliverTx.Code = abcix.CodeTypeOK
 		resp.DeliverTxs = append(resp.DeliverTxs, &respDeliverTx)
 	}
+	app.resultHash = req.Header.LastResultsHash
 
 	if err := app.applyLegacyABCI(&req, &resp, endblock); err != nil {
 		panic("failed to adapt the ABCI legacy methods: " + err.Error())
@@ -198,12 +201,21 @@ func (app *adaptedApp) Commit() (resp abcix.ResponseCommit) {
 		// TODO: panic for debugging purposes. better error handling soon!
 		panic(err)
 	}
+	app.appHash = resp.Data
 	return
 }
 
 func (app *adaptedApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckBlock {
-	// TODO: defer to consensus engine for now
 	panic("implement me")
+	// TODO
+	//if !bytes.Equal(app.resultHash, req.Header.LastResultsHash) {
+	//	panic("resultHash mismatch")
+	//}
+	//if !bytes.Equal(resp.AppHash, req.Header.AppHash) {
+	//	panic("appHash mismatch")
+	//}
+	//return
+
 }
 
 func (app *adaptedApp) ListSnapshots(req abcix.RequestListSnapshots) (resp abcix.ResponseListSnapshots) {
