@@ -257,15 +257,13 @@ message ResponseDeliverBlock {
 
 message ResponseCheckBlock {
   uint32                            code                    = 1;
-  bytes                             result_hash             = 2;
-  bytes                             app_hash                = 3;
-  repeated        ResponseDeliverTx deliver_txs             = 4;
-  repeated        ValidatorUpdate   validator_updates       = 5
+  repeated        ResponseDeliverTx deliver_txs             = 3;
+  repeated        ValidatorUpdate   validator_updates       = 4
   [(gogoproto.nullable) = false];
-  ConsensusParams                   consensus_param_updates = 6;
-  repeated        Event             events                  = 7
+  ConsensusParams                   consensus_param_updates = 5;
+  repeated        Event             events                  = 6
   [(gogoproto.nullable) = false, (gogoproto.jsontag) = "events,omitempty"];
-  string                            codespace               = 8;
+  string                            codespace               = 7;
 }
 
 message ResponseListSnapshots {

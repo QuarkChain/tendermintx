@@ -288,8 +288,8 @@ func (app *CounterApplication) CheckTx(req abcix.RequestCheckTx) abcix.ResponseC
 
 func (app *CounterApplication) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckBlock {
 	return abcix.ResponseCheckBlock{
-		ResultHash: req.Header.LastResultsHash,
-		AppHash:    req.Header.AppHash,
+		//TODO: uncomment
+		//AppHash:    req.Header.AppHash,
 	}
 }
 

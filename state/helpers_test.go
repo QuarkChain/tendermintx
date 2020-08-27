@@ -282,16 +282,12 @@ func (app *testApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckB
 			},
 		}
 	}
-	if req.Height == 3 {
-		return abcix.ResponseCheckBlock{
-			ResultHash: tmrand.Bytes(20),
-		}
-	}
-	if req.Height == 4 {
-		return abcix.ResponseCheckBlock{
-			AppHash: tmrand.Bytes(20),
-		}
-	}
+	//TODO: uncomment
+	//if req.Height == 4 {
+	//	return abcix.ResponseCheckBlock{
+	//		AppHash: tmrand.Bytes(20),
+	//	}
+	//}
 
 	return abcix.ResponseCheckBlock{}
 }

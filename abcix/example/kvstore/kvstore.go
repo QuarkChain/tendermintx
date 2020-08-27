@@ -156,8 +156,7 @@ func (app *Application) DeliverBlock(req types.RequestDeliverBlock) types.Respon
 
 func (app *Application) CheckBlock(req types.RequestCheckBlock) types.ResponseCheckBlock {
 	return types.ResponseCheckBlock{
-		ResultHash: req.Header.LastResultsHash,
-		AppHash:    req.Header.AppHash,
+		//AppHash:    req.Header.AppHash,
 	}
 
 }

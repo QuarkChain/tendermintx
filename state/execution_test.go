@@ -477,9 +477,9 @@ func TestCheckBlockWithErrors(t *testing.T) {
 	err = blockExec.CheckBlock(block3)
 	assert.Contains(t, err.Error(), "resultHash")
 
-	// block for height 4: Response with mismatch AppHash
-	lastCommit3 := types.NewCommit(3, 0, prevBlockID, []types.CommitSig{commitSig0, commitSig1})
-	block4, _ := state.MakeBlock(4, makeTxs(4), lastCommit3, nil, state.Validators.GetProposer().Address)
-	err = blockExec.CheckBlock(block4)
-	assert.Contains(t, err.Error(), "appHash")
+	//// block for height 4: Response with mismatch AppHash
+	//lastCommit3 := types.NewCommit(3, 0, prevBlockID, []types.CommitSig{commitSig0, commitSig1})
+	//block4, _ := state.MakeBlock(4, makeTxs(4), lastCommit3, nil, state.Validators.GetProposer().Address)
+	//err = blockExec.CheckBlock(block4)
+	//assert.Contains(t, err.Error(), "appHash")
 }

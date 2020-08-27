@@ -2,9 +2,13 @@ package state
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/tendermint/tendermint/crypto/merkle"
+
+	"github.com/gogo/protobuf/proto"
 	dbm "github.com/tendermint/tm-db"
 
 	abcix "github.com/tendermint/tendermint/abcix/types"
@@ -289,16 +293,22 @@ func (blockExec *BlockExecutor) CheckBlock(block *types.Block) error {
 			return fmt.Errorf("invalid transaction, code: %d", tx.Code)
 		}
 	}
-	if !bytes.Equal(resp.ResultHash, block.Header.LastResultsHash.Bytes()) {
-		return fmt.Errorf(
-			"resultHash mismatch\nResultHash in ResponseCheckBlock: %X\n ResultHash in block header: %X",
-			resp.ResultHash, block.Header.LastResultsHash)
+	resultHash := CheckBlockResponseResultHash(resp)
+	if !bytes.Equal(resultHash, block.Header.LastResultsHash.Bytes()) {
+		blockExec.logger.Error(
+			"resultHash mismatch. ResultHash in ResponseCheckBlock: %X\n ResultHash in block header: %X",
+			resultHash, block.Header.LastResultsHash,
+		)
+		return errors.New("resultHash mismatch")
 	}
-	if !bytes.Equal(resp.AppHash, block.Header.AppHash.Bytes()) {
-		return fmt.Errorf(
-			"appHash mismatch\nAppHash in ResponseCheckBlock: %X\n AppHash in block header: %X",
-			resp.AppHash, block.Header.AppHash)
-	}
+	// TODO: uncomment after AppHash added
+	//if !bytes.Equal(resp.AppHash, block.Header.AppHash.Bytes()) {
+	//	blockExec.logger.Error(
+	//		"appHash mismatch. AppHash in ResponseCheckBlock: %X\n AppHash in block header: %X",
+	//		resp.AppHash, block.Header.AppHash,
+	//	)
+	//	return errors.New("appHash mismatch")
+	//}
 
 	return err
 }
@@ -557,4 +567,19 @@ func ExecCommitBlock(
 	}
 	// ResponseCommit has no error or log, just data
 	return res.Data, nil
+}
+
+func CheckBlockResponseResultHash(resp *abcix.ResponseCheckBlock) []byte {
+	cbeBytes, err := proto.Marshal(&abcix.ResponseCheckBlock{
+		Events: resp.Events,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Build a Merkle tree of proto-encoded DeliverTx results and get a hash.
+	results := types.NewResults(resp.DeliverTxs)
+
+	// Build a Merkle tree out of the above 3 binary slices.
+	return merkle.HashFromByteSlices([][]byte{cbeBytes, results.Hash()})
 }
