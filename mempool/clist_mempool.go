@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"container/list"
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -52,7 +51,7 @@ func NewCListMempool(
 ) Mempool {
 
 	clistMempool := &cListMempool{txs: clist.New()}
-	ret := newbasemempool(clistMempool, config, proxyAppConn, height, options...)
+	ret := newBasemempool(clistMempool, config, proxyAppConn, height, options...)
 
 	// TODO: mempool server should be bound to balance tree-based mempool. use clist here for now
 	if config.ServerHostPort != "" {
@@ -99,19 +98,19 @@ func (mem *cListMempool) addTx(memTx *mempoolTx, priority uint64) {
 // Called from:
 //  - Update (lock held) if tx was committed
 // 	- resCbRecheck (lock not held) if tx was invalidated
-func (mem *cListMempool) removeTx(tx types.Tx, elem ...interface{}) {
-	var e *clist.CElement
-	if elem == nil {
-		e = mem.recheckCursor
-	} else {
-		e = elem[0].(*clist.CElement)
+//  - RemoveTxs (lock held) for invalid txs from CreateBlock response
+func (mem *cListMempool) removeTx(tx types.Tx) (elemRemoved bool) {
+	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
+		elem := e.(*clist.CElement)
+		mem.txs.Remove(elem)
+		elem.DetachPrev()
+		elemRemoved = true
 	}
-	mem.txs.Remove(e)
-	e.DetachPrev()
 	mem.txsMap.Delete(TxKey(tx))
+	return
 }
 
-func (mem *cListMempool) updateRecheckFlag() {
+func (mem *cListMempool) updateRecheckCursor() {
 	if mem.recheckCursor == mem.recheckEnd {
 		mem.recheckCursor = nil
 	} else {
@@ -206,27 +205,12 @@ func (mem *cListMempool) recordNewSender(tx types.Tx, txInfo TxInfo) {
 	}
 }
 
-func (mem *cListMempool) removeCommittedTx(tx types.Tx) {
-	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
-		mem.removeTx(tx, e.(*clist.CElement))
-	}
-}
-
 func (mem *cListMempool) isRecheckCursorNil() bool {
 	return mem.recheckCursor == nil
 }
 
 func (mem *cListMempool) getRecheckCursorTx() *mempoolTx {
 	return mem.recheckCursor.Value.(*mempoolTx)
-}
-
-func (mem *cListMempool) removeTxs(tx types.Tx) error {
-	e, ok := mem.txsMap.Load(TxKey(tx))
-	if !ok {
-		return errors.New("fail to load tx from mempool")
-	}
-	mem.removeTx(tx, e.(*clist.CElement))
-	return nil
 }
 
 //--------------------------------------------------------------------------------

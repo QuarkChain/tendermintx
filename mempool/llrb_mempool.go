@@ -1,7 +1,6 @@
 package mempool
 
 import (
-	"errors"
 	"sync"
 	"time"
 
@@ -51,7 +50,7 @@ func NewLLRBMempool(
 	options ...Option,
 ) Mempool {
 	llrbMempool := &llrbMempool{txs: llrb.New()}
-	ret := newbasemempool(llrbMempool, config, proxyAppConn, height, options...)
+	ret := newBasemempool(llrbMempool, config, proxyAppConn, height, options...)
 
 	return ret
 }
@@ -75,19 +74,20 @@ func (mem *llrbMempool) addTx(memTx *mempoolTx, priority uint64) {
 // Called from:
 //  - Update (lock held) if tx was committed
 // 	- resCbRecheck (lock not held) if tx was invalidated
-func (mem *llrbMempool) removeTx(tx types.Tx, elem ...interface{}) {
-	var e *lElement
-	if elem == nil {
-		e = mem.recheckCursor
-	} else {
-		e = elem[0].(*lElement)
+//  - RemoveTxs (lock held) for invalid txs from CreateBlock response
+func (mem *llrbMempool) removeTx(tx types.Tx) (elemRemoved bool) {
+	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
+		elem := e.(*lElement)
+		if _, err := mem.txs.Remove(elem.nodeKey); err != nil {
+			panic("deleting an nonexistent node from tree")
+		}
+		elemRemoved = true
 	}
-	mem.txs.Remove(e.nodeKey)
 	mem.txsMap.Delete(TxKey(tx))
-
+	return
 }
 
-func (mem *llrbMempool) updateRecheckFlag() {
+func (mem *llrbMempool) updateRecheckCursor() {
 	if mem.recheckCursor == mem.recheckEnd {
 		mem.recheckCursor = nil
 	} else {
@@ -193,25 +193,10 @@ func (mem *llrbMempool) recordNewSender(tx types.Tx, txInfo TxInfo) {
 	}
 }
 
-func (mem *llrbMempool) removeCommittedTx(tx types.Tx) {
-	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
-		mem.removeTx(tx, e.(*lElement))
-	}
-}
-
 func (mem *llrbMempool) isRecheckCursorNil() bool {
 	return mem.recheckCursor == nil
 }
 
 func (mem *llrbMempool) getRecheckCursorTx() *mempoolTx {
 	return mem.recheckCursor.tx
-}
-
-func (mem *llrbMempool) removeTxs(tx types.Tx) error {
-	e, ok := mem.txsMap.Load(TxKey(tx))
-	if !ok {
-		return errors.New("fail to load tx from mempool")
-	}
-	mem.removeTx(tx, e.(*lElement))
-	return nil
 }

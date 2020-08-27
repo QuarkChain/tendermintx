@@ -6,12 +6,13 @@ import (
 	"sync"
 	"sync/atomic"
 
-	tmos "github.com/tendermint/tendermint/libs/os"
+	"github.com/pkg/errors"
 
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	cfg "github.com/tendermint/tendermint/config"
 	auto "github.com/tendermint/tendermint/libs/autofile"
 	"github.com/tendermint/tendermint/libs/log"
+	tmos "github.com/tendermint/tendermint/libs/os"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/proxy"
 	"github.com/tendermint/tendermint/types"
@@ -184,23 +185,21 @@ type mempoolImpl interface {
 
 	// all private methods will assume locks are held by basemempool so the impl themselves won't need to
 	addTx(*mempoolTx, uint64)
-	removeTx(types.Tx, ...interface{})
-	updateRecheckFlag()
+	removeTx(types.Tx) bool // return whether corresponding element is removed or not
+	updateRecheckCursor()
 	reapMaxTxs(int) types.Txs
 	recheckTxs(proxy.AppConnMempool)
 	getNextTxBytes(int64, int64, []byte) ([]byte, error)
 	deleteAll()
 	recordNewSender(types.Tx, TxInfo)
-	removeCommittedTx(types.Tx)
 	isRecheckCursorNil() bool
 	getRecheckCursorTx() *mempoolTx
-	removeTxs(types.Tx) error
 }
 
-// basemempoolOption sets an optional parameter on the basemempool.
+// Option sets an optional parameter on the basemempool.
 type Option func(*basemempool)
 
-func newbasemempool(
+func newBasemempool(
 	impl mempoolImpl,
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
@@ -299,7 +298,7 @@ func (mem *basemempool) TxsBytes() int64 {
 	return atomic.LoadInt64(&mem.txsBytes)
 }
 
-// Lock() must be help by the caller during execution.
+// Lock() must be held by the caller during execution.
 func (mem *basemempool) FlushAppConn() error {
 	return mem.proxyAppConn.FlushSync()
 }
@@ -531,18 +530,20 @@ func (mem *basemempool) resCbRecheck(req *abcix.Request, res *abcix.Response) {
 			// Tx became invalidated due to newly committed block.
 			mem.logger.Info("Tx is no longer valid", "tx", txID(tx), "res", r, "err", postCheckErr)
 			// NOTE: we remove tx from the cache because it might be good later
-			mem.Lock()
-			mem.removeTx(tx)
-			mem.Unlock()
+			elemRemoved := mem.removeTx(tx)
+			if !elemRemoved {
+				// TODO: better error handling
+				panic("recheck cursor not removed by tx key: " + memTx.tx.String())
+			}
 			atomic.AddInt64(&mem.txsBytes, int64(-len(tx)))
 			mem.cache.Remove(tx)
 		}
-		mem.updateRecheckFlag()
+		mem.updateRecheckCursor()
 		if mem.isRecheckCursorNil() {
 			// Done!
 			mem.logger.Info("Done rechecking txs")
 
-			// incase the recheck removed all txs
+			// in case the recheck removed all txs
 			if mem.Size() > 0 {
 				mem.notifyTxsAvailable()
 			}
@@ -578,7 +579,7 @@ func (mem *basemempool) ReapMaxTxs(max int) types.Txs {
 	return mem.reapMaxTxs(max)
 }
 
-// Lock() must be help by the caller during execution.
+// Lock() must be held by the caller during execution.
 func (mem *basemempool) Update(
 	height int64,
 	txs types.Txs,
@@ -616,8 +617,9 @@ func (mem *basemempool) Update(
 		// Mempool after:
 		//   100
 		// https://github.com/tendermint/tendermint/issues/3322.
-		mem.removeCommittedTx(tx)
-		atomic.AddInt64(&mem.txsBytes, int64(-len(tx)))
+		if elemRemoved := mem.removeTx(tx); elemRemoved {
+			atomic.AddInt64(&mem.txsBytes, int64(-len(tx)))
+		}
 	}
 
 	// Either recheck non-committed txs to see if they became invalid
@@ -649,13 +651,15 @@ func (mem *basemempool) GetNextTxBytes(remainBytes int64, remainGas int64, start
 	return mem.getNextTxBytes(remainBytes, remainGas, starter)
 }
 
+// Lock() must be held by the caller during execution.
 func (mem *basemempool) RemoveTxs(txs types.Txs) error {
 	for _, tx := range txs {
-		mem.cache.Remove(tx)
-		if err := mem.removeTxs(tx); err != nil {
-			return err
+		elemRemoved := mem.removeTx(tx)
+		if !elemRemoved {
+			return errors.New("fail to load and delete tx from mempool")
 		}
 		atomic.AddInt64(&mem.txsBytes, int64(-len(tx)))
+		mem.cache.Remove(tx)
 	}
 	return nil
 }
