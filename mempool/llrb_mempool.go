@@ -4,6 +4,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/llrb"
@@ -22,7 +24,7 @@ type lElement struct {
 
 //--------------------------------------------------------------------------------
 
-// llrbmempool is an ordered in-memory pool for transactions before they are
+// enumllrbmempool is an ordered in-memory pool for transactions before they are
 // proposed in a consensus round. Transaction validity is checked using the
 // CheckTx abci message before the transaction is added to the pool. The
 // mempool uses a left-leaning red-black tree structure for storing transactions that can
@@ -71,7 +73,7 @@ func (mem *llrbMempool) addTx(memTx *mempoolTx, priority uint64) {
 
 // Called from:
 //  - Update (lock held) if tx was committed
-// 	- resCbRecheck (lock not held) if tx was invalidated
+//  - resCbRecheck (lock not held) if tx was invalidated
 //  - RemoveTxs (lock held) for invalid txs from CreateBlock response
 func (mem *llrbMempool) removeTx(tx types.Tx) (elemRemoved bool) {
 	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
@@ -165,11 +167,12 @@ func (mem *llrbMempool) getNextTxBytes(remainBytes int64, remainGas int64, start
 	memTx, _, err := mem.txs.GetNext(prevNodeKey, func(i interface{}) bool {
 		return i.(*mempoolTx).gasWanted <= remainGas && (int64(len(i.(*mempoolTx).tx)) <= remainBytes)
 	})
-	if err != nil {
+	if err == llrb.ErrorStopIteration {
 		return nil, nil
+	} else if err != nil {
+		return nil, errors.Wrap(err, "failed to get next tx from llrb")
 	}
-	tx := memTx.(*mempoolTx).tx
-	return tx, nil
+	return memTx.(*mempoolTx).tx, nil
 }
 
 func (mem *llrbMempool) deleteAll() {

@@ -4,25 +4,22 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"github.com/tendermint/tendermint/abci/example/kvstore"
 	cfg "github.com/tendermint/tendermint/config"
+
+	"github.com/tendermint/tendermint/abci/example/kvstore"
 	"github.com/tendermint/tendermint/proxy"
 )
 
 func BenchmarkCheckTx(b *testing.B) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLegacyLocalClientCreator(app)
-	clistmempool, clistcleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), clistmempool)
-	defer clistcleanup()
-	llrbmempool, llrbcleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), llrbmempool)
-	defer llrbcleanup()
-	mps := []Mempool{clistmempool, llrbmempool}
-	for _, mp := range mps {
-		for i := 0; i < b.N; i++ {
-			tx := make([]byte, 8)
-			binary.BigEndian.PutUint64(tx, uint64(i))
-			mp.CheckTx(tx, nil, TxInfo{})
-		}
+	mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), enumclistmempool)
+	defer cleanup()
+
+	for i := 0; i < b.N; i++ {
+		tx := make([]byte, 8)
+		binary.BigEndian.PutUint64(tx, uint64(i))
+		mempool.CheckTx(tx, nil, TxInfo{})
 	}
 }
 

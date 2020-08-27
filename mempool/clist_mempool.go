@@ -94,7 +94,7 @@ func (mem *cListMempool) addTx(memTx *mempoolTx, priority uint64) {
 
 // Called from:
 //  - Update (lock held) if tx was committed
-// 	- resCbRecheck (lock not held) if tx was invalidated
+//  - resCbRecheck (lock not held) if tx was invalidated
 //  - RemoveTxs (lock held) for invalid txs from CreateBlock response
 func (mem *cListMempool) removeTx(tx types.Tx) (elemRemoved bool) {
 	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {

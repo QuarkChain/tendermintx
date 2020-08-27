@@ -55,12 +55,9 @@ func TestCacheAfterUpdate(t *testing.T) {
 		{2, []int{2}, []int{}, []int{2, 1, 0}}, // update adds new tx to cache
 		{2, []int{1}, []int{1}, []int{1, 0}},   // re-adding after update doesn't make dupe
 	}
-	clistmempool, clistcleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), clistmempool)
-	defer clistcleanup()
-	llrbmempool, llrbcleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), llrbmempool)
-	defer llrbcleanup()
-	mps := []Mempool{clistmempool, llrbmempool}
-	for _, mp := range mps {
+	for _, mpEnum := range mpEnums {
+		mp, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), mpEnum)
+		defer cleanup()
 		for tcIndex, tc := range tests {
 			for i := 0; i < tc.numTxsToCreate; i++ {
 				tx := types.Tx{byte(i)}

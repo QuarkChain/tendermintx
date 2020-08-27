@@ -172,11 +172,11 @@ func TestMempoolRmBadTx(t *testing.T) {
 
 		// check for the tx
 		for {
-			txs, err := assertMempool(cs.txNotifier).GetNextTxBytes(int64(len(txBytes)), math.MaxInt64, nil)
+			tx, err := assertMempool(cs.txNotifier).GetNextTxBytes(int64(len(txBytes)), math.MaxInt64, nil)
 			if err != nil {
-				continue
+				panic(err) // should not happen
 			}
-			if len(txs) == 0 {
+			if len(tx) == 0 {
 				emptyMempoolCh <- struct{}{}
 				return
 			}
