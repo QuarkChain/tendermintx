@@ -4,9 +4,8 @@ import (
 	"encoding/binary"
 	"testing"
 
-	cfg "github.com/tendermint/tendermint/config"
-
 	"github.com/tendermint/tendermint/abci/example/kvstore"
+	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/proxy"
 )
 

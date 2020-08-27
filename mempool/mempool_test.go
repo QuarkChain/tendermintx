@@ -109,6 +109,7 @@ func checkTxs(t *testing.T, mempool Mempool, peerID uint16, priorityList []uint6
 		priority := strconv.FormatInt(int64(priorityList[i-start])%100, 10)
 		tx := "k" + strconv.Itoa(i) + "=v" + strconv.Itoa(i) + ","
 		extra := 20 - len(tx) - len(priority) - 1 // use extra to fill up [20]byte
+		// sample tx: k1=v1,ffff..ff,42
 		tx = tx + strings.Repeat("f", extra) + "," + priority
 		copy(txBytes, tx)
 		txs[i-start] = txBytes
@@ -236,7 +237,7 @@ func TestTxsAvailable(t *testing.T) {
 		ensureFire(t, mp.TxsAvailable(), timeoutMS)
 		ensureNoFire(t, mp.TxsAvailable(), timeoutMS)
 
-		// send a bunch more txs. we already fired for this height so it shouldnt fire again
+		// send a bunch more txs. we already fired for this height so it shouldn't fire again
 		moreTxs := checkTxs(t, mp, UnknownPeerID, make([]uint64, 50), 100)
 		ensureNoFire(t, mp.TxsAvailable(), timeoutMS)
 

@@ -189,7 +189,7 @@ type PeerState interface {
 // Send new mempool txs to peer.
 func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 	peerID := memR.ids.GetForPeer(peer)
-	// TODO: support enumllrbmempool, so we can abstract in basemempool to avoid type casting.
+	// TODO: support LLRB mempool, so we can abstract in basemempool to avoid type casting.
 	basemempool, ok := memR.mempool.(*basemempool)
 	if !ok {
 		panic("can not cast mempool to basemempool")

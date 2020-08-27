@@ -3,6 +3,7 @@ package mempool
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"fmt"
 	"testing"
 
 	cfg "github.com/tendermint/tendermint/config"
@@ -56,7 +57,8 @@ func TestCacheAfterUpdate(t *testing.T) {
 		{2, []int{1}, []int{1}, []int{1, 0}},   // re-adding after update doesn't make dupe
 	}
 	for _, mpEnum := range mpEnums {
-		mp, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), mpEnum)
+		config := cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum))
+		mp, cleanup := newLegacyMempoolWithAppAndConfig(cc, config, mpEnum)
 		defer cleanup()
 		for tcIndex, tc := range tests {
 			for i := 0; i < tc.numTxsToCreate; i++ {
