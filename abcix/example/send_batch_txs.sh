@@ -1,9 +1,7 @@
 #!/bin/bash
 
-set -u;
+set -eux;
 
-for i in {1..20}; do
-		curl -s 'localhost:26657/broadcast_tx_commit?tx="key'$i'=val'$i',junjiah,'$i'"' > /dev/null &
+for p in `seq 0 49 | sort -R`; do
+		curl -s 'localhost:26657/broadcast_tx_async?tx="key'$p'=val'$p',junjiah,'$p'"' > /dev/null
 done
-
-wait
