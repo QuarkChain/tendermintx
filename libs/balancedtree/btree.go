@@ -30,7 +30,7 @@ func (t *btree) Size() int {
 }
 
 // GetNext retrieves a satisfied tx with "largest" nodeKey and "smaller" than starter if provided
-func (t *btree) GetNext(starter *NodeKey, predicate func(interface{}) bool) (interface{}, error) {
+func (t *btree) GetNext(starter *NodeKey, predicate func(interface{}) bool) (interface{}, NodeKey, error) {
 	var next *bnode
 	t.tree.DescendLessOrEqual(bnode{
 		key: *starter,
@@ -39,9 +39,9 @@ func (t *btree) GetNext(starter *NodeKey, predicate func(interface{}) bool) (int
 		return predicate(a.(*bnode).data)
 	})
 	if next == nil {
-		return nil, ErrorStopIteration
+		return nil, NodeKey{}, ErrorStopIteration
 	}
-	return next.data, nil
+	return next.data, next.key, nil
 }
 
 func (t *btree) UpdateKey(oldKey NodeKey, newKey NodeKey) error {
