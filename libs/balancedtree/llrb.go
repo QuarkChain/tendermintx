@@ -57,7 +57,7 @@ func (t *llrb) Size() int {
 }
 
 // GetNext retrieves a satisfied tx with "largest" nodeKey and "smaller" than starter if provided
-func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (interface{}, error) {
+func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (interface{}, NodeKey, error) {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
 	startKey := NodeKey{
@@ -78,9 +78,9 @@ func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 		}
 	}
 	if candidate == nil {
-		return nil, ErrorStopIteration
+		return nil, NodeKey{}, ErrorStopIteration
 	}
-	return candidate.data, nil
+	return candidate.data, candidate.key, nil
 }
 
 func (t *llrb) UpdateKey(oldKey NodeKey, newKey NodeKey) error {
