@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"math"
 	"math/rand"
-	"sync"
 	"testing"
 	"time"
 
@@ -46,17 +45,16 @@ func getFixedBytes(byteLength []int) [][]byte {
 	return txs
 }
 
-func getOrderedTxs(tree LLRB, byteLimit int, txMap *sync.Map) [][]byte {
+func getOrderedTxs(tree LLRB, byteLimit int) [][]byte {
 	var starter *NodeKey
 	var txs [][]byte
 	for {
-		result, err := tree.GetNext(starter, func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
+		result, next, err := tree.GetNext(starter, func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
 		if err != nil {
 			break
 		}
 		txs = append(txs, result.([]byte))
-		v, _ := txMap.Load(string(result.([]byte)))
-		starter = v.(*NodeKey)
+		starter = &next
 	}
 	return txs
 }
@@ -218,12 +216,10 @@ func TestGetNext(t *testing.T) {
 		if tc.byteLimit != 0 {
 			limit = tc.byteLimit
 		}
-		var txsMap sync.Map
 		for j := 0; j < len(nks); j++ {
-			txsMap.Store(string(txs[j]), nks[j])
 			tree.Insert(*nks[j], txs[j])
 		}
-		ordered := getOrderedTxs(tree, limit, &txsMap)
+		ordered := getOrderedTxs(tree, limit)
 		require.Equal(t, len(tc.expectedTxOrder), len(ordered), "expecting equal tx count at testcase %d", i)
 		for j, k := range tc.expectedTxOrder {
 			require.True(t, bytes.Equal(txs[k], ordered[j]), "expecting equal bytes at testcase %d", i)

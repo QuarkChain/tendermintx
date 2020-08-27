@@ -6,30 +6,15 @@ import (
 	"strconv"
 	"testing"
 
-	cfg "github.com/tendermint/tendermint/config"
-
 	"github.com/tendermint/tendermint/abci/example/kvstore"
+	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/proxy"
 )
 
-func BenchmarkClistCheckTx(b *testing.B) {
+func BenchmarkCheckTx(b *testing.B) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLegacyLocalClientCreator(app)
-	mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), 0)
-	defer cleanup()
-
-	for i := 0; i < b.N; i++ {
-		tx := make([]byte, 8)
-		binary.BigEndian.PutUint64(tx, uint64(i))
-		mempool.CheckTx(tx, nil, TxInfo{})
-	}
-}
-
-// BenchmarkLlrbCheckTx-8   	 9360813	       114 ns/op
-func BenchmarkLlrbCheckTx(b *testing.B) {
-	app := kvstore.NewApplication()
-	cc := proxy.NewLegacyLocalClientCreator(app)
-	mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), 1)
+	mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), enumclistmempool)
 	defer cleanup()
 
 	for i := 0; i < b.N; i++ {

@@ -121,7 +121,7 @@ func (memR *Reactor) InitPeer(peer p2p.Peer) p2p.Peer {
 // SetLogger sets the Logger on the reactor and the underlying mempool.
 func (memR *Reactor) SetLogger(l log.Logger) {
 	memR.Logger = l
-	memR.mempool.(*basemempool).SetLogger(l)
+	memR.mempool.SetLogger(l)
 }
 
 // OnStart implements p2p.BaseReactor.
@@ -189,7 +189,15 @@ type PeerState interface {
 // Send new mempool txs to peer.
 func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 	peerID := memR.ids.GetForPeer(peer)
-	// TODO: implement TxsWaitChan for LlrbMempool, Safe for concurrent use by multiple goroutines.
+	// TODO: support LLRB mempool, so we can abstract in basemempool to avoid type casting.
+	basemempool, ok := memR.mempool.(*basemempool)
+	if !ok {
+		panic("can not cast mempool to basemempool")
+	}
+	clistmempool, ok := basemempool.mempoolImpl.(*cListMempool)
+	if !ok {
+		panic("can not cast mempoolImpl to ClistMempool")
+	}
 	var next *clist.CElement
 	for {
 		// In case of both next.NextWaitChan() and peer.Quit() are variable at the same time
@@ -201,8 +209,8 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 		// start from the beginning.
 		if next == nil {
 			select {
-			case <-memR.mempool.(*basemempool).mempoolImpl.(*CListMempool).TxsWaitChan(): // Wait until a tx is available
-				if next = memR.mempool.(*basemempool).mempoolImpl.(*CListMempool).TxsFront(); next == nil {
+			case <-clistmempool.TxsWaitChan(): // Wait until a tx is available
+				if next = clistmempool.TxsFront(); next == nil {
 					continue
 				}
 			case <-peer.Quit():
