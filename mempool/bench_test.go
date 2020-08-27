@@ -19,7 +19,6 @@ func BenchmarkClistCheckTx(b *testing.B) {
 	cc := proxy.NewLegacyLocalClientCreator(app)
 	mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), enumclistmempool)
 	defer cleanup()
-
 	for i := 0; i < b.N; i++ {
 		tx := make([]byte, 8)
 		binary.BigEndian.PutUint64(tx, uint64(i))
@@ -33,7 +32,6 @@ func BenchmarkLLRBCheckTx(b *testing.B) {
 	cc := proxy.NewLegacyLocalClientCreator(app)
 	mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), enumllrbmempool)
 	defer cleanup()
-
 	for i := 0; i < b.N; i++ {
 		tx := make([]byte, 8)
 		binary.BigEndian.PutUint64(tx, uint64(i))
@@ -57,7 +55,6 @@ func benchmarkRemoveTx(b *testing.B, enum mpEnum) {
 	mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), enum)
 	defer cleanup()
 	size := 100000
-
 	txs := types.Txs{}
 	for j := 0; j < size; j++ {
 		rand, _ := rand.Int(rand.Reader, big.NewInt(100))
