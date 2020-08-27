@@ -13,6 +13,7 @@ const maxSize = int(^uint(0) >> 1)
 
 var ErrorStopIteration = errors.New("STOP ITERATION")
 var ErrorKeyNotFound = errors.New("KEY NOT FOUND")
+var ErrorKeyConflicted = errors.New("KEY CONFLICTED")
 
 func (a NodeKey) compare(b NodeKey) int {
 	if a.Priority > b.Priority {
@@ -118,7 +119,7 @@ func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
 	case 1:
 		h.right, err = t.insert(h.right, key, data)
 	default:
-		err = fmt.Errorf("key conflict")
+		err = ErrorKeyConflicted
 	}
 	if isRed(h.right) && !isRed(h.left) {
 		h = t.rotateLeft(h)
