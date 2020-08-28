@@ -8,11 +8,13 @@ import (
 	"sync"
 )
 
-// maxSize is the max allowed number of node a llrb is allowed to contain
+// maxSize is the max allowed number of node a tree is allowed to contain
 const maxSize = int(^uint(0) >> 1)
 
 var ErrorStopIteration = errors.New("STOP ITERATION")
 var ErrorKeyNotFound = errors.New("KEY NOT FOUND")
+var ErrorKeyConflicted = errors.New("KEY CONFLICTED")
+var ErrorExceedTreeSize = fmt.Errorf("tree reached maximum size %d", maxSize)
 
 func (a NodeKey) compare(b NodeKey) int {
 	if a.Priority > b.Priority {
@@ -101,7 +103,7 @@ func (t *llrb) Insert(key NodeKey, data interface{}) error {
 	if err == nil {
 		t.size++
 		if t.size >= t.maxSize {
-			return fmt.Errorf("tree reached maximum size %d", t.maxSize)
+			return ErrorExceedTreeSize
 		}
 	}
 	return err
@@ -118,7 +120,7 @@ func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
 	case 1:
 		h.right, err = t.insert(h.right, key, data)
 	default:
-		err = fmt.Errorf("key conflict")
+		err = ErrorKeyConflicted
 	}
 	if isRed(h.right) && !isRed(h.left) {
 		h = t.rotateLeft(h)

@@ -5,6 +5,7 @@ import (
 	cr "crypto/rand"
 	"crypto/sha256"
 	"math"
+	"math/big"
 	"math/rand"
 	"testing"
 	"time"
@@ -63,8 +64,16 @@ func txHash(tx []byte) [sha256.Size]byte {
 	return sha256.Sum256(tx)
 }
 
-func TestBasics(t *testing.T) {
-	tree := NewLLRB()
+func TestLLRBBasics(t *testing.T) {
+	testTreeBasics(t, NewLLRB)
+}
+
+func TestBTreeBasics(t *testing.T) {
+	testTreeBasics(t, NewBTree)
+}
+
+func testTreeBasics(t *testing.T, treeGen func() BalancedTree) {
+	tree := treeGen()
 	txs := getRandomBytes(2)
 	nks := getNodeKeys([]uint64{1, 2}, txs)
 	tree.Insert(*nks[0], txs[0])
@@ -75,11 +84,18 @@ func TestBasics(t *testing.T) {
 	require.Equal(t, txs[0], data.([]byte), "expecting same data")
 	_, err = tree.Remove(*nks[1])
 	require.Error(t, err, "expecting error when removing nonexistent node")
-
 }
 
-func TestRandomInsertSequenceDelete(t *testing.T) {
-	tree := NewLLRB()
+func TestLLRBRandomInsertSequenceDelete(t *testing.T) {
+	testRandomInsertSequenceDelete(t, NewLLRB)
+}
+
+func TestBTreeRandomInsertSequenceDelete(t *testing.T) {
+	testRandomInsertSequenceDelete(t, NewBTree)
+}
+
+func testRandomInsertSequenceDelete(t *testing.T, treeGen func() BalancedTree) {
+	tree := treeGen()
 	n := 10
 	txs := getRandomBytes(n)
 	perm := rand.Perm(n)
@@ -96,8 +112,16 @@ func TestRandomInsertSequenceDelete(t *testing.T) {
 	}
 }
 
-func TestRandomInsertDeleteNonExistent(t *testing.T) {
-	tree := NewLLRB()
+func TestLLRBRandomInsertDeleteNonExistent(t *testing.T) {
+	testRandomInsertDeleteNonExistent(t, NewLLRB)
+}
+
+func TestBTreeRandomInsertDeleteNonExistent(t *testing.T) {
+	testRandomInsertDeleteNonExistent(t, NewBTree)
+}
+
+func testRandomInsertDeleteNonExistent(t *testing.T, treeGen func() BalancedTree) {
+	tree := treeGen()
 	n := 100
 	txs := getRandomBytes(n)
 	perm := rand.Perm(n)
@@ -119,8 +143,16 @@ func TestRandomInsertDeleteNonExistent(t *testing.T) {
 	require.Error(t, err, "expecting error when removing nonexistent node")
 }
 
-func TestLlrb_UpdateKey(t *testing.T) {
-	tree := NewLLRB()
+func TestLLRBUpdateKey(t *testing.T) {
+	testUpdateKey(t, NewLLRB)
+}
+
+func TestBTreeUpdateKey(t *testing.T) {
+	testUpdateKey(t, NewBTree)
+}
+
+func testUpdateKey(t *testing.T, treeGen func() BalancedTree) {
+	tree := treeGen()
 	n := 100
 	txs := getRandomBytes(n)
 	perm := rand.Perm(n)
@@ -142,7 +174,15 @@ func TestLlrb_UpdateKey(t *testing.T) {
 	}
 }
 
-func TestGetNext(t *testing.T) {
+func TestLLRBGetNext(t *testing.T) {
+	testGetNext(t, NewLLRB)
+}
+
+func TestBTreeGetNext(t *testing.T) {
+	testGetNext(t, NewBTree)
+}
+
+func testGetNext(t *testing.T, treeGen func() BalancedTree) {
 	testCases := []struct {
 		priorities      []uint64 // Priority of each tx
 		byteLength      []int    // Byte length of each tx
@@ -206,7 +246,7 @@ func TestGetNext(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		tree := NewLLRB()
+		tree := treeGen()
 		txs := getRandomBytes(len(tc.priorities))
 		nks := getNodeKeys(tc.priorities, txs)
 		limit := 20
@@ -227,16 +267,36 @@ func TestGetNext(t *testing.T) {
 	}
 }
 
-func BenchmarkInsert(b *testing.B) {
-	tree := new(llrb)
+// BenchmarkLLRBInsert-8   	 1399514	       770 ns/op
+func BenchmarkLLRBInsert(b *testing.B) {
+	benchmarkInsert(b, NewLLRB)
+}
+
+// BenchmarkBTreeInsert-8   	 1000000	      1561 ns/op
+func BenchmarkBTreeInsert(b *testing.B) {
+	benchmarkInsert(b, NewBTree)
+}
+
+func benchmarkInsert(b *testing.B, treeGen func() BalancedTree) {
+	tree := treeGen()
 	for i := 0; i < b.N; i++ {
 		tree.Insert(NodeKey{Priority: uint64(i)}, getRandomBytes(1)[0])
 	}
 }
 
-func BenchmarkRemove(b *testing.B) {
+// BenchmarkLLRBRemove-8   	 1000000	      1382 ns/op
+func BenchmarkLLRBRemove(b *testing.B) {
+	benchmarkRemove(b, NewLLRB)
+}
+
+// BenchmarkBTreeRemove-8   	 1607142	       810 ns/op
+func BenchmarkBTreeRemove(b *testing.B) {
+	benchmarkRemove(b, NewBTree)
+}
+
+func benchmarkRemove(b *testing.B, treeGen func() BalancedTree) {
 	b.StopTimer()
-	tree := new(llrb)
+	tree := treeGen()
 	var nks []*NodeKey
 	for i := 0; i < b.N; i++ {
 		nk := &NodeKey{Priority: uint64(i)}
@@ -249,5 +309,42 @@ func BenchmarkRemove(b *testing.B) {
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		tree.Remove(*nks[i])
+	}
+}
+
+// BenchmarkLLRBGetNext-8   	     390	   2798607 ns/op
+func BenchmarkLLRBGetNext(b *testing.B) {
+	benchmarkGetNext(b, NewLLRB)
+}
+
+// BenchmarkBTreeGetNext-8   	     121	  10038807 ns/op
+func BenchmarkBTreeGetNext(b *testing.B) {
+	benchmarkGetNext(b, NewBTree)
+}
+
+func benchmarkGetNext(b *testing.B, treeGen func() BalancedTree) {
+	tree := treeGen()
+	size := 10000
+	for i := 0; i < size; i++ {
+		rand, _ := cr.Int(cr.Reader, big.NewInt(1000))
+		data := getRandomBytes(1)[0]
+		err := tree.Insert(NodeKey{Priority: rand.Uint64(), Hash: txHash(data)}, data)
+		if err != nil {
+			b.Fatal("failed to insert", err)
+		}
+	}
+	if tree.Size() != size {
+		b.Fatal("invalid tree size", tree.Size())
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, startKey, _ := tree.GetNext(nil, func(interface{}) bool { return true })
+		for startKey != (NodeKey{}) {
+			_, next, _ := tree.GetNext(&startKey, func(interface{}) bool { return true })
+			if next.Priority > startKey.Priority {
+				b.Fatal("invalid iteration")
+			}
+			startKey = next
+		}
 	}
 }
