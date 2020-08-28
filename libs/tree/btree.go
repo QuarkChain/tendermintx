@@ -37,17 +37,31 @@ func (t *btree) Size() int {
 
 // GetNext retrieves a satisfied tx with "largest" nodeKey and "smaller" than starter if provided
 func (t *btree) GetNext(starter *NodeKey, predicate func(interface{}) bool) (interface{}, NodeKey, error) {
-	var next *bnode
-	t.tree.DescendLessOrEqual(bnode{
-		key: *starter,
-	}, func(a gbt.Item) bool {
-		next = a.(*bnode)
-		return predicate(a.(*bnode).data)
-	})
-	if next == nil {
+	var candidate bnode
+	if starter == nil {
+		t.tree.Descend(func(current gbt.Item) bool {
+			if (predicate == nil || predicate(current.(bnode).data)) && // the starter should be exclusive
+				(candidate == (bnode{}) || candidate.Less(current)) {
+				candidate = current.(bnode)
+			}
+			return true
+		})
+	} else {
+		t.tree.DescendLessOrEqual(bnode{
+			key: *starter,
+		}, func(current gbt.Item) bool {
+			if current.Less(bnode{key: *starter}) && // starter should be exclusive
+				(predicate == nil || predicate(current.(bnode).data)) && // should satisfy user requirements
+				(candidate == (bnode{}) || candidate.Less(current)) {
+				candidate = current.(bnode)
+			}
+			return true
+		})
+	}
+	if candidate == (bnode{}) {
 		return nil, NodeKey{}, ErrorStopIteration
 	}
-	return next.data, next.key, nil
+	return candidate.data, candidate.key, nil
 }
 
 func (t *btree) UpdateKey(oldKey NodeKey, newKey NodeKey) error {
@@ -75,8 +89,8 @@ func (t *btree) Insert(key NodeKey, data interface{}) error {
 	return nil
 }
 
-// Remove removes a value from the tree with provided key
-// Removed data is returned if key found, otherwise nil is returned
+// Remove removes a value from the tree with provided key,
+// removed data is returned if key found, otherwise nil is returned
 func (t *btree) Remove(key NodeKey) (interface{}, error) {
 	item := bnode{
 		key: key,

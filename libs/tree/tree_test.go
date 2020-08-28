@@ -194,9 +194,9 @@ func TestLLRBGetNext(t *testing.T) {
 	testGetNext(t, enumllrb)
 }
 
-//func TestBTreeGetNext(t *testing.T) {
-//	testGetNext(t, enumbtree)
-//}
+func TestBTreeGetNext(t *testing.T) {
+	testGetNext(t, enumbtree)
+}
 
 func testGetNext(t *testing.T, enum treeEnum) {
 	testCases := []struct {
