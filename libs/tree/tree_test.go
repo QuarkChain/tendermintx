@@ -12,8 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type treeEnum int
-
 func getNodeKeys(priorities []uint64, txs [][]byte) []*NodeKey {
 	var nks []*NodeKey
 	for i := 0; i < len(priorities); i++ {
