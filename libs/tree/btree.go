@@ -40,7 +40,7 @@ func (t *btree) GetNext(starter *NodeKey, predicate func(interface{}) bool) (int
 	var candidate bnode
 	if starter == nil {
 		t.tree.Descend(func(current gbt.Item) bool {
-			if (predicate == nil || predicate(current.(bnode).data)) && // the starter should be exclusive
+			if (predicate == nil || predicate(current.(bnode).data)) &&
 				(candidate == (bnode{}) || candidate.Less(current)) {
 				candidate = current.(bnode)
 			}
@@ -51,7 +51,7 @@ func (t *btree) GetNext(starter *NodeKey, predicate func(interface{}) bool) (int
 			key: *starter,
 		}, func(current gbt.Item) bool {
 			if current.Less(bnode{key: *starter}) && // starter should be exclusive
-				(predicate == nil || predicate(current.(bnode).data)) && // should satisfy user requirements
+				(predicate == nil || predicate(current.(bnode).data)) &&
 				(candidate == (bnode{}) || candidate.Less(current)) {
 				candidate = current.(bnode)
 			}
