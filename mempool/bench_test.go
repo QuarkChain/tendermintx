@@ -140,7 +140,7 @@ func benchmarkMempoolGetNextTxBytes(b *testing.B, enum mpEnum) {
 		for starter != nil {
 			next, _ := mempool.GetNextTxBytes(1000, 1, starter)
 			if getPriority(next) > getPriority(starter) {
-				b.Error("invalid iteration")
+				b.Fatal("invalid iteration")
 				return
 			}
 			starter = next
