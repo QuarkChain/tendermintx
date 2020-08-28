@@ -39,12 +39,12 @@ func BenchmarkLLRBCheckTx(b *testing.B) {
 	}
 }
 
-// BenchmarkClistRemoveTx-8   	  480782	      2151 ns/op
+// BenchmarkClistRemoveTx-8   	  749619	      1625 ns/op
 func BenchmarkClistRemoveTx(b *testing.B) {
 	benchmarkRemoveTx(b, enumclistmempool)
 }
 
-// BenchmarkLLRBRemoveTx-8   	  541332	      2115 ns/op
+// BenchmarkLLRBRemoveTx-8   	  724825	      1609 ns/op
 func BenchmarkLLRBRemoveTx(b *testing.B) {
 	benchmarkRemoveTx(b, enumllrbmempool)
 }
@@ -64,6 +64,7 @@ func benchmarkRemoveTx(b *testing.B, enum mpEnum) {
 		mempool.CheckTx(txBytes, nil, TxInfo{})
 	}
 
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		testmempool := mempool
 		testmempool.RemoveTxs(txs)

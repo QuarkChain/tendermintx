@@ -16,13 +16,6 @@ import (
 
 //--------------------------------------------------------------------------------
 
-type treeEnum int
-
-const (
-	enumllrb treeEnum = iota
-	enumbtree
-)
-
 // tElement is used to insert, remove, or recheck transactions
 type tElement struct {
 	nodeKey tree.NodeKey
@@ -31,14 +24,14 @@ type tElement struct {
 
 //--------------------------------------------------------------------------------
 
-// enumtreemempool is an ordered in-memory pool for transactions before they are
+// treemempool is an ordered in-memory pool for transactions before they are
 // proposed in a consensus round. Transaction validity is checked using the
 // CheckTx abci message before the transaction is added to the pool. The
 // mempool uses a balanced tree structure for storing transactions that can
 // be efficiently accessed by multiple concurrent readers.
 type treeMempool struct {
-	txs  tree.BalancedTree // balanced tree of good txs
-	enum treeEnum
+	txs     tree.BalancedTree        // balanced tree of good txs
+	treeGen func() tree.BalancedTree // return a specified balanced tree
 
 	// Map for quick access to txs to record sender in CheckTx.
 	// txsMap: txKey -> lElement
@@ -51,15 +44,15 @@ type treeMempool struct {
 	recheckEnd    tree.NodeKey // re-checking stops here
 }
 
-// NewTREEMempool returns a new mempool with the given configuration and connection to an application.
-func NewTREEMempool(
+// newTreeMempool returns a new mempool with the given configuration and connection to an application.
+func newTreeMempool(
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
-	enum treeEnum,
+	treeGen func() tree.BalancedTree,
 	options ...Option,
 ) Mempool {
-	treeMempool := &treeMempool{txs: treeGen(enum), enum: enum}
+	treeMempool := &treeMempool{txs: treeGen(), treeGen: treeGen}
 	return newBasemempool(treeMempool, config, proxyAppConn, height, options...)
 }
 
@@ -69,17 +62,7 @@ func NewLLRBMempool(
 	height int64,
 	options ...Option,
 ) Mempool {
-	return NewTREEMempool(config, proxyAppConn, height, enumllrb, options...)
-}
-
-func treeGen(enum treeEnum) tree.BalancedTree {
-	switch enum {
-	case enumllrb:
-		return tree.NewLLRB()
-	case enumbtree:
-		return nil
-	}
-	return nil
+	return newTreeMempool(config, proxyAppConn, height, tree.NewLLRB, options...)
 }
 
 // Safe for concurrent use by multiple goroutines.
@@ -204,7 +187,7 @@ func (mem *treeMempool) getNextTxBytes(remainBytes int64, remainGas int64, start
 }
 
 func (mem *treeMempool) deleteAll() {
-	mem.txs = treeGen(mem.enum)
+	mem.txs = mem.treeGen()
 	mem.txsMap.Range(func(key, _ interface{}) bool {
 		mem.txsMap.Delete(key)
 		return true
