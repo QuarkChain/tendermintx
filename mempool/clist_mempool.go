@@ -149,24 +149,28 @@ func (mem *cListMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
 }
 
 func (mem *cListMempool) getNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
-	prevPassed, prevElement := true, &clist.CElement{Priority: uint64(math.MaxUint64)}
-	if len(starter) > 0 {
-		prevPassed = false
-		if e, ok := mem.txsMap.Load(TxKey(starter)); ok {
-			prevElement = e.(*clist.CElement)
-		}
+	var prevElement *clist.CElement
+	if e, ok := mem.txsMap.Load(TxKey(starter)); ok {
+		prevElement = e.(*clist.CElement)
+	}
+
+	prevPriority := uint64(math.MaxUint64)
+	ignoreSamePriority := false
+	if prevElement != nil {
+		prevPriority = prevElement.Priority
+		ignoreSamePriority = true
 	}
 
 	var candidate *clist.CElement
 	for elem := mem.txs.Front(); elem != nil; elem = elem.Next() {
 		if elem == prevElement {
-			prevPassed = true
+			ignoreSamePriority = false
 			continue
 		}
 		mTx := elem.Value.(*mempoolTx)
 		if (mTx.gasWanted > remainGas || int64(len(mTx.tx)) > remainBytes) || // tx requirement not met
-			(elem.Priority > prevElement.Priority) || // higher priority should have been iterated before
-			(elem.Priority == prevElement.Priority && !prevPassed) { // equal priority but already sent
+			(elem.Priority > prevPriority) || // higher priority should have been iterated before
+			(elem.Priority == prevPriority && ignoreSamePriority) { // equal priority but already sent
 			continue
 		}
 		if candidate == nil || elem.Priority > candidate.Priority {
