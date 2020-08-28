@@ -43,28 +43,28 @@ func (t *btree) Size() int {
 func (t *btree) GetNext(starter *NodeKey, predicate func(interface{}) bool) (interface{}, NodeKey, error) {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
-	var candidate bnode
+
+	var candidate *bnode
+	var descendFunc func(gbt.ItemIterator)
 	if starter == nil {
-		t.tree.Descend(func(current gbt.Item) bool {
-			if (predicate == nil || predicate(current.(bnode).data)) &&
-				(candidate == (bnode{}) || candidate.Less(current)) {
-				candidate = current.(bnode)
-			}
-			return true
-		})
+		descendFunc = t.tree.Descend
 	} else {
-		t.tree.DescendLessOrEqual(bnode{
-			key: *starter,
-		}, func(current gbt.Item) bool {
-			if current.Less(bnode{key: *starter}) && // starter should be exclusive
-				(predicate == nil || predicate(current.(bnode).data)) &&
-				(candidate == (bnode{}) || candidate.Less(current)) {
-				candidate = current.(bnode)
-			}
-			return true
-		})
+		descendFunc = func(iter gbt.ItemIterator) { t.tree.DescendLessOrEqual(bnode{key: *starter}, iter) }
 	}
-	if candidate == (bnode{}) {
+	descendFunc(func(current gbt.Item) bool {
+		cbn := current.(bnode)
+		if starter != nil && cbn.key == *starter {
+			// Ignore starter itself
+			return true
+		}
+		if predicate == nil || predicate(cbn.data) {
+			candidate = &cbn
+			// Target found. Stop descending
+			return false
+		}
+		return true
+	})
+	if candidate == nil {
 		return nil, NodeKey{}, ErrorStopIteration
 	}
 	return candidate.data, candidate.key, nil
