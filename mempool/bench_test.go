@@ -112,12 +112,12 @@ func BenchmarkCacheRemoveTime(b *testing.B) {
 	}
 }
 
-// BenchmarkClistMempoolGetNextTxBytes-8   	       2	 604934776 ns/op
+// BenchmarkClistMempoolGetNextTxBytes-8   	       3	 414601860 ns/op
 func BenchmarkClistMempoolGetNextTxBytes(b *testing.B) {
 	benchmarkMempoolGetNextTxBytes(b, enumclistmempool)
 }
 
-// BenchmarkLLRBMempoolGetNextTxBytes-8   	     183	   5956796 ns/op
+// BenchmarkLLRBMempoolGetNextTxBytes-8   	     211	   5689678 ns/op
 func BenchmarkLLRBMempoolGetNextTxBytes(b *testing.B) {
 	benchmarkMempoolGetNextTxBytes(b, enumllrbmempool)
 }
