@@ -39,6 +39,7 @@ type mpEnum int
 const (
 	enumclistmempool mpEnum = iota
 	enumllrbmempool
+	enumbtreemempool
 )
 
 type mempoolGen func(
@@ -52,8 +53,9 @@ var (
 	mempoolFactory = map[mpEnum]mempoolGen{
 		enumclistmempool: NewCListMempool,
 		enumllrbmempool:  NewLLRBMempool,
+		enumbtreemempool: NewBTreeMempool,
 	}
-	mpEnums = []mpEnum{enumclistmempool, enumllrbmempool}
+	mpEnums = []mpEnum{enumclistmempool, enumllrbmempool, enumbtreemempool}
 )
 
 func newMempoolWithAppAndConfig(cc proxy.ClientCreator, config *cfg.Config, me mpEnum) (Mempool, cleanupFunc) {

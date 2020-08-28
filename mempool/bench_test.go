@@ -25,6 +25,11 @@ func BenchmarkLLRBCheckTx(b *testing.B) {
 	benchmarkCheckTx(b, enumllrbmempool)
 }
 
+// BenchmarkBTreeCheckTx-8   	     554	   1922431 ns/op
+func BenchmarkBTreeCheckTx(b *testing.B) {
+	benchmarkCheckTx(b, enumbtreemempool)
+}
+
 func benchmarkCheckTx(b *testing.B, enum mpEnum) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLocalClientCreator(app)
@@ -60,6 +65,11 @@ func BenchmarkClistRemoveTx(b *testing.B) {
 // BenchmarkLLRBRemoveTx-8   	  726847	      1642 ns/op
 func BenchmarkLLRBRemoveTx(b *testing.B) {
 	benchmarkRemoveTx(b, enumllrbmempool)
+}
+
+// BenchmarkBTreeRemoveTx-8   	  741721	      1622 ns/op
+func BenchmarkBTreeRemoveTx(b *testing.B) {
+	benchmarkRemoveTx(b, enumbtreemempool)
 }
 
 func benchmarkRemoveTx(b *testing.B, enum mpEnum) {
@@ -120,6 +130,11 @@ func BenchmarkClistMempoolGetNextTxBytes(b *testing.B) {
 // BenchmarkLLRBMempoolGetNextTxBytes-8   	     211	   5689678 ns/op
 func BenchmarkLLRBMempoolGetNextTxBytes(b *testing.B) {
 	benchmarkMempoolGetNextTxBytes(b, enumllrbmempool)
+}
+
+// BenchmarkBTreeMempoolGetNextTxBytes-8   	     139	   8794886 ns/op
+func BenchmarkBTreeMempoolGetNextTxBytes(b *testing.B) {
+	benchmarkMempoolGetNextTxBytes(b, enumbtreemempool)
 }
 
 func benchmarkMempoolGetNextTxBytes(b *testing.B, enum mpEnum) {
