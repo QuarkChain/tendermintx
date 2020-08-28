@@ -4,7 +4,9 @@ import (
 	"bytes"
 	cr "crypto/rand"
 	"crypto/sha256"
+	"fmt"
 	"math"
+	"math/big"
 	"math/rand"
 	"testing"
 	"time"
@@ -308,5 +310,32 @@ func benchmarkRemove(b *testing.B, treeGen func() BalancedTree) {
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		tree.Remove(*nks[i])
+	}
+}
+
+// BenchmarkLLRBGetNext-8   	    6804	    173895 ns/op
+func BenchmarkLLRBGetNext(b *testing.B) {
+	benchmarkGetNext(b, NewLLRB)
+}
+
+// BenchmarkBTreeGetNext-8   	      16	  69528749 ns/op
+func BenchmarkBTreeGetNext(b *testing.B) {
+	benchmarkGetNext(b, NewBTree)
+}
+
+func benchmarkGetNext(b *testing.B, treeGen func() BalancedTree) {
+	tree := treeGen()
+	size := 100
+	for i := 0; i < size; i++ {
+		rand, _ := cr.Int(cr.Reader, big.NewInt(1000))
+		tree.Insert(NodeKey{Priority: rand.Uint64()}, getRandomBytes(1)[0])
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, startKey, _ := tree.GetNext(nil, func(interface{}) bool { return true })
+		for startKey != (NodeKey{}) {
+			fmt.Println(startKey.Priority)
+			_, startKey, _ = tree.GetNext(&startKey, func(interface{}) bool { return true })
+		}
 	}
 }
