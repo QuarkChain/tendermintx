@@ -581,7 +581,7 @@ func TestVerifyEvidenceWithLunaticValidatorEvidence(t *testing.T) {
 		NextValidatorsHash: tmhash.Sum([]byte("next_validators_hash")),
 		ConsensusHash:      tmhash.Sum([]byte("consensus_hash")),
 		AppHash:            tmhash.Sum([]byte("app_hash")),
-		ResultsHash:        tmhash.Sum([]byte("last_results_hash")),
+		ResultsHash:        tmhash.Sum([]byte("results_hash")),
 		EvidenceHash:       tmhash.Sum([]byte("evidence_hash")),
 		ProposerAddress:    crypto.AddressHash([]byte("proposer_address")),
 	}

@@ -24,7 +24,9 @@ var (
 )
 
 type adaptedApp struct {
-	abciApp abci.Application
+	abciApp     abci.Application
+	resultsHash []byte
+	appHash     []byte
 }
 
 type AdaptedApp interface {
@@ -151,6 +153,7 @@ func (app *adaptedApp) CreateBlock(
 		remainBytes -= int64(len(tx))
 		remainGas--
 	}
+	resp.AppHash = app.appHash
 	return
 }
 
@@ -179,6 +182,7 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 		respDeliverTx.Code = abcix.CodeTypeOK
 		resp.DeliverTxs = append(resp.DeliverTxs, &respDeliverTx)
 	}
+	app.resultsHash = req.Header.ResultsHash
 
 	if err := app.applyLegacyABCI(&req, &resp, endblock); err != nil {
 		panic("failed to adapt the ABCI legacy methods: " + err.Error())
@@ -198,6 +202,7 @@ func (app *adaptedApp) Commit() (resp abcix.ResponseCommit) {
 		// TODO: panic for debugging purposes. better error handling soon!
 		panic(err)
 	}
+	app.appHash = resp.Data
 	return
 }
 

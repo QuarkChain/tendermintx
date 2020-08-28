@@ -116,16 +116,9 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		panic(err)
 	}
 
-	appHash := state.AppHash // adapt abci to abcix, appHash is received from executing previous block
-	if resp.AppHash != nil {
-		appHash = resp.AppHash
-	}
-	resultHash := state.LastResultsHash // adapt abci to abcix, resultHash is received from executing previous block
-	if resp.DeliverTxs != nil || resp.Events != nil {
-		resultHash = ABCIResponsesResultsHash(&tmstate.ABCIResponses{
-			DeliverBlock: &abcix.ResponseDeliverBlock{Events: resp.Events, DeliverTxs: resp.DeliverTxs}},
-		)
-	}
+	appHash := resp.AppHash
+	resultHash := ABCIResponsesResultsHash(&tmstate.ABCIResponses{
+		DeliverBlock: &abcix.ResponseDeliverBlock{Events: resp.Events, DeliverTxs: resp.DeliverTxs}})
 
 	// remove invalid txs from mempool
 	var invalidTxs = make([]types.Tx, len(resp.InvalidTxs))

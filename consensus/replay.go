@@ -446,6 +446,7 @@ func (h *Handshaker) replayBlocks(
 		if err != nil {
 			return nil, err
 		}
+		//assertAppHashEqualsOneFromBlock(appHash, block)
 
 		h.nBlocks++
 	}

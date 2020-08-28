@@ -27,7 +27,7 @@ const (
 	NextValidatorsHashField = "NextValidatorsHash"
 	ConsensusHashField      = "ConsensusHash"
 	AppHashField            = "AppHash"
-	LastResultsHashField    = "ResultsHash"
+	ResultsHashField        = "ResultsHash"
 )
 
 // ErrEvidenceInvalid wraps a piece of evidence and the error denoting how or why it is invalid.
@@ -987,9 +987,9 @@ func (e *LunaticValidatorEvidence) VerifyHeader(committedHeader *Header) error {
 		if bytes.Equal(committedHeader.AppHash, e.Header.AppHash) {
 			return matchErr(AppHashField)
 		}
-	case LastResultsHashField:
+	case ResultsHashField:
 		if bytes.Equal(committedHeader.ResultsHash, e.Header.ResultsHash) {
-			return matchErr(LastResultsHashField)
+			return matchErr(ResultsHashField)
 		}
 	default:
 		return errors.New("unknown InvalidHeaderField")

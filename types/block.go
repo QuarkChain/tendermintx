@@ -345,7 +345,7 @@ type Header struct {
 	ConsensusHash      tmbytes.HexBytes `json:"consensus_hash"`       // consensus params for current block
 	AppHash            tmbytes.HexBytes `json:"app_hash"`             // state after txs from the current block
 	// root hash of all results from the txs from the current block
-	ResultsHash tmbytes.HexBytes `json:"last_results_hash"`
+	ResultsHash tmbytes.HexBytes `json:"results_hash"`
 
 	// consensus info
 	EvidenceHash    tmbytes.HexBytes `json:"evidence_hash"`    // evidence included in the block
@@ -1085,7 +1085,7 @@ func SignedHeaderFromProto(shp *tmproto.SignedHeader) (*SignedHeader, error) {
 type Data struct {
 
 	// Txs that will be applied by state @ block.Height+1.
-	// NOTE: not all txs here are valid.  We're just agreeing on the order first.
+	// NOTE: all txs here are valid.  We're just agreeing on the order first.
 	// This means that block.AppHash includes these txs.
 	Txs Txs `json:"txs"`
 
