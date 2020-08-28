@@ -112,12 +112,12 @@ func BenchmarkCacheRemoveTime(b *testing.B) {
 	}
 }
 
-// BenchmarkClistMempoolGetNextTxBytes-8   	       2	 605761241 ns/op
+// BenchmarkClistMempoolGetNextTxBytes-8   	       2	 604934776 ns/op
 func BenchmarkClistMempoolGetNextTxBytes(b *testing.B) {
 	benchmarkMempoolGetNextTxBytes(b, enumclistmempool)
 }
 
-// BenchmarkLLRBMempoolGetNextTxBytes-8   	     324	   3757553 ns/op
+// BenchmarkLLRBMempoolGetNextTxBytes-8   	     183	   5956796 ns/op
 func BenchmarkLLRBMempoolGetNextTxBytes(b *testing.B) {
 	benchmarkMempoolGetNextTxBytes(b, enumllrbmempool)
 }
@@ -138,7 +138,18 @@ func benchmarkMempoolGetNextTxBytes(b *testing.B, enum mpEnum) {
 	for i := 0; i < b.N; i++ {
 		starter, _ := mempool.GetNextTxBytes(1000, 1, nil)
 		for starter != nil {
-			starter, _ = mempool.GetNextTxBytes(1000, 1, starter)
+			next, _ := mempool.GetNextTxBytes(1000, 1, starter)
+			if getPriority(next) > getPriority(starter) {
+				b.Error("invalid iteration")
+				return
+			}
+			starter = next
 		}
 	}
+}
+
+func getPriority(txBytes []byte) int64 {
+	txSlice := strings.Split(string(txBytes), ",")
+	value, _ := strconv.ParseInt(txSlice[len(txSlice)-1], 10, 64)
+	return value
 }
