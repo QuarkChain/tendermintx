@@ -75,7 +75,7 @@ func treeGen(enum treeEnum) BalancedTree {
 	case enumllrb:
 		return NewLLRB()
 	case enumbtree:
-		return NewBTREE()
+		return NewBTree()
 	}
 	return nil
 }
