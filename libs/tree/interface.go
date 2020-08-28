@@ -22,3 +22,7 @@ type BalancedTree interface {
 func NewLLRB() BalancedTree {
 	return newLLRB(maxSize)
 }
+
+func NewBTree() BalancedTree {
+	return newBTree(maxSize)
+}
