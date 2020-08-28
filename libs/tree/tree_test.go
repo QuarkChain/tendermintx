@@ -143,11 +143,11 @@ func testRandomInsertDeleteNonExistent(t *testing.T, treeGen func() BalancedTree
 	require.Error(t, err, "expecting error when removing nonexistent node")
 }
 
-func TestLLRBUpdatekey(t *testing.T) {
+func TestLLRBUpdateKey(t *testing.T) {
 	testUpdateKey(t, NewLLRB)
 }
 
-func TestBTreeUpdatekey(t *testing.T) {
+func TestBTreeUpdateKey(t *testing.T) {
 	testUpdateKey(t, NewBTree)
 }
 
@@ -317,7 +317,7 @@ func BenchmarkLLRBGetNext(b *testing.B) {
 	benchmarkGetNext(b, NewLLRB)
 }
 
-// BenchmarkBTreeGetNext-8   	      16	  70066757 ns/op
+// BenchmarkBTreeGetNext-8   	    1480	    761803 ns/op
 func BenchmarkBTreeGetNext(b *testing.B) {
 	benchmarkGetNext(b, NewBTree)
 }
@@ -333,7 +333,12 @@ func benchmarkGetNext(b *testing.B, treeGen func() BalancedTree) {
 	for i := 0; i < b.N; i++ {
 		_, startKey, _ := tree.GetNext(nil, func(interface{}) bool { return true })
 		for startKey != (NodeKey{}) {
-			_, startKey, _ = tree.GetNext(&startKey, func(interface{}) bool { return true })
+			_, next, _ := tree.GetNext(&startKey, func(interface{}) bool { return true })
+			if next.Priority > startKey.Priority {
+				b.Error("invalid iteration")
+				return
+			}
+			startKey = next
 		}
 	}
 }
