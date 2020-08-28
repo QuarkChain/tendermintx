@@ -63,7 +63,6 @@ func benchmarkRemoveTx(b *testing.B, enum mpEnum) {
 		txs = append(txs, txBytes)
 		mempool.CheckTx(txBytes, nil, TxInfo{})
 	}
-
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		testmempool := mempool
