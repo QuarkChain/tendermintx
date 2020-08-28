@@ -312,12 +312,12 @@ func benchmarkRemove(b *testing.B, treeGen func() BalancedTree) {
 	}
 }
 
-// BenchmarkLLRBGetNext-8   	    6669	    178239 ns/op
+// BenchmarkLLRBGetNext-8   	     390	   2798607 ns/op
 func BenchmarkLLRBGetNext(b *testing.B) {
 	benchmarkGetNext(b, NewLLRB)
 }
 
-// BenchmarkBTreeGetNext-8   	    1480	    761803 ns/op
+// BenchmarkBTreeGetNext-8   	     121	  10038807 ns/op
 func BenchmarkBTreeGetNext(b *testing.B) {
 	benchmarkGetNext(b, NewBTree)
 }
