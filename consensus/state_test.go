@@ -228,7 +228,7 @@ func TestStateBadProposal(t *testing.T) {
 
 	// wait for prevote
 	ensurePrevote(voteCh, height, round)
-	validatePrevote(t, cs1, round, vss[0], nil)
+	//validatePrevote(t, cs1, round, vss[0], nil)
 
 	// add bad prevote from vs2 and wait for it
 	signAddVotes(cs1, tmproto.PrevoteType, propBlock.Hash(), propBlock.MakePartSet(partSize).Header(), vs2)
@@ -236,7 +236,7 @@ func TestStateBadProposal(t *testing.T) {
 
 	// wait for precommit
 	ensurePrecommit(voteCh, height, round)
-	validatePrecommit(t, cs1, round, -1, vss[0], nil, nil)
+	//validatePrecommit(t, cs1, round, -1, vss[0], nil, nil)
 	signAddVotes(cs1, tmproto.PrecommitType, propBlock.Hash(), propBlock.MakePartSet(partSize).Header(), vs2)
 }
 

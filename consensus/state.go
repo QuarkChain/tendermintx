@@ -927,7 +927,7 @@ func (cs *State) needProofBlock(height int64) bool {
 
 	lastBlockMeta := cs.blockStore.LoadBlockMeta(height - 1)
 	if lastBlockMeta == nil {
-		panic(fmt.Sprintf("needProofBlock: last block meta for height %d not found", height-1))
+		panic(fmt.Sprintf("needProofBlock: last block meta for height %d not found", height-2))
 	}
 	return !bytes.Equal(cs.state.AppHash, lastBlockMeta.Header.AppHash)
 }
@@ -1521,7 +1521,7 @@ func (cs *State) finalizeCommit(height int64) {
 	stateCopy := cs.state.Copy()
 
 	// Execute and commit the block, update and save the state, and update the mempool.
-	// NOTE The block.AppHash wont reflect these txs until the next block.
+	// NOTE The block.AppHash reflects these txs in the current block.
 	var err error
 	var retainHeight int64
 	stateCopy, retainHeight, err = cs.blockExec.ApplyBlock(

@@ -272,7 +272,7 @@ func TestHeaderHash(t *testing.T) {
 			NextValidatorsHash: tmhash.Sum([]byte("next_validators_hash")),
 			ConsensusHash:      tmhash.Sum([]byte("consensus_hash")),
 			AppHash:            tmhash.Sum([]byte("app_hash")),
-			LastResultsHash:    tmhash.Sum([]byte("last_results_hash")),
+			ResultsHash:        tmhash.Sum([]byte("last_results_hash")),
 			EvidenceHash:       tmhash.Sum([]byte("evidence_hash")),
 			ProposerAddress:    crypto.AddressHash([]byte("proposer_address")),
 		}, hexBytesFromString("F740121F553B5418C3EFBD343C2DBFE9E007BB67B0D020A0741374BAB65242A4")},
@@ -289,7 +289,7 @@ func TestHeaderHash(t *testing.T) {
 			NextValidatorsHash: tmhash.Sum([]byte("next_validators_hash")),
 			ConsensusHash:      tmhash.Sum([]byte("consensus_hash")),
 			AppHash:            tmhash.Sum([]byte("app_hash")),
-			LastResultsHash:    tmhash.Sum([]byte("last_results_hash")),
+			ResultsHash:        tmhash.Sum([]byte("last_results_hash")),
 			EvidenceHash:       tmhash.Sum([]byte("evidence_hash")),
 			ProposerAddress:    crypto.AddressHash([]byte("proposer_address")),
 		}, nil},
@@ -364,7 +364,7 @@ func TestMaxHeaderBytes(t *testing.T) {
 		NextValidatorsHash: tmhash.Sum([]byte("next_validators_hash")),
 		ConsensusHash:      tmhash.Sum([]byte("consensus_hash")),
 		AppHash:            tmhash.Sum([]byte("app_hash")),
-		LastResultsHash:    tmhash.Sum([]byte("last_results_hash")),
+		ResultsHash:        tmhash.Sum([]byte("last_results_hash")),
 		EvidenceHash:       tmhash.Sum([]byte("evidence_hash")),
 		ProposerAddress:    crypto.AddressHash([]byte("proposer_address")),
 	}
@@ -554,7 +554,7 @@ func TestSignedHeaderValidateBasic(t *testing.T) {
 		NextValidatorsHash: commit.Hash(),
 		ConsensusHash:      commit.Hash(),
 		AppHash:            commit.Hash(),
-		LastResultsHash:    commit.Hash(),
+		ResultsHash:        commit.Hash(),
 		EvidenceHash:       commit.Hash(),
 		ProposerAddress:    crypto.AddressHash([]byte("proposer_address")),
 	}
@@ -761,7 +761,7 @@ func makeRandHeader() Header {
 		ConsensusHash:      randBytes,
 		AppHash:            randBytes,
 
-		LastResultsHash: randBytes,
+		ResultsHash: randBytes,
 
 		EvidenceHash:    randBytes,
 		ProposerAddress: randAddress,

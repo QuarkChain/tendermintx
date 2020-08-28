@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -40,7 +41,6 @@ func TestMempoolNoProgressUntilTxsAvailable(t *testing.T) {
 	ensureNoNewEventOnChannel(newBlockCh)
 	deliverTxsRange(cs, 0, 1)
 	ensureNewEventOnChannel(newBlockCh) // commit txs
-	ensureNewEventOnChannel(newBlockCh) // commit updated app hash
 	ensureNoNewEventOnChannel(newBlockCh)
 }
 
@@ -246,9 +246,16 @@ func (app *CounterApplication) CreateBlock(
 		txValue := txAsUint64(tx)
 		if txValue != uint64(count) {
 			ret.InvalidTxs = append(ret.InvalidTxs, tx)
+			txResp := abcix.ResponseDeliverTx{
+				Code: code.CodeTypeBadNonce,
+				Log:  fmt.Sprintf("Invalid nonce. Expected %v, got %v", app.txCount, txValue),
+			}
+			ret.DeliverTxs = append(ret.DeliverTxs, &txResp)
 			continue
 		}
 		ret.Txs = append(ret.Txs, tx)
+		txResp := abcix.ResponseDeliverTx{Code: code.CodeTypeOK}
+		ret.DeliverTxs = append(ret.DeliverTxs, &txResp)
 		count++
 		remainBytes -= int64(len(tx))
 		remainGas--
@@ -256,7 +263,9 @@ func (app *CounterApplication) CreateBlock(
 
 	hash := make([]byte, 8)
 	binary.BigEndian.PutUint64(hash, uint64(count))
-	ret.Hash = hash
+	if !bytes.Equal(hash, bytes.Repeat([]byte{0}, 8)) {
+		ret.AppHash = hash
+	}
 	return ret
 }
 

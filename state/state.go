@@ -234,6 +234,8 @@ func (state State) MakeBlock(
 	commit *types.Commit,
 	evidence []types.Evidence,
 	proposerAddress []byte,
+	appHash []byte,
+	resultHash []byte,
 ) (*types.Block, *types.PartSet) {
 
 	// Build base block with block data.
@@ -252,7 +254,7 @@ func (state State) MakeBlock(
 		state.Version.Consensus, state.ChainID,
 		timestamp, state.LastBlockID,
 		state.Validators.Hash(), state.NextValidators.Hash(),
-		types.HashConsensusParams(state.ConsensusParams), state.AppHash, state.LastResultsHash,
+		types.HashConsensusParams(state.ConsensusParams), appHash, resultHash,
 		proposerAddress,
 	)
 

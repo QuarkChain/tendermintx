@@ -116,6 +116,17 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		panic(err)
 	}
 
+	appHash := state.AppHash // adapt abci to abcix, appHash is received from executing previous block
+	if resp.AppHash != nil {
+		appHash = resp.AppHash
+	}
+	resultHash := state.LastResultsHash // adapt abci to abcix, resultHash is received from executing previous block
+	if resp.DeliverTxs != nil || resp.Events != nil {
+		resultHash = ABCIResponsesResultsHash(&tmstate.ABCIResponses{
+			DeliverBlock: &abcix.ResponseDeliverBlock{Events: resp.Events, DeliverTxs: resp.DeliverTxs}},
+		)
+	}
+
 	// remove invalid txs from mempool
 	var invalidTxs = make([]types.Tx, len(resp.InvalidTxs))
 	for i, invalidTx := range resp.InvalidTxs {
@@ -132,7 +143,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	for _, txBytes := range resp.Txs {
 		txs = append(txs, txBytes)
 	}
-	return state.MakeBlock(height, txs, commit, evidence, proposerAddr)
+	return state.MakeBlock(height, txs, commit, evidence, proposerAddr, appHash, resultHash)
 }
 
 // ValidateBlock validates the given block against the given state.

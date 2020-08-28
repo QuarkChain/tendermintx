@@ -54,7 +54,7 @@ func makeAndCommitGoodBlock(
 
 func makeAndApplyGoodBlock(state sm.State, height int64, lastCommit *types.Commit, proposerAddr []byte,
 	blockExec *sm.BlockExecutor, evidence []types.Evidence) (sm.State, types.BlockID, error) {
-	block, _ := state.MakeBlock(height, makeTxs(height), lastCommit, evidence, proposerAddr)
+	block, _ := state.MakeBlock(height, makeTxs(height), lastCommit, evidence, proposerAddr, nil, nil)
 	if err := blockExec.ValidateBlock(state, block); err != nil {
 		return state, types.BlockID{}, err
 	}
@@ -133,6 +133,8 @@ func makeBlock(state sm.State, height int64) *types.Block {
 		new(types.Commit),
 		nil,
 		state.Validators.GetProposer().Address,
+		nil,
+		nil,
 	)
 	return block
 }
@@ -236,8 +238,32 @@ func (app *testApp) Info(req abcix.RequestInfo) (resInfo abcix.ResponseInfo) {
 	return abcix.ResponseInfo{}
 }
 
-func (app *testApp) CreateBlock(req abcix.RequestCreateBlock, mempool *abcix.MempoolIter) abcix.ResponseCreateBlock {
-	return abcix.ResponseCreateBlock{}
+func (app *testApp) CreateBlock(req abcix.RequestCreateBlock, iter *abcix.MempoolIter) abcix.ResponseCreateBlock {
+	var txsResp []*abcix.ResponseDeliverTx
+	ret := abcix.ResponseCreateBlock{}
+
+	remainBytes := types.DefaultConsensusParams().Block.MaxBytes -
+		types.MaxOverheadForBlock -
+		types.MaxHeaderBytes -
+		int64(len(req.LastCommitInfo.Votes))*types.MaxVoteBytes -
+		int64(len(req.ByzantineValidators))*types.MaxEvidenceBytes
+	remainGas := int64(1<<(64-1) - 1)
+
+	for {
+		tx, err := iter.GetNextTransaction(remainBytes, remainGas)
+		if err != nil {
+			panic(err)
+		}
+		if len(tx) == 0 {
+			break
+		}
+		ret.Txs = append(ret.Txs, tx)
+		remainBytes -= int64(len(tx))
+		txsResp = append(txsResp, &abcix.ResponseDeliverTx{})
+	}
+
+	ret.DeliverTxs = txsResp
+	return ret
 }
 
 func (app *testApp) DeliverBlock(req abcix.RequestDeliverBlock) abcix.ResponseDeliverBlock {

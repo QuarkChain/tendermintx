@@ -182,7 +182,7 @@ func TestBroadcastEvidence_ConflictingHeadersEvidence(t *testing.T) {
 				NextValidatorsHash: h1.NextValidatorsHash,
 				ConsensusHash:      h1.ConsensusHash,
 				AppHash:            crypto.CRandBytes(32),
-				LastResultsHash:    h1.LastResultsHash,
+				ResultsHash:        h1.ResultsHash,
 				EvidenceHash:       h1.EvidenceHash,
 				ProposerAddress:    h1.ProposerAddress,
 			},

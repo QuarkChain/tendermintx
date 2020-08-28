@@ -27,7 +27,7 @@ const (
 	NextValidatorsHashField = "NextValidatorsHash"
 	ConsensusHashField      = "ConsensusHash"
 	AppHashField            = "AppHash"
-	LastResultsHashField    = "LastResultsHash"
+	LastResultsHashField    = "ResultsHash"
 )
 
 // ErrEvidenceInvalid wraps a piece of evidence and the error denoting how or why it is invalid.
@@ -460,7 +460,7 @@ func (ev *ConflictingHeadersEvidence) Split(committedHeader *Header, valSet *Val
 	}
 
 	// If ValidatorsHash, NextValidatorsHash, ConsensusHash, AppHash, and
-	// LastResultsHash in alternativeHeader are different (incorrect application
+	// ResultsHash in alternativeHeader are different (incorrect application
 	// state transition), then it is a lunatic misbehavior => immediately
 	// slashable (#F5).
 	var invalidField string
@@ -473,8 +473,8 @@ func (ev *ConflictingHeadersEvidence) Split(committedHeader *Header, valSet *Val
 		invalidField = "ConsensusHash"
 	case !bytes.Equal(committedHeader.AppHash, alternativeHeader.AppHash):
 		invalidField = "AppHash"
-	case !bytes.Equal(committedHeader.LastResultsHash, alternativeHeader.LastResultsHash):
-		invalidField = "LastResultsHash"
+	case !bytes.Equal(committedHeader.ResultsHash, alternativeHeader.ResultsHash):
+		invalidField = "ResultsHash"
 	}
 	if invalidField != "" {
 		for i, sig := range alternativeHeader.Commit.Signatures {
@@ -940,7 +940,7 @@ func (e *LunaticValidatorEvidence) ValidateBasic() error {
 	}
 
 	switch e.InvalidHeaderField {
-	case "ValidatorsHash", "NextValidatorsHash", "ConsensusHash", "AppHash", "LastResultsHash":
+	case "ValidatorsHash", "NextValidatorsHash", "ConsensusHash", "AppHash", "ResultsHash":
 		break
 	default:
 		return errors.New("unknown invalid header field")
@@ -988,7 +988,7 @@ func (e *LunaticValidatorEvidence) VerifyHeader(committedHeader *Header) error {
 			return matchErr(AppHashField)
 		}
 	case LastResultsHashField:
-		if bytes.Equal(committedHeader.LastResultsHash, e.Header.LastResultsHash) {
+		if bytes.Equal(committedHeader.ResultsHash, e.Header.ResultsHash) {
 			return matchErr(LastResultsHashField)
 		}
 	default:

@@ -98,8 +98,13 @@ func (app *Application) CreateBlock(
 ) types.ResponseCreateBlock {
 	var txs, invalidTxs [][]byte
 	var size int64
-
-	remainBytes, remainGas := maxBytes, maxGas
+	var txsResp []*types.ResponseDeliverTx
+	remainBytes := maxBytes -
+		tdtypes.MaxOverheadForBlock -
+		tdtypes.MaxHeaderBytes -
+		int64(len(req.LastCommitInfo.Votes))*tdtypes.MaxVoteBytes -
+		int64(len(req.ByzantineValidators))*tdtypes.MaxEvidenceBytes
+	remainGas := maxGas
 	for {
 		tx, err := mempool.GetNextTransaction(remainBytes, remainGas)
 		if err != nil {
@@ -119,22 +124,14 @@ func (app *Application) CreateBlock(
 		size = newState.Size
 		remainBytes -= int64(len(tx))
 		remainGas -= gasUsed
+		txResp := &types.ResponseDeliverTx{GasUsed: gasUsed}
+		txsResp = append(txsResp, txResp)
 	}
 
 	appHash := make([]byte, 8)
 	binary.PutVarint(appHash, size)
 
-	events := []types.Event{
-		{
-			Type: "create_block",
-			Attributes: []types.EventAttribute{
-				{Key: []byte("height"), Value: []byte{byte(req.Height)}},
-				{Key: []byte("valid tx"), Value: []byte{byte(len(txs))}},
-				{Key: []byte("invalid tx"), Value: []byte{byte(len(invalidTxs))}},
-			},
-		},
-	}
-	return types.ResponseCreateBlock{Txs: txs, InvalidTxs: invalidTxs, Hash: appHash, Events: events}
+	return types.ResponseCreateBlock{Txs: txs, InvalidTxs: invalidTxs, AppHash: appHash, DeliverTxs: txsResp}
 }
 
 // Combination of ABCI.BeginBlock, []ABCI.DeliverTx, and ABCI.EndBlock
