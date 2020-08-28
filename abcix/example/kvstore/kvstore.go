@@ -96,15 +96,15 @@ func (app *Application) CreateBlock(
 	req types.RequestCreateBlock,
 	mempool *types.MempoolIter,
 ) types.ResponseCreateBlock {
-	var txs, invalidTxs [][]byte
 	var size int64
-	var txsResp []*types.ResponseDeliverTx
 	remainBytes := maxBytes -
 		tdtypes.MaxOverheadForBlock -
 		tdtypes.MaxHeaderBytes -
 		int64(len(req.LastCommitInfo.Votes))*tdtypes.MaxVoteBytes -
 		int64(len(req.ByzantineValidators))*tdtypes.MaxEvidenceBytes
 	remainGas := maxGas
+
+	ret := types.ResponseCreateBlock{}
 	for {
 		tx, err := mempool.GetNextTransaction(remainBytes, remainGas)
 		if err != nil {
@@ -117,21 +117,24 @@ func (app *Application) CreateBlock(
 
 		newState, gasUsed, err := executeTx(app.state, tx, true)
 		if err != nil {
-			invalidTxs = append(invalidTxs, tx)
+			ret.InvalidTxs = append(ret.InvalidTxs, tx)
 			continue
 		}
-		txs = append(txs, tx)
+		ret.Txs = append(ret.Txs, tx)
 		size = newState.Size
 		remainBytes -= int64(len(tx))
 		remainGas -= gasUsed
 		txResp := &types.ResponseDeliverTx{GasUsed: gasUsed}
-		txsResp = append(txsResp, txResp)
+		ret.DeliverTxs = append(ret.DeliverTxs, txResp)
 	}
 
-	appHash := make([]byte, 8)
-	binary.PutVarint(appHash, size)
+	if size != 0 {
+		appHash := make([]byte, 8)
+		binary.PutVarint(appHash, size)
+		ret.AppHash = appHash
+	}
 
-	return types.ResponseCreateBlock{Txs: txs, InvalidTxs: invalidTxs, AppHash: appHash, DeliverTxs: txsResp}
+	return ret
 }
 
 // Combination of ABCI.BeginBlock, []ABCI.DeliverTx, and ABCI.EndBlock

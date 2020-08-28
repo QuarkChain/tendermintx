@@ -333,7 +333,7 @@ func (c *Client) BlockResults(height *int64) (*ctypes.ResultBlockResults, error)
 	}
 
 	// Update the light client if we're behind.
-	trustedHeader, err := c.updateLightClientIfNeededTo(h)
+	trustedHeader, err := c.updateLightClientIfNeededTo(h + 1)
 	if err != nil {
 		return nil, err
 	}

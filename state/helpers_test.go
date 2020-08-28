@@ -239,7 +239,6 @@ func (app *testApp) Info(req abcix.RequestInfo) (resInfo abcix.ResponseInfo) {
 }
 
 func (app *testApp) CreateBlock(req abcix.RequestCreateBlock, iter *abcix.MempoolIter) abcix.ResponseCreateBlock {
-	var txsResp []*abcix.ResponseDeliverTx
 	ret := abcix.ResponseCreateBlock{}
 
 	remainBytes := types.DefaultConsensusParams().Block.MaxBytes -
@@ -259,10 +258,9 @@ func (app *testApp) CreateBlock(req abcix.RequestCreateBlock, iter *abcix.Mempoo
 		}
 		ret.Txs = append(ret.Txs, tx)
 		remainBytes -= int64(len(tx))
-		txsResp = append(txsResp, &abcix.ResponseDeliverTx{})
+		ret.DeliverTxs = append(ret.DeliverTxs, &abcix.ResponseDeliverTx{})
 	}
 
-	ret.DeliverTxs = txsResp
 	return ret
 }
 

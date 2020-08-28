@@ -927,7 +927,7 @@ func (cs *State) needProofBlock(height int64) bool {
 
 	lastBlockMeta := cs.blockStore.LoadBlockMeta(height - 1)
 	if lastBlockMeta == nil {
-		panic(fmt.Sprintf("needProofBlock: last block meta for height %d not found", height-2))
+		panic(fmt.Sprintf("needProofBlock: last block meta for height %d not found", height-1))
 	}
 	return !bytes.Equal(cs.state.AppHash, lastBlockMeta.Header.AppHash)
 }
