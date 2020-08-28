@@ -62,7 +62,7 @@ func getNextOrderedTxs(t interface{}, byteLimit int) [][]byte {
 }
 
 func iterateOrderedTxs(t interface{}, byteLimit int) [][]byte {
-	var tree = t.(llrb)
+	var tree = t.(*llrb)
 	var starter *NodeKey
 	var txs [][]byte
 	tree.IterInit(starter, func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
@@ -202,7 +202,7 @@ func TestBTreeGetNext(t *testing.T) {
 	testGetNext(t, NewBTree, getNextOrderedTxs)
 }
 
-func testGetNext(t *testing.T, treeGen func() BalancedTree, getOrderedTxs func(tree interface{}, byteLimit int) [][]byte) {
+func testGetNext(t *testing.T, treeGen func() BalancedTree, getOrderedTxs func(interface{}, int) [][]byte) {
 	testCases := []struct {
 		priorities      []uint64 // Priority of each tx
 		byteLength      []int    // Byte length of each tx
