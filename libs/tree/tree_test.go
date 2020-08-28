@@ -330,13 +330,11 @@ func benchmarkGetNext(b *testing.B, treeGen func() BalancedTree) {
 		data := getRandomBytes(1)[0]
 		err := tree.Insert(NodeKey{Priority: rand.Uint64(), Hash: txHash(data)}, data)
 		if err != nil {
-			b.Error("failed to insert", err)
-			return
+			b.Fatal("failed to insert", err)
 		}
 	}
 	if tree.Size() != size {
-		b.Error("invalid tree size", tree.Size())
-		return
+		b.Fatal("invalid tree size", tree.Size())
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -344,8 +342,7 @@ func benchmarkGetNext(b *testing.B, treeGen func() BalancedTree) {
 		for startKey != (NodeKey{}) {
 			_, next, _ := tree.GetNext(&startKey, func(interface{}) bool { return true })
 			if next.Priority > startKey.Priority {
-				b.Error("invalid iteration")
-				return
+				b.Fatal("invalid iteration")
 			}
 			startKey = next
 		}
