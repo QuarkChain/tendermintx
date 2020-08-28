@@ -40,18 +40,16 @@ type node struct {
 }
 
 type llrb struct {
-	mtx       sync.RWMutex
-	size      int
-	maxSize   int
-	root      *node
-	stack     []*node
-	predicate func(interface{}) bool
+	mtx     sync.RWMutex
+	size    int
+	maxSize int
+	root    *node
+	stack   []*node
 }
 
 func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) error {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
-	t.predicate = predicate
 	startKey := NodeKey{
 		Priority: uint64(math.MaxUint64),
 	}
@@ -84,6 +82,17 @@ func (t *llrb) iterCurr() (interface{}, error) {
 	return t.stack[len(t.stack)-1].data, nil
 }
 
+func (t *llrb) IterNext(predicate func(interface{}) bool) (interface{}, error) {
+	t.iterNext()
+	if v, err := t.iterCurr(); err != nil {
+		if predicate(v) {
+			return v, nil
+		}
+		return t.IterNext(predicate)
+	}
+	return nil, ErrorStopIteration
+}
+
 func (t *llrb) iterNext() {
 	curr := t.stack[len(t.stack)-1].left
 	t.stack = t.stack[:len(t.stack)-1]
@@ -103,11 +112,6 @@ func (t *llrb) Size() int {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
 	return t.size
-}
-
-func (t *llrb) IterNext() (interface{}, error) {
-	t.iterNext()
-	return t.iterCurr()
 }
 
 // GetNext retrieves a satisfied tx with "largest" nodeKey and "smaller" than starter if provided

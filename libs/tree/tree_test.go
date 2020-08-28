@@ -46,9 +46,10 @@ func getFixedBytes(byteLength []int) [][]byte {
 	return txs
 }
 
-func getOrderedTxs(tree BalancedTree, byteLimit int) [][]byte {
+func getNextOrderedTxs(t interface{}, byteLimit int) [][]byte {
 	var starter *NodeKey
 	var txs [][]byte
+	var tree = t.(BalancedTree)
 	for {
 		result, next, err := tree.GetNext(starter, func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
 		if err != nil {
@@ -56,6 +57,21 @@ func getOrderedTxs(tree BalancedTree, byteLimit int) [][]byte {
 		}
 		txs = append(txs, result.([]byte))
 		starter = &next
+	}
+	return txs
+}
+
+func iterateOrderedTxs(t interface{}, byteLimit int) [][]byte {
+	var tree = t.(llrb)
+	var starter *NodeKey
+	var txs [][]byte
+	tree.IterInit(starter, func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
+	for {
+		result, err := tree.IterNext(func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
+		if err != nil {
+			break
+		}
+		txs = append(txs, result.([]byte))
 	}
 	return txs
 }
@@ -175,14 +191,18 @@ func testUpdateKey(t *testing.T, treeGen func() BalancedTree) {
 }
 
 func TestLLRBGetNext(t *testing.T) {
-	testGetNext(t, NewLLRB)
+	testGetNext(t, NewLLRB, getNextOrderedTxs)
+}
+
+func TestLLRBIterNext(t *testing.T) {
+	testGetNext(t, NewLLRB, iterateOrderedTxs)
 }
 
 func TestBTreeGetNext(t *testing.T) {
-	testGetNext(t, NewBTree)
+	testGetNext(t, NewBTree, getNextOrderedTxs)
 }
 
-func testGetNext(t *testing.T, treeGen func() BalancedTree) {
+func testGetNext(t *testing.T, treeGen func() BalancedTree, getOrderedTxs func(tree interface{}, byteLimit int) [][]byte) {
 	testCases := []struct {
 		priorities      []uint64 // Priority of each tx
 		byteLength      []int    // Byte length of each tx
