@@ -1,16 +1,20 @@
-package llrb
+package tree
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
 	"sync"
 )
 
-// maxSize is the max allowed number of node a llrb is allowed to contain
+// maxSize is the max allowed number of node a tree is allowed to contain
 const maxSize = int(^uint(0) >> 1)
 
 var ErrorStopIteration = errors.New("STOP ITERATION")
+var ErrorKeyNotFound = errors.New("KEY NOT FOUND")
+var ErrorKeyConflicted = errors.New("KEY CONFLICTED")
+var ErrorExceedTreeSize = fmt.Errorf("tree reached maximum size %d", maxSize)
 
 func (a NodeKey) compare(b NodeKey) int {
 	if a.Priority > b.Priority {
@@ -25,7 +29,7 @@ func (a NodeKey) compare(b NodeKey) int {
 	if a.TS.After(b.TS) {
 		return -1
 	}
-	return 0
+	return bytes.Compare(a.Hash[:], b.Hash[:])
 }
 
 type node struct {
@@ -73,19 +77,11 @@ func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) erro
 	return nil
 }
 
-func (t *llrb) IterCurr() (interface{}, error) {
-	if !t.IterHasNext() {
+func (t *llrb) iterCurr() (interface{}, error) {
+	if len(t.stack) == 0 {
 		return nil, ErrorStopIteration
 	}
 	return t.stack[len(t.stack)-1].data, nil
-}
-
-func (t *llrb) IterNext() {
-	t.iterNext()
-	if t.predicate != nil {
-		for result, err := t.IterCurr(); err == nil && !t.predicate(result); t.iterNext() {
-		}
-	}
 }
 
 func (t *llrb) iterNext() {
@@ -95,10 +91,6 @@ func (t *llrb) iterNext() {
 		t.stack = append(t.stack, curr)
 		curr = curr.right
 	}
-}
-
-func (t *llrb) IterHasNext() bool {
-	return len(t.stack) != 0
 }
 
 // newLLRB return llrb with given maxSize
@@ -113,8 +105,13 @@ func (t *llrb) Size() int {
 	return t.size
 }
 
+func (t *llrb) IterNext() (interface{}, error) {
+	t.iterNext()
+	return t.iterCurr()
+}
+
 // GetNext retrieves a satisfied tx with "largest" nodeKey and "smaller" than starter if provided
-func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (interface{}, error) {
+func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (interface{}, NodeKey, error) {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
 	startKey := NodeKey{
@@ -135,9 +132,17 @@ func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 		}
 	}
 	if candidate == nil {
-		return nil, ErrorStopIteration
+		return nil, NodeKey{}, ErrorStopIteration
 	}
-	return candidate.data, nil
+	return candidate.data, candidate.key, nil
+}
+
+func (t *llrb) UpdateKey(oldKey NodeKey, newKey NodeKey) error {
+	data, err := t.Remove(oldKey)
+	if err != nil {
+		return err
+	}
+	return t.Insert(newKey, data)
 }
 
 // Insert inserts value into the tree
@@ -150,7 +155,7 @@ func (t *llrb) Insert(key NodeKey, data interface{}) error {
 	if err == nil {
 		t.size++
 		if t.size >= t.maxSize {
-			return fmt.Errorf("tree reached maximum size %d", t.maxSize)
+			return ErrorExceedTreeSize
 		}
 	}
 	return err
@@ -167,7 +172,7 @@ func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
 	case 1:
 		h.right, err = t.insert(h.right, key, data)
 	default:
-		err = fmt.Errorf("key conflict")
+		err = ErrorKeyConflicted
 	}
 	if isRed(h.right) && !isRed(h.left) {
 		h = t.rotateLeft(h)
@@ -211,7 +216,7 @@ func (t *llrb) Remove(key NodeKey) (interface{}, error) {
 		t.size--
 		return deleted.data, nil
 	}
-	return nil, fmt.Errorf("key not found")
+	return nil, ErrorKeyNotFound
 }
 
 func (t *llrb) delete(h *node, key NodeKey) (*node, node) {

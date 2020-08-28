@@ -115,6 +115,20 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	if err != nil {
 		panic(err)
 	}
+
+	// remove invalid txs from mempool
+	var invalidTxs = make([]types.Tx, len(resp.InvalidTxs))
+	for i, invalidTx := range resp.InvalidTxs {
+		invalidTxs[i] = invalidTx
+	}
+
+	blockExec.mempool.Lock()
+	err = blockExec.mempool.RemoveTxs(invalidTxs)
+	blockExec.mempool.Unlock()
+	if err != nil {
+		blockExec.logger.Error("Error in mempool.RemoveTxs", "err", err)
+	}
+
 	for _, txBytes := range resp.Txs {
 		txs = append(txs, txBytes)
 	}

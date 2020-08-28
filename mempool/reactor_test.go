@@ -54,7 +54,7 @@ func TestReactorBroadcastTxMessage(t *testing.T) {
 		}
 	}
 
-	txs := checkTxs(t, reactors[0].mempool, numTxs, UnknownPeerID)
+	txs := checkTxs(t, reactors[0].mempool, UnknownPeerID, make([]uint64, numTxs), 0)
 	waitForTxsOnReactors(t, txs, reactors)
 }
 
@@ -71,7 +71,7 @@ func TestReactorNoBroadcastToSender(t *testing.T) {
 	}()
 
 	const peerID = 1
-	checkTxs(t, reactors[0].mempool, numTxs, peerID)
+	checkTxs(t, reactors[0].mempool, peerID, make([]uint64, numTxs), 0)
 	ensureNoTxs(t, reactors[peerID], 100*time.Millisecond)
 }
 
@@ -188,7 +188,7 @@ func makeAndConnectReactors(config *cfg.Config, n int) []*Reactor {
 	for i := 0; i < n; i++ {
 		app := kvstore.NewApplication()
 		cc := proxy.NewLegacyLocalClientCreator(app)
-		mempool, cleanup := newMempoolWithApp(cc)
+		mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), enumclistmempool)
 		defer cleanup()
 
 		reactors[i] = NewReactor(config.Mempool, mempool) // so we dont start the consensus states
