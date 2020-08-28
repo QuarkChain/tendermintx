@@ -24,5 +24,5 @@ func NewLLRB() BalancedTree {
 }
 
 func NewBTree() BalancedTree {
-	return newBTREE(maxSize)
+	return newBTree(maxSize)
 }
