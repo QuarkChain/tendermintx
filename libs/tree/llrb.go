@@ -68,6 +68,13 @@ func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) erro
 			h = h.left
 		}
 	}
+	for ; candidate == nil && t.IterHasNext(); t.iterNext() {
+		next := t.stack[len(t.stack)-1]
+		if (predicate == nil || predicate(next.data)) && (candidate == nil || candidate.key.compare(next.key) == -1) {
+			candidate = next
+		}
+	}
+
 	if candidate == nil {
 		return ErrorStopIteration
 	}
@@ -103,7 +110,7 @@ func (t *llrb) IterNext(predicate func(interface{}) bool) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	//fmt.Printf("Current iterNext value is %x, stack length is %d\n", value.([]byte), len(t.stack))
+	fmt.Printf("Current iterNext value is %x, stack length is %d\n", value.([]byte), len(t.stack))
 	t.iterNext()
 	for next, nerr := t.iterCurr(); nerr == nil && !predicate(next); t.iterNext() {
 		next, nerr = t.iterCurr()

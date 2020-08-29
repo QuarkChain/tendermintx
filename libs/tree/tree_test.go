@@ -68,13 +68,16 @@ func iterateOrderedTxs(t interface{}, byteLimit int) [][]byte {
 	var starter *NodeKey
 	var txs [][]byte
 	tree.IterInit(starter, func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
-	for i := 0; i < 10; i++ {
-		result, err := tree.IterNext(func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
-		if err != nil {
-			break
+	for i := 0; i < 5; i++ {
+		fmt.Println(i)
+		if tree.IterHasNext(){
+			result, err := tree.IterNext(func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
+			if err != nil {
+				break
+			}
+			fmt.Printf("%dth result %x\n", i, result.([]byte))
+			txs = append(txs, result.([]byte))
 		}
-		fmt.Printf("%x\n", result.([]byte))
-		txs = append(txs, result.([]byte))
 	}
 	return txs
 }
@@ -236,12 +239,12 @@ func testGetNext(t *testing.T, treeGen func() BalancedTree, getOrderedTxs func(i
 			priorities:      []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
 			expectedTxOrder: []int{0, 1, 2, 3},
 		},
-		//// Byte limitation test
-		//{
-		//	priorities:      []uint64{0, 0, 0, 0, 0},
-		//	byteLimit:       1,
-		//	expectedTxOrder: []int{},
-		//},
+		//Byte limitation test
+		{
+			priorities:      []uint64{0, 0, 0, 0, 0},
+			byteLimit:       1,
+			expectedTxOrder: []int{},
+		},
 		//{
 		//	priorities:      []uint64{0, 0, 0, 0, 0},
 		//	byteLength:      []int{1, 2, 3, 4, 5},
