@@ -54,8 +54,7 @@ func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) erro
 		Priority: uint64(math.MaxUint64),
 	}
 	if starter != nil {
-		startKey.Priority = starter.Priority
-		startKey.TS = starter.TS
+		startKey = *starter
 	}
 	var candidate *node
 	for h := t.root; h != nil; {
@@ -75,6 +74,19 @@ func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) erro
 	return nil
 }
 
+func (t *llrb) iterateAll() {
+	helper(t.root)
+}
+
+func helper(root *node) {
+	if root == nil {
+		return
+	}
+	fmt.Printf("%d,%x\n", root.key.Priority, root.data.([]byte))
+	helper(root.left)
+	helper(root.right)
+}
+
 func (t *llrb) iterCurr() (interface{}, error) {
 	if len(t.stack) == 0 {
 		return nil, ErrorStopIteration
@@ -82,15 +94,21 @@ func (t *llrb) iterCurr() (interface{}, error) {
 	return t.stack[len(t.stack)-1].data, nil
 }
 
+func (t *llrb) IterHasNext() bool {
+	return len(t.stack) > 0
+}
+
 func (t *llrb) IterNext(predicate func(interface{}) bool) (interface{}, error) {
-	t.iterNext()
-	if v, err := t.iterCurr(); err != nil {
-		if predicate(v) {
-			return v, nil
-		}
-		return t.IterNext(predicate)
+	value, err := t.iterCurr()
+	if err != nil {
+		return nil, err
 	}
-	return nil, ErrorStopIteration
+	//fmt.Printf("Current iterNext value is %x, stack length is %d\n", value.([]byte), len(t.stack))
+	t.iterNext()
+	for next, nerr := t.iterCurr(); nerr == nil && !predicate(next); t.iterNext() {
+		next, nerr = t.iterCurr()
+	}
+	return value, nil
 }
 
 func (t *llrb) iterNext() {
