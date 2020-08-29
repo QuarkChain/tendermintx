@@ -25,6 +25,8 @@ var (
 
 type adaptedApp struct {
 	abciApp abci.Application
+	appHash []byte
+	events  []abcix.Event
 }
 
 type AdaptedApp interface {
@@ -189,6 +191,7 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 	allEvents = append(allEvents, beginEvents...)
 	allEvents = append(allEvents, endEvents...)
 	resp.Events = allEvents
+	app.events = allEvents
 	return resp
 }
 
@@ -198,11 +201,20 @@ func (app *adaptedApp) Commit() (resp abcix.ResponseCommit) {
 		// TODO: panic for debugging purposes. better error handling soon!
 		panic(err)
 	}
+	app.appHash = abciResp.Data
 	return
 }
 
-func (app *adaptedApp) CheckBlock(req abcix.RequestCheckBlock) (resp abcix.ResponseCheckBlock) {
-	panic("implement me")
+func (app *adaptedApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckBlock {
+	respDeliverTx := make([]*abcix.ResponseDeliverTx, len(req.Txs))
+	for i := range respDeliverTx {
+		respDeliverTx[i] = &abcix.ResponseDeliverTx{Code: 0}
+	}
+	return abcix.ResponseCheckBlock{
+		AppHash:    app.appHash,
+		DeliverTxs: respDeliverTx,
+		Events:     app.events,
+	}
 }
 
 func (app *adaptedApp) ListSnapshots(req abcix.RequestListSnapshots) (resp abcix.ResponseListSnapshots) {

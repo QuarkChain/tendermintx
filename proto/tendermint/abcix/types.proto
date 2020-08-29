@@ -257,6 +257,7 @@ message ResponseDeliverBlock {
 
 message ResponseCheckBlock {
   uint32                            code                    = 1;
+  bytes                             app_hash                = 2;
   repeated        ResponseDeliverTx deliver_txs             = 3;
   repeated        ValidatorUpdate   validator_updates       = 4
   [(gogoproto.nullable) = false];
