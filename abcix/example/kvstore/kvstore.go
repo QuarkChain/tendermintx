@@ -155,10 +155,7 @@ func (app *Application) DeliverBlock(req types.RequestDeliverBlock) types.Respon
 }
 
 func (app *Application) CheckBlock(req types.RequestCheckBlock) types.ResponseCheckBlock {
-	return types.ResponseCheckBlock{
-		//AppHash:    req.Header.AppHash,
-	}
-
+	return types.ResponseCheckBlock{}
 }
 
 func (app *Application) Commit() types.ResponseCommit {
