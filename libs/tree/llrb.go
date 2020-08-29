@@ -47,6 +47,13 @@ type llrb struct {
 	stack   []*node
 }
 
+func (t *llrb) printStack() {
+	for i, v := range t.stack {
+		fmt.Printf("%dth %d, ", i, v.key.Priority)
+	}
+	fmt.Println()
+}
+
 func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) error {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
@@ -56,25 +63,34 @@ func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) erro
 	if starter != nil {
 		startKey = *starter
 	}
-	var candidate *node
 	for h := t.root; h != nil; {
 		t.stack = append(t.stack, h)
 		if h.key.compare(startKey) == -1 {
-			if (predicate == nil || predicate(h.data)) && (candidate == nil || candidate.key.compare(h.key) == -1) {
-				candidate = h
-			}
 			h = h.right
 		} else {
 			h = h.left
 		}
 	}
-	for ; candidate == nil && t.IterHasNext(); t.iterNext() {
-		next := t.stack[len(t.stack)-1]
-		if (predicate == nil || predicate(next.data)) && (candidate == nil || candidate.key.compare(next.key) == -1) {
-			candidate = next
-		}
+	//fmt.Println("After init stack")
+	//t.printStack()
+	var candidate *node
+	next := t.stack[len(t.stack)-1]
+	if predicate == nil || predicate(next.data){
+		candidate = next
 	}
 
+	for ; candidate == nil && t.IterHasNext(); t.iterNext() {
+		next = t.stack[len(t.stack)-1]
+		//fmt.Printf("Current tx is %d\n",next.key.Priority)
+		if predicate == nil || predicate(next.data) {
+			//print("Updated\n")
+			candidate = next
+			break
+		}
+		//t.printStack()
+	}
+	//fmt.Println("After find stack")
+	//t.printStack()
 	if candidate == nil {
 		return ErrorStopIteration
 	}
@@ -110,7 +126,6 @@ func (t *llrb) IterNext(predicate func(interface{}) bool) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("Current iterNext value is %x, stack length is %d\n", value.([]byte), len(t.stack))
 	t.iterNext()
 	for next, nerr := t.iterCurr(); nerr == nil && !predicate(next); t.iterNext() {
 		next, nerr = t.iterCurr()

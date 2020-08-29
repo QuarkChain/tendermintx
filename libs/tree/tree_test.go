@@ -5,7 +5,6 @@ import (
 	cr "crypto/rand"
 	"crypto/sha256"
 	"fmt"
-	"math"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -69,7 +68,6 @@ func iterateOrderedTxs(t interface{}, byteLimit int) [][]byte {
 	var txs [][]byte
 	tree.IterInit(starter, func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
 	for i := 0; i < 5; i++ {
-		fmt.Println(i)
 		if tree.IterHasNext(){
 			result, err := tree.IterNext(func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
 			if err != nil {
@@ -215,48 +213,48 @@ func testGetNext(t *testing.T, treeGen func() BalancedTree, getOrderedTxs func(i
 		byteLimit       int      // Byte limit provided by user
 		expectedTxOrder []int    // How original txs ordered in retrieved txs
 	}{
-		{
-			priorities:      []uint64{0, 0, 0, 0, 0},
-			expectedTxOrder: []int{0, 1, 2, 3, 4},
-		},
-		{
-			priorities:      []uint64{1, 0, 1, 0, 1},
-			expectedTxOrder: []int{0, 2, 4, 1, 3},
-		},
-		{
-			priorities:      []uint64{1, 2, 3, 4, 5},
-			expectedTxOrder: []int{4, 3, 2, 1, 0},
-		},
-		{
-			priorities:      []uint64{5, 4, 3, 2, 1},
-			expectedTxOrder: []int{0, 1, 2, 3, 4},
-		},
-		{
-			priorities:      []uint64{1, 3, 5, 4, 2},
-			expectedTxOrder: []int{2, 3, 1, 4, 0},
-		},
-		{
-			priorities:      []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
-			expectedTxOrder: []int{0, 1, 2, 3},
-		},
+		//{
+		//	priorities:      []uint64{0, 0, 0, 0, 0},
+		//	expectedTxOrder: []int{0, 1, 2, 3, 4},
+		//},
+		//{
+		//	priorities:      []uint64{1, 0, 1, 0, 1},
+		//	expectedTxOrder: []int{0, 2, 4, 1, 3},
+		//},
+		//{
+		//	priorities:      []uint64{1, 2, 3, 4, 5},
+		//	expectedTxOrder: []int{4, 3, 2, 1, 0},
+		//},
+		//{
+		//	priorities:      []uint64{5, 4, 3, 2, 1},
+		//	expectedTxOrder: []int{0, 1, 2, 3, 4},
+		//},
+		//{
+		//	priorities:      []uint64{1, 3, 5, 4, 2},
+		//	expectedTxOrder: []int{2, 3, 1, 4, 0},
+		//},
+		//{
+		//	priorities:      []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
+		//	expectedTxOrder: []int{0, 1, 2, 3},
+		//},
 		//Byte limitation test
 		{
 			priorities:      []uint64{0, 0, 0, 0, 0},
 			byteLimit:       1,
 			expectedTxOrder: []int{},
 		},
-		//{
-		//	priorities:      []uint64{0, 0, 0, 0, 0},
-		//	byteLength:      []int{1, 2, 3, 4, 5},
-		//	byteLimit:       1,
-		//	expectedTxOrder: []int{0},
-		//},
-		//{
-		//	priorities:      []uint64{0, 0, 0, 0, 0},
-		//	byteLength:      []int{1, 2, 3, 4, 5},
-		//	byteLimit:       3,
-		//	expectedTxOrder: []int{0, 1, 2},
-		//},
+		{
+			priorities:      []uint64{1, 2, 3, 4, 5},
+			byteLength:      []int{1, 2, 3, 4, 5},
+			byteLimit:       1,
+			expectedTxOrder: []int{0},
+		},
+		{
+			priorities:      []uint64{0, 0, 0, 0, 0},
+			byteLength:      []int{1, 2, 3, 4, 5},
+			byteLimit:       3,
+			expectedTxOrder: []int{0, 1, 2},
+		},
 		//{
 		//	priorities:      []uint64{1, 0, 1, 0, 1},
 		//	byteLength:      []int{1, 2, 3, 4, 5},
