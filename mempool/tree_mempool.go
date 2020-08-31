@@ -44,9 +44,9 @@ type treeMempool struct {
 	recheckEnd    tree.NodeKey // re-checking stops here
 
 	waitChWrapper struct {
+		sync.RWMutex
 		ch     chan struct{}
 		closed bool
-		mtx    sync.RWMutex
 	}
 }
 
@@ -93,12 +93,12 @@ func (mem *treeMempool) addTx(memTx *mempoolTx, priority uint64) {
 	// race closing the channel based only on `mem.txs`, thus a bool flag
 	// is used to avoid closing an already closed channel
 	if prevSize == 0 {
-		mem.waitChWrapper.mtx.Lock()
+		mem.waitChWrapper.Lock()
 		if !mem.waitChWrapper.closed {
 			close(mem.waitChWrapper.ch)
 			mem.waitChWrapper.closed = true
 		}
-		mem.waitChWrapper.mtx.Unlock()
+		mem.waitChWrapper.Unlock()
 	}
 }
 
@@ -121,12 +121,12 @@ func (mem *treeMempool) removeTx(tx types.Tx) (elemRemoved bool) {
 
 	// Re-init tx wait ch
 	if elemRemoved && mem.txs.Size() == 0 {
-		mem.waitChWrapper.mtx.Lock()
+		mem.waitChWrapper.Lock()
 		if mem.waitChWrapper.closed {
 			mem.waitChWrapper.ch = make(chan struct{})
 			mem.waitChWrapper.closed = false
 		}
-		mem.waitChWrapper.mtx.Unlock()
+		mem.waitChWrapper.Unlock()
 	}
 	return
 }
@@ -199,7 +199,7 @@ func (mem *treeMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
 	proxyAppConn.FlushAsync()
 }
 
-func (mem *treeMempool) getNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
+func (mem *treeMempool) GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
 	var prevNodeKey *tree.NodeKey
 	if len(starter) > 0 {
 		if e, ok := mem.txsMap.Load(TxKey(starter)); ok {
@@ -242,7 +242,21 @@ func (mem *treeMempool) getMempoolTx(tx types.Tx) *mempoolTx {
 }
 
 func (mem *treeMempool) txsWaitChan() <-chan struct{} {
-	mem.waitChWrapper.mtx.RLock()
-	defer mem.waitChWrapper.mtx.RUnlock()
+	mem.waitChWrapper.RLock()
+	defer mem.waitChWrapper.RUnlock()
 	return mem.waitChWrapper.ch
+}
+
+func (mem *treeMempool) nextTx(memTx *mempoolTx) *mempoolTx {
+	var starter *tree.NodeKey
+	if memTx != nil {
+		if e, ok := mem.txsMap.Load(TxKey(memTx.tx)); ok {
+			starter = &e.(*tElement).nodeKey
+		}
+	}
+	result, _, err := mem.txs.GetNext(starter, nil)
+	if err != nil { // End of iteration
+		return nil
+	}
+	return result.(*mempoolTx)
 }

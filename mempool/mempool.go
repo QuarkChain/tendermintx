@@ -184,18 +184,18 @@ type basemempool struct {
 
 type mempoolImpl interface {
 	Size() int
+	GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error)
 
-	// all private methods will assume locks are held by basemempool so the impl themselves won't need to
 	addTx(*mempoolTx, uint64)
 	removeTx(types.Tx) bool // return whether corresponding element is removed or not
 	updateRecheckCursor()
 	reapMaxTxs(int) types.Txs
 	recheckTxs(proxy.AppConnMempool)
-	getNextTxBytes(int64, int64, []byte) ([]byte, error)
 	isRecheckCursorNil() bool
 	getRecheckCursorTx() *mempoolTx
 	getMempoolTx(types.Tx) *mempoolTx
 	deleteAll()
+	nextTx(tx *mempoolTx) *mempoolTx // not based on priority
 
 	// txsWaitChan returns a channel to wait on transactions. It will be closed
 	// once the mempool is not empty (ie. the internal `mem.txs` has at least one
@@ -654,15 +654,6 @@ func (mem *basemempool) Update(
 	mem.metrics.Size.Set(float64(mem.Size()))
 
 	return nil
-}
-
-// GetNextTxBytes finds satisfied tx with two iterations which cost O(N) time, will be optimized with balance tree
-// or other techniques to reduce the time complexity to O(logN) or even O(1)
-func (mem *basemempool) GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
-	mem.updateMtx.RLock()
-	defer mem.updateMtx.RUnlock()
-
-	return mem.getNextTxBytes(remainBytes, remainGas, starter)
 }
 
 // Lock() must be held by the caller during execution.

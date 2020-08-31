@@ -7,7 +7,6 @@ import (
 	"time"
 
 	cfg "github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/libs/clist"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
 	protomem "github.com/tendermint/tendermint/proto/tendermint/mempool"
@@ -189,16 +188,11 @@ type PeerState interface {
 // Send new mempool txs to peer.
 func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 	peerID := memR.ids.GetForPeer(peer)
-	// TODO: support LLRB mempool, so we can abstract in basemempool to avoid type casting.
 	basemempool, ok := memR.mempool.(*basemempool)
 	if !ok {
-		panic("can not cast mempool to basemempool")
+		panic("can not cast mempool to basemempool") // programmer error
 	}
-	clistmempool, ok := basemempool.mempoolImpl.(*cListMempool)
-	if !ok {
-		panic("can not cast mempoolImpl to ClistMempool")
-	}
-	var next *clist.CElement
+	var next *mempoolTx
 	for {
 		// In case of both next.NextWaitChan() and peer.Quit() are variable at the same time
 		if !memR.IsRunning() || !peer.IsRunning() {
@@ -210,7 +204,9 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 		if next == nil {
 			select {
 			case <-basemempool.txsWaitChan(): // Wait until a tx is available
-				if next = clistmempool.TxsFront(); next == nil {
+				next = basemempool.nextTx(nil)
+				// Race happens because tx is removed. Start from the beginning
+				if next == nil {
 					continue
 				}
 			case <-peer.Quit():
@@ -220,7 +216,7 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 			}
 		}
 
-		memTx := next.Value.(*mempoolTx)
+		memTx := next
 
 		// make sure the peer is up to date
 		peerState, ok := peer.Get(types.PeerStateKey).(PeerState)
@@ -260,13 +256,12 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 		}
 
 		select {
-		case <-next.NextWaitChan():
-			// see the start of the for loop for nil check
-			next = next.Next()
 		case <-peer.Quit():
 			return
 		case <-memR.Quit():
 			return
+		default:
+			next = basemempool.nextTx(next)
 		}
 	}
 }

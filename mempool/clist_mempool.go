@@ -148,7 +148,9 @@ func (mem *cListMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
 	proxyAppConn.FlushAsync()
 }
 
-func (mem *cListMempool) getNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
+// GetNextTxBytes finds satisfied tx with two iterations which cost O(N) time, will be optimized with balance tree
+// or other techniques to reduce the time complexity to O(logN) or even O(1)
+func (mem *cListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
 	var prevElement *clist.CElement
 	if e, ok := mem.txsMap.Load(TxKey(starter)); ok {
 		prevElement = e.(*clist.CElement)
@@ -207,6 +209,26 @@ func (mem *cListMempool) getRecheckCursorTx() *mempoolTx {
 func (mem *cListMempool) getMempoolTx(tx types.Tx) *mempoolTx {
 	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
 		return e.(*clist.CElement).Value.(*mempoolTx)
+	}
+	return nil
+}
+
+func (mem *cListMempool) nextTx(memTx *mempoolTx) *mempoolTx {
+	if memTx == nil {
+		// Simply return the first
+		front := mem.txs.Front()
+		if front != nil {
+			return front.Value.(*mempoolTx)
+		}
+		return nil
+	}
+
+	if e, ok := mem.txsMap.Load(TxKey(memTx.tx)); ok {
+		celem := e.(*clist.CElement)
+		next := celem.Next()
+		if next != nil {
+			return next.Value.(*mempoolTx)
+		}
 	}
 	return nil
 }
