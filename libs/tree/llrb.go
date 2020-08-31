@@ -47,13 +47,14 @@ type llrb struct {
 	stack   []*node
 }
 
-func (t *llrb) printStack() {
-	for i, v := range t.stack {
-		fmt.Printf("%dth %d %x;", i, v.key.Priority, v.data.([]byte))
-	}
-	fmt.Println()
-}
+//func (t *llrb) printStack() {
+//	for i, v := range t.stack {
+//		fmt.Printf("%dth %d %x;", i, v.key.Priority, v.data.([]byte))
+//	}
+//	fmt.Println()
+//}
 
+// IterInit initialize the iterator to the first node meet the requirements
 func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) error {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
@@ -63,6 +64,7 @@ func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) erro
 	if starter != nil {
 		startKey = *starter
 	}
+	// iterate with only priority check
 	for h := t.root; h != nil; {
 		t.stack = append(t.stack, h)
 		if h.key.compare(startKey) == -1 {
@@ -71,27 +73,18 @@ func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) erro
 			h = h.left
 		}
 	}
-	fmt.Println("After init stack")
-	t.printStack()
-	var candidate *node
-	next := t.stack[len(t.stack)-1]
-	if predicate == nil || predicate(next.data) {
-		candidate = next
-	}
-	fmt.Printf("Init tx is %x\n", next.data.([]byte))
 
-	for ; candidate == nil && t.IterHasNext(); t.iterNext() {
-		next = t.stack[len(t.stack)-1]
+	var candidate *node
+
+	for next := t.stack[len(t.stack)-1]; candidate == nil && t.IterHasNext(); t.iterNext() {
 		fmt.Printf("Current tx is %x\n", next.data.([]byte))
 		if predicate == nil || predicate(next.data) {
 			print("Updated\n")
 			candidate = next
 			break
 		}
-		t.printStack()
 	}
-	fmt.Println("After find stack")
-	t.printStack()
+
 	if candidate == nil {
 		return ErrorStopIteration
 	}
@@ -111,29 +104,33 @@ func helper(root *node) {
 	helper(root.right)
 }
 
-func (t *llrb) iterCurr() (interface{}, error) {
+// iterCur() return the value of current iterator
+func (t *llrb) iterCur() (interface{}, error) {
 	if len(t.stack) == 0 {
 		return nil, ErrorStopIteration
 	}
 	return t.stack[len(t.stack)-1].data, nil
 }
 
+// IterHasNext return the availability of next iteration
 func (t *llrb) IterHasNext() bool {
 	return len(t.stack) > 0
 }
 
+// IterNext returns current value if available, then keep calling iterNext() until next is ready for fetch
 func (t *llrb) IterNext(predicate func(interface{}) bool) (interface{}, error) {
-	value, err := t.iterCurr()
+	value, err := t.iterCur()
 	if err != nil {
 		return nil, err
 	}
 	t.iterNext()
-	for next, nerr := t.iterCurr(); nerr == nil && !predicate(next); t.iterNext() {
-		next, nerr = t.iterCurr()
+	for next, nerr := t.iterCur(); nerr == nil && !predicate(next); t.iterNext() {
+		next, nerr = t.iterCur()
 	}
 	return value, nil
 }
 
+// iterNext move the iterator backwards one step
 func (t *llrb) iterNext() {
 	curr := t.stack[len(t.stack)-1].left
 	t.stack = t.stack[:len(t.stack)-1]
