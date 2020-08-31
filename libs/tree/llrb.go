@@ -158,28 +158,6 @@ func (t *llrb) iterInit(starter *NodeKey, predicate func(interface{}) bool) erro
 	return nil
 }
 
-func (t *llrb) printStack() {
-	for i, v := range t.stack {
-		fmt.Printf("%dth %d %x;", i, v.key.Priority, v.data.([]byte))
-	}
-	fmt.Println()
-}
-
-func (t *llrb) iterateAll() {
-	helper(t.root)
-}
-
-func helper(root *node) {
-	if root == nil {
-		return
-	}
-	fmt.Printf("%d,%x\n", root.key.Priority, root.data.([]byte))
-	fmt.Println("Left is")
-	helper(root.left)
-	fmt.Println("Right is")
-	helper(root.right)
-}
-
 // iterCur() return the value of current iterator
 func (t *llrb) iterCur() (interface{}, NodeKey, error) {
 	if len(t.stack) == 0 {
@@ -388,4 +366,29 @@ func flip(h *node) {
 	h.black = !h.black
 	h.left.black = !h.left.black
 	h.right.black = !h.right.black
+}
+
+
+func (t *llrb) printStack() {
+	for i, v := range t.stack {
+		fmt.Printf("%dth %d %x;", i, v.key.Priority, v.data.([]byte))
+	}
+	fmt.Println()
+}
+
+func (t *llrb) iterateAll() {
+	helper(t.root)
+}
+
+//------------------------------help funcs--------------------------------------
+
+func helper(root *node) {
+	if root == nil {
+		return
+	}
+	fmt.Printf("%d,%x\n", root.key.Priority, root.data.([]byte))
+	fmt.Println("Left is")
+	helper(root.left)
+	fmt.Println("Right is")
+	helper(root.right)
 }
