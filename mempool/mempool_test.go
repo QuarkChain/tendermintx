@@ -256,21 +256,21 @@ func TestTxsAvailable(t *testing.T) {
 }
 
 func TestMempoolCloseWAL(t *testing.T) {
-	// 1. Create the temporary directory for mempool and WAL testing.
-	rootDir, err := ioutil.TempDir("", "mempool-test")
-	require.Nil(t, err, "expecting successful tmpdir creation")
-
-	// 2. Ensure that it doesn't contain any elements -- Sanity check
-	m1, err := filepath.Glob(filepath.Join(rootDir, "*"))
-	require.Nil(t, err, "successful globbing expected")
-	require.Equal(t, 0, len(m1), "no matches yet")
-
-	wcfg := cfg.DefaultConfig()
-	wcfg.Mempool.RootDir = rootDir
 	app := kvstore2.NewApplication()
 	cc := proxy.NewLegacyLocalClientCreator(app)
-	// 3. Create the mempool
 	for _, mpEnum := range mpEnums {
+		// 1. Create the temporary directory for mempool and WAL testing.
+		rootDir, err := ioutil.TempDir("", fmt.Sprintf("mempool-test-%d", mpEnum))
+		require.Nil(t, err, "expecting successful tmpdir creation")
+
+		// 2. Ensure that it doesn't contain any elements -- Sanity check
+		m1, err := filepath.Glob(filepath.Join(rootDir, "*"))
+		require.Nil(t, err, "successful globbing expected")
+		require.Equal(t, 0, len(m1), "no matches yet")
+
+		// 3. Create the mempool
+		wcfg := cfg.DefaultConfig()
+		wcfg.Mempool.RootDir = rootDir
 		mp, cleanup := newLegacyMempoolWithAppAndConfig(cc, wcfg, mpEnum)
 		defer cleanup()
 
@@ -288,12 +288,7 @@ func TestMempoolCloseWAL(t *testing.T) {
 		sum1 := checksumFile(walFilepath, t)
 
 		// 6. Sanity check to ensure that the written TX matches the expectation.
-		switch mp.(*basemempool).mempoolImpl.(type) {
-		case *cListMempool:
-			require.Equal(t, sum1, checksumIt([]byte("foo\n")), "foo with a newline should be written")
-		case *llrbMempool:
-			require.Equal(t, sum1, checksumIt([]byte("foo\nfoo\n")), "foo with a newline should be written")
-		}
+		require.Equal(t, sum1, checksumIt([]byte("foo\n")), "foo with a newline should be written")
 
 		// 7. Invoke CloseWAL() and ensure it discards the
 		// WAL thus any other write won't go through.
