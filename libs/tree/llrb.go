@@ -368,7 +368,6 @@ func flip(h *node) {
 	h.right.black = !h.right.black
 }
 
-
 func (t *llrb) printStack() {
 	for i, v := range t.stack {
 		fmt.Printf("%dth %d %x;", i, v.key.Priority, v.data.([]byte))
