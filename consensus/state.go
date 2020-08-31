@@ -1739,10 +1739,10 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 			return added, err
 		}
 
-		if err = cs.blockExec.CheckBlock(block); err != nil {
-			cs.Logger.Error("Error on CheckBlock", "err", err)
-			return false, err
-		}
+		//if err = cs.blockExec.CheckBlock(block); err != nil {
+		//	cs.Logger.Error("Error on CheckBlock", "err", err)
+		//	return false, err
+		//}
 
 		cs.ProposalBlock = block
 		// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal

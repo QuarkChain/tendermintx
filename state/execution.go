@@ -301,14 +301,14 @@ func (blockExec *BlockExecutor) CheckBlock(block *types.Block) error {
 		)
 		return errors.New("resultHash mismatch")
 	}
-	// TODO: uncomment after AppHash added
-	//if !bytes.Equal(resp.AppHash, block.Header.AppHash.Bytes()) {
-	//	blockExec.logger.Error(
-	//		"appHash mismatch. AppHash in ResponseCheckBlock: %X\n AppHash in block header: %X",
-	//		resp.AppHash, block.Header.AppHash,
-	//	)
-	//	return errors.New("appHash mismatch")
-	//}
+
+	if !bytes.Equal(resp.AppHash, block.Header.AppHash.Bytes()) {
+		blockExec.logger.Error(
+			"appHash mismatch. AppHash in ResponseCheckBlock: %X\n AppHash in block header: %X",
+			resp.AppHash, block.Header.AppHash,
+		)
+		return errors.New("appHash mismatch")
+	}
 
 	return err
 }
