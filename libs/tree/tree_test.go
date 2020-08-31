@@ -145,22 +145,22 @@ func testGetNext(t *testing.T, treeGen func(bool) BalancedTree, speedUp bool) {
 			priorities:      []uint64{0, 0, 0, 0, 0},
 			expectedTxOrder: []int{0, 1, 2, 3, 4},
 		},
-		//{
-		//	priorities:      []uint64{1, 0, 1, 0, 1},
-		//	expectedTxOrder: []int{0, 2, 4, 1, 3},
-		//},
-		//{
-		//	priorities:      []uint64{1, 2, 3, 4, 5},
-		//	expectedTxOrder: []int{4, 3, 2, 1, 0},
-		//},
-		//{
-		//	priorities:      []uint64{5, 4, 3, 2, 1},
-		//	expectedTxOrder: []int{0, 1, 2, 3, 4},
-		//},
-		//{
-		//	priorities:      []uint64{1, 3, 5, 4, 2},
-		//	expectedTxOrder: []int{2, 3, 1, 4, 0},
-		//},
+		{
+			priorities:      []uint64{1, 0, 1, 0, 1},
+			expectedTxOrder: []int{0, 2, 4, 1, 3},
+		},
+		{
+			priorities:      []uint64{1, 2, 3, 4, 5},
+			expectedTxOrder: []int{4, 3, 2, 1, 0},
+		},
+		{
+			priorities:      []uint64{5, 4, 3, 2, 1},
+			expectedTxOrder: []int{0, 1, 2, 3, 4},
+		},
+		{
+			priorities:      []uint64{1, 3, 5, 4, 2},
+			expectedTxOrder: []int{2, 3, 1, 4, 0},
+		},
 		//{
 		//	priorities:      []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
 		//	expectedTxOrder: []int{0, 1, 2, 3},
@@ -264,14 +264,14 @@ func benchmarkRemove(b *testing.B, treeGen func(bool) BalancedTree, speedUp bool
 	}
 }
 
-// BenchmarkBTreeGetNext-8   	     121	  10038807 ns/op
-func BenchmarkBTreeGetNext(b *testing.B) {
-	benchmarkGetNext(b, NewBTree, false)
-}
-
 // BenchmarkLLRBGetNext-8   	     390	   2798607 ns/op
 func BenchmarkLLRBGetNext(b *testing.B) {
 	benchmarkGetNext(b, NewLLRB, false)
+}
+
+// BenchmarkBTreeGetNext-8   	     121	  10038807 ns/op
+func BenchmarkBTreeGetNext(b *testing.B) {
+	benchmarkGetNext(b, NewBTree, false)
 }
 
 func benchmarkGetNext(b *testing.B, treeGen func(bool) BalancedTree, speedUp bool) {
