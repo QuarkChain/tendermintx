@@ -37,7 +37,6 @@ func (ps peerState) GetHeight() int64 {
 // Send a bunch of txs to the first reactor's mempool and wait for them all to
 // be received in the others.
 func TestReactorBroadcastTxMessage(t *testing.T) {
-	//config := cfg.TestConfig()
 	// if there were more than two reactors, the order of transactions could not be
 	// asserted in waitForTxsOnReactors (due to transactions gossiping). If we
 	// replace Connect2Switches (full mesh) with a func, which connects first
@@ -161,7 +160,6 @@ func TestMempoolIDsPanicsIfNodeRequestsOvermaxActiveIDs(t *testing.T) {
 }
 
 func TestDontExhaustMaxActiveIDs(t *testing.T) {
-	//config := cfg.TestConfig()
 	const N = 1
 	for _, mpEnum := range mpEnums {
 		config := cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum))
