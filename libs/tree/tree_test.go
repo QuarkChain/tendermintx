@@ -163,6 +163,7 @@ func testGetNext(t *testing.T, treeGen func(bool) BalancedTree, speedUp bool) {
 		},
 		//{
 		//	priorities:      []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
+		//	byteLength:      []int{2, 2, 2, 2},
 		//	expectedTxOrder: []int{0, 1, 2, 3},
 		//},
 		////Byte limitation test

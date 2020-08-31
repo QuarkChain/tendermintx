@@ -122,12 +122,14 @@ func newLLRB(maxSize int, speedUp bool) *llrb {
 func (t *llrb) iterInit(starter *NodeKey, predicate func(interface{}) bool) error {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
+	t.iterateAll()
 	startKey := NodeKey{
 		Priority: uint64(math.MaxUint64),
 	}
 	if starter != nil {
 		startKey = *starter
 	}
+	fmt.Println("Start initializing")
 	// iterate with only priority check
 	for h := t.root; h != nil; {
 		t.stack = append(t.stack, h)
@@ -137,7 +139,10 @@ func (t *llrb) iterInit(starter *NodeKey, predicate func(interface{}) bool) erro
 			h = h.left
 		}
 	}
+	fmt.Println("End initializing")
+	t.printStack()
 
+	fmt.Println("Finding candidate")
 	// move iterator until next meet the conditions
 	var candidate *node
 	for next := t.stack[len(t.stack)-1]; candidate == nil && len(t.stack) > 0; t.iterNext() {
@@ -151,6 +156,8 @@ func (t *llrb) iterInit(starter *NodeKey, predicate func(interface{}) bool) erro
 			break
 		}
 	}
+	fmt.Println("End finding candidate")
+	t.printStack()
 
 	if candidate == nil {
 		return ErrorStopIteration
@@ -368,6 +375,8 @@ func flip(h *node) {
 	h.right.black = !h.right.black
 }
 
+//------------------------------help funcs--------------------------------------
+
 func (t *llrb) printStack() {
 	for i, v := range t.stack {
 		fmt.Printf("%dth %d %x;", i, v.key.Priority, v.data.([]byte))
@@ -378,8 +387,6 @@ func (t *llrb) printStack() {
 func (t *llrb) iterateAll() {
 	helper(t.root)
 }
-
-//------------------------------help funcs--------------------------------------
 
 func helper(root *node) {
 	if root == nil {
