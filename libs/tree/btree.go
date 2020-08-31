@@ -95,7 +95,7 @@ func (t *btree) Insert(key NodeKey, data interface{}) error {
 	}
 	t.tree.ReplaceOrInsert(item)
 	if t.Size() >= t.maxSize {
-		return ErrorExceedTreeSize
+		return ErrorSizeExceeded
 	}
 	return nil
 }

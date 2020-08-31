@@ -19,10 +19,10 @@ type BalancedTree interface {
 	UpdateKey(oldKey NodeKey, newKey NodeKey) error
 }
 
-func NewLLRB() BalancedTree {
-	return newLLRB(maxSize)
+func NewLLRB(speedUp bool) BalancedTree {
+	return newLLRB(maxSize, speedUp)
 }
 
-func NewBTree() BalancedTree {
+func NewBTree(speedUp bool) BalancedTree {
 	return newBTree(maxSize)
 }
