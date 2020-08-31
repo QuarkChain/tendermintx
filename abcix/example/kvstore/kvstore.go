@@ -124,16 +124,7 @@ func (app *Application) CreateBlock(
 	appHash := make([]byte, 8)
 	binary.PutVarint(appHash, size)
 
-	events := []types.Event{
-		{
-			Type: "create_block",
-			Attributes: []types.EventAttribute{
-				{Key: []byte("height"), Value: []byte{byte(req.Height)}},
-				{Key: []byte("valid tx"), Value: []byte{byte(len(txs))}},
-				{Key: []byte("invalid tx"), Value: []byte{byte(len(invalidTxs))}},
-			},
-		},
-	}
+	events := []types.Event{}
 	return types.ResponseCreateBlock{Txs: txs, InvalidTxs: invalidTxs, Hash: appHash, Events: events}
 }
 
@@ -155,7 +146,23 @@ func (app *Application) DeliverBlock(req types.RequestDeliverBlock) types.Respon
 }
 
 func (app *Application) CheckBlock(req types.RequestCheckBlock) types.ResponseCheckBlock {
-	return types.ResponseCheckBlock{}
+	// Tx looks like "[key1]=[value1],[key2]=[value2],[from],[gasprice]"
+	// e.g. "a=41,c=42,alice,100"
+	ret := types.ResponseCheckBlock{}
+
+	var lastState *State
+	for _, tx := range req.Txs {
+		newState, gasUsed, err := executeTx(app.state, tx, true)
+		if err != nil {
+			panic("consensus failure: invalid tx found in DeliverBlock: " + err.Error())
+		}
+		lastState = &newState
+		txResp := types.ResponseDeliverTx{GasUsed: gasUsed}
+		ret.DeliverTxs = append(ret.DeliverTxs, &txResp)
+	}
+	ret.AppHash = lastState.AppHash
+
+	return ret
 }
 
 func (app *Application) Commit() types.ResponseCommit {
