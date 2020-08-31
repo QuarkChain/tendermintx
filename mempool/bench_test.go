@@ -15,17 +15,17 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
-// BenchmarkClistCheckTx-8   	     768	   1510694 ns/op
+// BenchmarkClistCheckTx-8   	   15879	     71109 ns/op
 func BenchmarkClistCheckTx(b *testing.B) {
 	benchmarkCheckTx(b, enumclistmempool)
 }
 
-// BenchmarkLLRBCheckTx-8   	     646	   1573239 ns/op
+// BenchmarkLLRBCheckTx-8   	   16897	     68117 ns/op
 func BenchmarkLLRBCheckTx(b *testing.B) {
 	benchmarkCheckTx(b, enumllrbmempool)
 }
 
-// BenchmarkBTreeCheckTx-8   	     554	   1922431 ns/op
+// BenchmarkBTreeCheckTx-8   	   16588	     69571 ns/op
 func BenchmarkBTreeCheckTx(b *testing.B) {
 	benchmarkCheckTx(b, enumbtreemempool)
 }
@@ -51,9 +51,6 @@ func benchmarkCheckTx(b *testing.B, enum mpEnum) {
 		for j := 0; j < size; j++ {
 			mempool.CheckTx(txs[j], nil, TxInfo{})
 		}
-		b.StopTimer()
-		mempool.Flush()
-		b.StartTimer()
 	}
 }
 
