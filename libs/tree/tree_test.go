@@ -239,13 +239,12 @@ func testGetNext(t *testing.T, treeGen func() BalancedTree, getOrderedTxs func(i
 			expectedTxOrder: []int{0, 1, 2, 3},
 		},
 		//Byte limitation test
+		{
+			priorities:      []uint64{0, 0, 0, 0, 0},
+			byteLimit:       1,
+			expectedTxOrder: []int{},
+		},
 		//{
-		//	priorities:      []uint64{0, 0, 0, 0, 0},
-		//	byteLimit:       1,
-		//	expectedTxOrder: []int{},
-		//},
-		//{
-		//	priorities:      []uint64{1, 2, 3, 4, 5},
 		//	byteLength:      []int{1, 2, 3, 4, 5},
 		//	byteLimit:       1,
 		//	expectedTxOrder: []int{0},

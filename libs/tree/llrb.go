@@ -47,12 +47,12 @@ type llrb struct {
 	stack   []*node
 }
 
-//func (t *llrb) printStack() {
-//	for i, v := range t.stack {
-//		fmt.Printf("%dth %d %x;", i, v.key.Priority, v.data.([]byte))
-//	}
-//	fmt.Println()
-//}
+func (t *llrb) printStack() {
+	for i, v := range t.stack {
+		fmt.Printf("%dth %d %x;", i, v.key.Priority, v.data.([]byte))
+	}
+	fmt.Println()
+}
 
 // IterInit initialize the iterator to the first node meet the requirements
 func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) error {
@@ -74,10 +74,13 @@ func (t *llrb) IterInit(starter *NodeKey, predicate func(interface{}) bool) erro
 		}
 	}
 
+	// move iterator until next meet the conditions
 	var candidate *node
-
 	for next := t.stack[len(t.stack)-1]; candidate == nil && t.IterHasNext(); t.iterNext() {
+		next = t.stack[len(t.stack)-1]
 		fmt.Printf("Current tx is %x\n", next.data.([]byte))
+		fmt.Println("Current stack is")
+		t.printStack()
 		if predicate == nil || predicate(next.data) {
 			print("Updated\n")
 			candidate = next
