@@ -34,7 +34,7 @@ type treeMempool struct {
 	treeGen func() tree.BalancedTree // return a specified balanced tree
 
 	// Map for quick access to txs to record sender in CheckTx.
-	// txsMap: txKey -> lElement
+	// txsMap: txKey -> tElement
 	txsMap sync.Map
 
 	// Track whether we're rechecking txs.
@@ -72,14 +72,18 @@ func (mem *treeMempool) Size() int {
 
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
-func (mem *treeMempool) addTx(memTx *mempoolTx, priority uint64) {
+func (mem *treeMempool) addTx(memTx *mempoolTx, priority uint64) error {
 	hash := TxKey(memTx.tx)
-	nodeKey := tree.NodeKey{Priority: priority, TS: time.Now(), Hash: hash}
-	if err := mem.txs.Insert(nodeKey, memTx); err != nil {
-		// TODO: better error handling here
-		panic("failed to insert tx into tree mempool: " + err.Error())
+	newKey := tree.NodeKey{Priority: priority, TS: time.Now(), Hash: hash}
+	if oldEle, ok := mem.txsMap.Load(TxKey(memTx.tx)); ok {
+		if err := mem.txs.UpdateKey(oldEle.(*tElement).nodeKey, newKey); err != nil {
+			return err
+		}
+		return nil
 	}
-	mem.txsMap.Store(hash, &tElement{nodeKey, memTx})
+	mem.txs.Insert(newKey, memTx)
+	mem.txsMap.Store(hash, &tElement{newKey, memTx})
+	return nil
 }
 
 // Called from:

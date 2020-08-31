@@ -11,9 +11,8 @@ import (
 var btreeDegree = flag.Int("degree", 32, "B-Tree degree")
 
 type btree struct {
-	mtx     sync.RWMutex
-	tree    *gbt.BTree
-	maxSize int
+	mtx  sync.RWMutex
+	tree *gbt.BTree
 }
 
 type bnode struct {
@@ -28,8 +27,8 @@ func (a bnode) Less(b gbt.Item) bool {
 }
 
 // newBTree return btree with given maxSize
-func newBTree(maxSize int) *btree {
-	return &btree{tree: gbt.New(*btreeDegree), maxSize: maxSize}
+func newBTree() *btree {
+	return &btree{tree: gbt.New(*btreeDegree)}
 }
 
 // Size returns the number of nodes in the tree
@@ -83,21 +82,14 @@ func (t *btree) UpdateKey(oldKey NodeKey, newKey NodeKey) error {
 }
 
 // Insert inserts value into the tree
-func (t *btree) Insert(key NodeKey, data interface{}) error {
+func (t *btree) Insert(key NodeKey, data interface{}) {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
 	item := bnode{
 		key:  key,
 		data: data,
 	}
-	if t.tree.Has(item) {
-		return ErrorKeyConflicted
-	}
 	t.tree.ReplaceOrInsert(item)
-	if t.Size() >= t.maxSize {
-		return ErrorExceedTreeSize
-	}
-	return nil
 }
 
 // Remove removes a value from the tree with provided key,

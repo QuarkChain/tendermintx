@@ -3,18 +3,13 @@ package tree
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"math"
 	"sync"
 )
 
-// maxSize is the max allowed number of node a tree is allowed to contain
-const maxSize = int(^uint(0) >> 1)
-
 var ErrorStopIteration = errors.New("STOP ITERATION")
 var ErrorKeyNotFound = errors.New("KEY NOT FOUND")
 var ErrorKeyConflicted = errors.New("KEY CONFLICTED")
-var ErrorExceedTreeSize = fmt.Errorf("tree reached maximum size %d", maxSize)
 
 func (a NodeKey) compare(b NodeKey) int {
 	if a.Priority > b.Priority {
@@ -40,15 +35,14 @@ type node struct {
 }
 
 type llrb struct {
-	mtx     sync.RWMutex
-	size    int
-	maxSize int
-	root    *node
+	mtx  sync.RWMutex
+	size int
+	root *node
 }
 
 // newLLRB return llrb with given maxSize
-func newLLRB(maxSize int) *llrb {
-	return &llrb{maxSize: maxSize}
+func newLLRB() *llrb {
+	return &llrb{}
 }
 
 // Size returns the number of nodes in the tree
@@ -90,11 +84,13 @@ func (t *llrb) UpdateKey(oldKey NodeKey, newKey NodeKey) error {
 	if err != nil {
 		return err
 	}
-	return t.Insert(newKey, data)
+
+	t.Insert(newKey, data)
+	return nil
 }
 
 // Insert inserts value into the tree
-func (t *llrb) Insert(key NodeKey, data interface{}) error {
+func (t *llrb) Insert(key NodeKey, data interface{}) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 	var err error
@@ -102,11 +98,7 @@ func (t *llrb) Insert(key NodeKey, data interface{}) error {
 	t.root.black = true
 	if err == nil {
 		t.size++
-		if t.size >= t.maxSize {
-			return ErrorExceedTreeSize
-		}
 	}
-	return err
 }
 
 func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
@@ -122,6 +114,7 @@ func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
 	default:
 		err = ErrorKeyConflicted
 	}
+
 	if isRed(h.right) && !isRed(h.left) {
 		h = t.rotateLeft(h)
 	}
