@@ -27,6 +27,7 @@ type adaptedApp struct {
 	abciApp     abci.Application
 	resultsHash []byte
 	appHash     []byte
+	events      []abcix.Event
 }
 
 type AdaptedApp interface {
@@ -154,7 +155,8 @@ func (app *adaptedApp) CreateBlock(
 		remainGas--
 	}
 	resp.AppHash = app.appHash
-	return
+	resp.Events = app.events
+	return resp
 }
 
 func (app *adaptedApp) InitChain(req abcix.RequestInitChain) (resp abcix.ResponseInitChain) {
@@ -193,6 +195,7 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 	allEvents = append(allEvents, beginEvents...)
 	allEvents = append(allEvents, endEvents...)
 	resp.Events = allEvents
+	app.events = allEvents
 	return resp
 }
 

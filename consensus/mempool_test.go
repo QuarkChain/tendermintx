@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -262,9 +261,9 @@ func (app *CounterApplication) CreateBlock(
 		remainGas--
 	}
 
-	hash := make([]byte, 8)
-	binary.BigEndian.PutUint64(hash, uint64(count))
-	if !bytes.Equal(hash, bytes.Repeat([]byte{0}, 8)) {
+	if count != 0 {
+		hash := make([]byte, 8)
+		binary.BigEndian.PutUint64(hash, uint64(count))
 		ret.AppHash = hash
 	}
 	return ret
