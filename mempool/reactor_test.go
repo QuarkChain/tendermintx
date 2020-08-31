@@ -2,6 +2,7 @@ package mempool
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"testing"
@@ -36,43 +37,48 @@ func (ps peerState) GetHeight() int64 {
 // Send a bunch of txs to the first reactor's mempool and wait for them all to
 // be received in the others.
 func TestReactorBroadcastTxMessage(t *testing.T) {
-	config := cfg.TestConfig()
+	//config := cfg.TestConfig()
 	// if there were more than two reactors, the order of transactions could not be
 	// asserted in waitForTxsOnReactors (due to transactions gossiping). If we
 	// replace Connect2Switches (full mesh) with a func, which connects first
 	// reactor to others and nothing else, this test should also pass with >2 reactors.
 	const N = 2
-	reactors := makeAndConnectReactors(config, N)
-	defer func() {
+	for _, mpEnum := range mpEnums {
+		config := cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum))
+		reactors := makeAndConnectReactors(config, N, mpEnum)
+		defer func() {
+			for _, r := range reactors {
+				r.Stop()
+			}
+		}()
 		for _, r := range reactors {
-			r.Stop()
+			for _, peer := range r.Switch.Peers().List() {
+				peer.Set(types.PeerStateKey, peerState{1})
+			}
 		}
-	}()
-	for _, r := range reactors {
-		for _, peer := range r.Switch.Peers().List() {
-			peer.Set(types.PeerStateKey, peerState{1})
-		}
-	}
 
-	txs := checkTxs(t, reactors[0].mempool, UnknownPeerID, make([]uint64, numTxs), 0)
-	waitForTxsOnReactors(t, txs, reactors)
+		txs := checkTxs(t, reactors[0].mempool, UnknownPeerID, make([]uint64, numTxs), 0)
+		waitForTxsOnReactors(t, txs, reactors)
+	}
 }
 
 // Send a bunch of txs to the first reactor's mempool, claiming it came from peer
 // ensure peer gets no txs.
 func TestReactorNoBroadcastToSender(t *testing.T) {
-	config := cfg.TestConfig()
 	const N = 2
-	reactors := makeAndConnectReactors(config, N)
-	defer func() {
-		for _, r := range reactors {
-			r.Stop()
-		}
-	}()
+	for _, mpEnum := range mpEnums {
+		config := cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum))
+		reactors := makeAndConnectReactors(config, N, mpEnum)
+		defer func() {
+			for _, r := range reactors {
+				r.Stop()
+			}
+		}()
 
-	const peerID = 1
-	checkTxs(t, reactors[0].mempool, peerID, make([]uint64, numTxs), 0)
-	ensureNoTxs(t, reactors[peerID], 100*time.Millisecond)
+		const peerID = 1
+		checkTxs(t, reactors[0].mempool, peerID, make([]uint64, numTxs), 0)
+		ensureNoTxs(t, reactors[peerID], 100*time.Millisecond)
+	}
 }
 
 func TestBroadcastTxForPeerStopsWhenPeerStops(t *testing.T) {
@@ -80,22 +86,24 @@ func TestBroadcastTxForPeerStopsWhenPeerStops(t *testing.T) {
 		t.Skip("skipping test in short mode.")
 	}
 
-	config := cfg.TestConfig()
 	const N = 2
-	reactors := makeAndConnectReactors(config, N)
-	defer func() {
-		for _, r := range reactors {
-			r.Stop()
-		}
-	}()
+	for _, mpEnum := range mpEnums {
+		config := cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum))
+		reactors := makeAndConnectReactors(config, N, mpEnum)
+		defer func() {
+			for _, r := range reactors {
+				r.Stop()
+			}
+		}()
 
-	// stop peer
-	sw := reactors[1].Switch
-	sw.StopPeerForError(sw.Peers().List()[0], errors.New("some reason"))
+		// stop peer
+		sw := reactors[1].Switch
+		sw.StopPeerForError(sw.Peers().List()[0], errors.New("some reason"))
 
-	// check that we are not leaking any go-routines
-	// i.e. broadcastTxRoutine finishes when peer is stopped
-	leaktest.CheckTimeout(t, 10*time.Second)()
+		// check that we are not leaking any go-routines
+		// i.e. broadcastTxRoutine finishes when peer is stopped
+		leaktest.CheckTimeout(t, 10*time.Second)()
+	}
 }
 
 func TestBroadcastTxForPeerStopsWhenReactorStops(t *testing.T) {
@@ -103,18 +111,20 @@ func TestBroadcastTxForPeerStopsWhenReactorStops(t *testing.T) {
 		t.Skip("skipping test in short mode.")
 	}
 
-	config := cfg.TestConfig()
 	const N = 2
-	reactors := makeAndConnectReactors(config, N)
+	for _, mpEnum := range mpEnums {
+		config := cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum))
+		reactors := makeAndConnectReactors(config, N, mpEnum)
 
-	// stop reactors
-	for _, r := range reactors {
-		r.Stop()
+		// stop reactors
+		for _, r := range reactors {
+			r.Stop()
+		}
+
+		// check that we are not leaking any go-routines
+		// i.e. broadcastTxRoutine finishes when reactor is stopped
+		leaktest.CheckTimeout(t, 10*time.Second)()
 	}
-
-	// check that we are not leaking any go-routines
-	// i.e. broadcastTxRoutine finishes when reactor is stopped
-	leaktest.CheckTimeout(t, 10*time.Second)()
 }
 
 func TestMempoolIDsBasic(t *testing.T) {
@@ -151,20 +161,24 @@ func TestMempoolIDsPanicsIfNodeRequestsOvermaxActiveIDs(t *testing.T) {
 }
 
 func TestDontExhaustMaxActiveIDs(t *testing.T) {
-	config := cfg.TestConfig()
+	//config := cfg.TestConfig()
 	const N = 1
-	reactors := makeAndConnectReactors(config, N)
-	defer func() {
-		for _, r := range reactors {
-			r.Stop()
-		}
-	}()
-	reactor := reactors[0]
+	for _, mpEnum := range mpEnums {
+		config := cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum))
+		reactors := makeAndConnectReactors(config, N, mpEnum)
+		//reactors := makeAndConnectReactors(config, N, enumclistmempool)
+		defer func() {
+			for _, r := range reactors {
+				r.Stop()
+			}
+		}()
+		reactor := reactors[0]
 
-	for i := 0; i < maxActiveIDs+1; i++ {
-		peer := mock.NewPeer(nil)
-		reactor.Receive(MempoolChannel, peer, []byte{0x1, 0x2, 0x3})
-		reactor.AddPeer(peer)
+		for i := 0; i < maxActiveIDs+1; i++ {
+			peer := mock.NewPeer(nil)
+			reactor.Receive(MempoolChannel, peer, []byte{0x1, 0x2, 0x3})
+			reactor.AddPeer(peer)
+		}
 	}
 }
 
@@ -182,13 +196,13 @@ func mempoolLogger() log.Logger {
 }
 
 // connect N mempool reactors through N switches
-func makeAndConnectReactors(config *cfg.Config, n int) []*Reactor {
+func makeAndConnectReactors(config *cfg.Config, n int, me mpEnum) []*Reactor {
 	reactors := make([]*Reactor, n)
 	logger := mempoolLogger()
 	for i := 0; i < n; i++ {
 		app := kvstore.NewApplication()
 		cc := proxy.NewLegacyLocalClientCreator(app)
-		mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), enumclistmempool)
+		mempool, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot("mempool_test"), me)
 		defer cleanup()
 
 		reactors[i] = NewReactor(config.Mempool, mempool) // so we dont start the consensus states
