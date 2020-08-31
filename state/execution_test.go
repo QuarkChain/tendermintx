@@ -2,12 +2,18 @@ package state_test
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
+
+	cfg "github.com/tendermint/tendermint/config"
+	mempl "github.com/tendermint/tendermint/mempool"
+	"github.com/tendermint/tendermint/proxy/mocks"
 
 	abcix "github.com/tendermint/tendermint/abcix/types"
 
 	"github.com/stretchr/testify/assert"
+	tmock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/tendermint/crypto/ed25519"
@@ -26,6 +32,63 @@ var (
 	testPartSize uint32 = 65536
 	nTxsPerBlock        = 10
 )
+
+func TestCreateProposalBlock_MempoolRemoveTxs(t *testing.T) {
+	mockProxyApp := &mocks.AppConnConsensus{}
+
+	config := cfg.ResetTestRoot("node_create_proposal")
+	defer os.RemoveAll(config.RootDir)
+	app := &testApp{}
+	proxyApp := proxy.NewAppConns(proxy.NewLocalClientCreator(app))
+	err := proxyApp.Start()
+	require.Nil(t, err)
+	defer proxyApp.Stop()
+
+	logger := log.TestingLogger()
+	state, stateDB, _ := makeState(1, 1)
+	proposerAddr, _ := state.Validators.GetByIndex(0)
+
+	mempool := mempl.NewCListMempool(
+		config.Mempool,
+		proxyApp.Mempool(),
+		state.LastBlockHeight,
+	)
+
+	txs := []types.Tx{[]byte{0x01}, []byte{0x02}, []byte{0x03}}
+	for i, tx := range txs {
+		err := mempool.CheckTx(tx, nil, mempl.TxInfo{})
+		assert.NoError(t, err)
+		assert.EqualValues(t, i+1, mempool.TxsBytes())
+	}
+
+	blockExec := sm.NewBlockExecutor(
+		stateDB,
+		logger,
+		mockProxyApp,
+		mempool,
+		sm.MockEvidencePool{},
+	)
+	mockProxyApp.On("CreateBlockSync", tmock.Anything, tmock.Anything).Return(&abcix.ResponseCreateBlock{
+		Txs:        [][]byte{{0x03}},
+		InvalidTxs: [][]byte{{0x01}, {0x02}},
+	}, nil)
+
+	commit := types.NewCommit(0, 0, types.BlockID{}, nil)
+	blockExec.CreateProposalBlock(
+		1,
+		state, commit,
+		proposerAddr,
+	)
+	assert.EqualValues(t, 1, mempool.TxsBytes())
+
+	tx, err := mempool.GetNextTxBytes(2, 1, nil)
+	assert.NoError(t, err)
+	assert.EqualValues(t, []byte{0x03}, tx)
+
+	tx, err = mempool.GetNextTxBytes(2, 1, tx)
+	assert.NoError(t, err)
+	assert.Nil(t, tx)
+}
 
 func TestApplyBlock(t *testing.T) {
 	app := &testApp{}
