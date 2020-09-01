@@ -128,11 +128,9 @@ func (app *Application) CreateBlock(
 		ret.DeliverTxs = append(ret.DeliverTxs, txResp)
 	}
 
-	if size != 0 {
-		appHash := make([]byte, 8)
-		binary.PutVarint(appHash, size)
-		ret.AppHash = appHash
-	}
+	appHash := make([]byte, 8)
+	binary.PutVarint(appHash, size)
+	ret.AppHash = appHash
 	ret.Events = nil
 	return ret
 }
@@ -159,19 +157,19 @@ func (app *Application) CheckBlock(req types.RequestCheckBlock) types.ResponseCh
 	// e.g. "a=41,c=42,alice,100"
 	ret := types.ResponseCheckBlock{}
 
-	lastState := app.state
+	var size int64
 	for _, tx := range req.Txs {
-		newState, gasUsed, err := executeTx(lastState, tx, true)
+		newState, gasUsed, err := executeTx(app.state, tx, true)
 		if err != nil {
 			panic("consensus failure: invalid tx found in CheckBlock: " + err.Error())
 		}
-		lastState = newState
+		size = newState.Size
 		txResp := types.ResponseDeliverTx{GasUsed: gasUsed}
 		ret.DeliverTxs = append(ret.DeliverTxs, &txResp)
 	}
-	if len(lastState.AppHash) != 0 {
-		ret.AppHash = lastState.AppHash
-	}
+	appHash := make([]byte, 8)
+	binary.PutVarint(appHash, size)
+	ret.AppHash = appHash
 
 	return ret
 }
