@@ -1,10 +1,8 @@
 package mempool
 
 import (
-	"crypto/rand"
 	"encoding/binary"
 	"fmt"
-	"math/big"
 	"strconv"
 	"strings"
 	"testing"
@@ -15,17 +13,32 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
-// BenchmarkClistCheckTx-8   	   15879	     71109 ns/op
+var txs types.Txs
+
+func initTxs(size int) {
+	txs = types.Txs{}
+	for i := 0; i < size; i++ {
+		txBytes := make([]byte, 20)
+		priority := strconv.FormatInt(int64(i)%100, 10)
+		tx := "k" + strconv.Itoa(i) + "=v" + strconv.Itoa(i) + ","
+		extra := 20 - len(tx) - len(priority) - 1
+		tx = tx + strings.Repeat("f", extra) + "," + priority
+		copy(txBytes, tx)
+		txs = append(txs, txBytes)
+	}
+}
+
+// BenchmarkClistCheckTx-8   	   17149	     71564 ns/op
 func BenchmarkClistCheckTx(b *testing.B) {
 	benchmarkCheckTx(b, enumclistmempool)
 }
 
-// BenchmarkLLRBCheckTx-8   	   16897	     68117 ns/op
+// BenchmarkLLRBCheckTx-8   	   17014	     70137 ns/op
 func BenchmarkLLRBCheckTx(b *testing.B) {
 	benchmarkCheckTx(b, enumllrbmempool)
 }
 
-// BenchmarkBTreeCheckTx-8   	   16588	     69571 ns/op
+// BenchmarkBTreeCheckTx-8   	   17071	     71053 ns/op
 func BenchmarkBTreeCheckTx(b *testing.B) {
 	benchmarkCheckTx(b, enumbtreemempool)
 }
@@ -36,35 +49,30 @@ func benchmarkCheckTx(b *testing.B, enum mpEnum) {
 	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
 	defer cleanup()
 	size := 100
-	txs := types.Txs{}
-	for i := 0; i < size; i++ {
-		txBytes := make([]byte, 20)
-		priority := strconv.FormatInt(int64(i)%100, 10)
-		tx := "k" + strconv.Itoa(i) + "=v" + strconv.Itoa(i) + ","
-		extra := 20 - len(tx) - len(priority) - 1
-		tx = tx + strings.Repeat("f", extra) + "," + priority
-		copy(txBytes, tx)
-		txs = append(txs, txBytes)
-	}
+	initTxs(size)
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < size; j++ {
 			mempool.CheckTx(txs[j], nil, TxInfo{})
 		}
 	}
+	if mempool.Size() != size {
+		b.Fatal("wrong checkTx size")
+	}
 }
 
-// BenchmarkClistRemoveTx-8   	  731764	      1619 ns/op
+// BenchmarkClistRemoveTx-8   	  770739	      1528 ns/op
 func BenchmarkClistRemoveTx(b *testing.B) {
 	benchmarkRemoveTx(b, enumclistmempool)
 }
 
-// BenchmarkLLRBRemoveTx-8   	  726847	      1642 ns/op
+// BenchmarkLLRBRemoveTx-8   	  767186	      1542 ns/op
 func BenchmarkLLRBRemoveTx(b *testing.B) {
 	benchmarkRemoveTx(b, enumllrbmempool)
 }
 
-// BenchmarkBTreeRemoveTx-8   	  741721	      1622 ns/op
+// BenchmarkBTreeRemoveTx-8   	  759945	      1597 ns/op
 func BenchmarkBTreeRemoveTx(b *testing.B) {
 	benchmarkRemoveTx(b, enumbtreemempool)
 }
@@ -75,13 +83,9 @@ func benchmarkRemoveTx(b *testing.B, enum mpEnum) {
 	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
 	defer cleanup()
 	size := 100000
-	txs := types.Txs{}
+	initTxs(size)
 	for j := 0; j < size; j++ {
-		rand, _ := rand.Int(rand.Reader, big.NewInt(100))
-		tx := "k" + strconv.Itoa(j) + "=v" + strconv.Itoa(j) + ",f," + strconv.FormatInt(rand.Int64(), 10)
-		txBytes := []byte(tx)
-		txs = append(txs, txBytes)
-		mempool.CheckTx(txBytes, nil, TxInfo{})
+		mempool.CheckTx(txs[j], nil, TxInfo{})
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -119,17 +123,17 @@ func BenchmarkCacheRemoveTime(b *testing.B) {
 	}
 }
 
-// BenchmarkClistMempoolGetNextTxBytes-8   	       3	 414601860 ns/op
+// BenchmarkClistMempoolGetNextTxBytes-8   	      56	  18551073 ns/op
 func BenchmarkClistMempoolGetNextTxBytes(b *testing.B) {
 	benchmarkMempoolGetNextTxBytes(b, enumclistmempool)
 }
 
-// BenchmarkLLRBMempoolGetNextTxBytes-8   	     211	   5689678 ns/op
+// BenchmarkLLRBMempoolGetNextTxBytes-8   	    1030	    980720 ns/op
 func BenchmarkLLRBMempoolGetNextTxBytes(b *testing.B) {
 	benchmarkMempoolGetNextTxBytes(b, enumllrbmempool)
 }
 
-// BenchmarkBTreeMempoolGetNextTxBytes-8   	     139	   8794886 ns/op
+// BenchmarkBTreeMempoolGetNextTxBytes-8   	     730	   1826076 ns/op
 func BenchmarkBTreeMempoolGetNextTxBytes(b *testing.B) {
 	benchmarkMempoolGetNextTxBytes(b, enumbtreemempool)
 }
@@ -139,12 +143,13 @@ func benchmarkMempoolGetNextTxBytes(b *testing.B, enum mpEnum) {
 	cc := proxy.NewLocalClientCreator(app)
 	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
 	defer cleanup()
-	size := 100000
+	size := 1000
+	initTxs(size)
 	for i := 0; i < size; i++ {
-		rand, _ := rand.Int(rand.Reader, big.NewInt(100))
-		tx := "k" + strconv.Itoa(i) + "=v" + strconv.Itoa(i) + ",f," + strconv.FormatInt(rand.Int64(), 10)
-		txBytes := []byte(tx)
-		mempool.CheckTx(txBytes, nil, TxInfo{})
+		mempool.CheckTx(txs[i], nil, TxInfo{})
+	}
+	if mempool.Size() != size {
+		b.Fatal("wrong checkTx size")
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -153,7 +158,6 @@ func benchmarkMempoolGetNextTxBytes(b *testing.B, enum mpEnum) {
 			next, _ := mempool.GetNextTxBytes(1000, 1, starter)
 			if getPriority(next) > getPriority(starter) {
 				b.Fatal("invalid iteration")
-				return
 			}
 			starter = next
 		}
