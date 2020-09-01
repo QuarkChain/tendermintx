@@ -11,9 +11,8 @@ import (
 var btreeDegree = flag.Int("degree", 32, "B-Tree degree")
 
 type btree struct {
-	mtx     sync.RWMutex
-	tree    *gbt.BTree
-	maxSize int
+	mtx  sync.RWMutex
+	tree *gbt.BTree
 }
 
 type bnode struct {
@@ -28,8 +27,8 @@ func (a bnode) Less(b gbt.Item) bool {
 }
 
 // newBTree return btree with given maxSize
-func newBTree(maxSize int) *btree {
-	return &btree{tree: gbt.New(*btreeDegree), maxSize: maxSize}
+func newBTree(speedUp bool) *btree {
+	return &btree{tree: gbt.New(*btreeDegree)}
 }
 
 // Size returns the number of nodes in the tree
@@ -70,34 +69,15 @@ func (t *btree) GetNext(starter *NodeKey, predicate func(interface{}) bool) (int
 	return candidate.data, candidate.key, nil
 }
 
-func (t *btree) UpdateKey(oldKey NodeKey, newKey NodeKey) error {
-	data, err := t.Remove(oldKey)
-	if err != nil {
-		return err
-	}
-	t.tree.ReplaceOrInsert(bnode{
-		key:  newKey,
-		data: data,
-	})
-	return nil
-}
-
 // Insert inserts value into the tree
-func (t *btree) Insert(key NodeKey, data interface{}) error {
+func (t *btree) Insert(key NodeKey, data interface{}) {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
 	item := bnode{
 		key:  key,
 		data: data,
 	}
-	if t.tree.Has(item) {
-		return ErrorKeyConflicted
-	}
 	t.tree.ReplaceOrInsert(item)
-	if t.Size() >= t.maxSize {
-		return ErrorSizeExceeded
-	}
-	return nil
 }
 
 // Remove removes a value from the tree with provided key,
@@ -110,7 +90,7 @@ func (t *btree) Remove(key NodeKey) (interface{}, error) {
 	}
 	deleted := t.tree.Delete(item)
 	if deleted == nil {
-		return deleted, ErrorKeyNotFound
+		return deleted, errorKeyNotFound
 	}
 	return deleted.(bnode).data, nil
 }

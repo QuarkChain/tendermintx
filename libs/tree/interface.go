@@ -14,15 +14,14 @@ type NodeKey struct {
 type BalancedTree interface {
 	Size() int
 	GetNext(starter *NodeKey, predicate func(interface{}) bool) (interface{}, NodeKey, error)
-	Insert(key NodeKey, data interface{}) error
+	Insert(key NodeKey, data interface{})
 	Remove(key NodeKey) (interface{}, error)
-	UpdateKey(oldKey NodeKey, newKey NodeKey) error
 }
 
 func NewLLRB(speedUp bool) BalancedTree {
-	return newLLRB(maxSize, speedUp)
+	return newLLRB(speedUp)
 }
 
 func NewBTree(speedUp bool) BalancedTree {
-	return newBTree(maxSize)
+	return newBTree(speedUp)
 }

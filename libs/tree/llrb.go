@@ -8,13 +8,9 @@ import (
 	"sync"
 )
 
-// maxSize is the max allowed number of node a tree is allowed to contain
-const maxSize = int(^uint(0) >> 1)
-
 var ErrorStopIteration = errors.New("STOP ITERATION")
-var ErrorKeyNotFound = errors.New("KEY NOT FOUND")
-var ErrorKeyConflicted = errors.New("KEY CONFLICTED")
-var ErrorSizeExceeded = errors.New("TREE SIZE EXCEEDED")
+var errorKeyNotFound = errors.New("KEY NOT FOUND")
+var errorKeyConflicted = errors.New("KEY CONFLICTED")
 
 func (a NodeKey) compare(b NodeKey) int {
 	if a.Priority > b.Priority {
@@ -42,13 +38,10 @@ type node struct {
 type llrb struct {
 	mtx      sync.RWMutex
 	size     int
-	maxSize  int
 	root     *node
 	useStack bool
 	stack    []*node
 }
-
-//------------------------------PUBLIC METHODS------------------------------------------
 
 // Size returns the number of nodes in the tree
 func (t *llrb) Size() int {
@@ -69,17 +62,8 @@ func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 	}
 }
 
-// UpdateKey replace the oldeKey with newKey
-func (t *llrb) UpdateKey(oldKey NodeKey, newKey NodeKey) error {
-	data, err := t.Remove(oldKey)
-	if err != nil {
-		return err
-	}
-	return t.Insert(newKey, data)
-}
-
 // Insert inserts value into the tree
-func (t *llrb) Insert(key NodeKey, data interface{}) error {
+func (t *llrb) Insert(key NodeKey, data interface{}) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 	var err error
@@ -87,11 +71,7 @@ func (t *llrb) Insert(key NodeKey, data interface{}) error {
 	t.root.black = true
 	if err == nil {
 		t.size++
-		if t.size >= t.maxSize {
-			return ErrorSizeExceeded
-		}
 	}
-	return err
 }
 
 // Remove removes a value from the tree with provided key
@@ -108,14 +88,12 @@ func (t *llrb) Remove(key NodeKey) (interface{}, error) {
 		t.size--
 		return deleted.data, nil
 	}
-	return nil, ErrorKeyNotFound
+	return nil, errorKeyNotFound
 }
 
-//------------------------------PRIVATE METHODS--------------------------------------
-
 // newLLRB return llrb with given maxSize
-func newLLRB(maxSize int, speedUp bool) *llrb {
-	return &llrb{maxSize: maxSize, useStack: speedUp}
+func newLLRB(speedUp bool) *llrb {
+	return &llrb{useStack: speedUp}
 }
 
 // iterInit initialize the iterator to the first node meet the requirements
@@ -227,8 +205,6 @@ func (t *llrb) getNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 	return candidate.data, candidate.key, nil
 }
 
-//------------------------------LOW LEVEL OPERATIONS--------------------------------------
-
 func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
 	if h == nil {
 		return &node{key: key, data: data}, nil
@@ -240,8 +216,9 @@ func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
 	case 1:
 		h.right, err = t.insert(h.right, key, data)
 	default:
-		err = ErrorKeyConflicted
+		return h, errorKeyConflicted
 	}
+
 	if isRed(h.right) && !isRed(h.left) {
 		h = t.rotateLeft(h)
 	}
@@ -374,8 +351,6 @@ func flip(h *node) {
 	h.left.black = !h.left.black
 	h.right.black = !h.right.black
 }
-
-//------------------------------help funcs--------------------------------------
 
 func (t *llrb) printStack() {
 	for i, v := range t.stack {

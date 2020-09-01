@@ -90,38 +90,6 @@ func testRandomInsertDeleteNonExistent(t *testing.T, treeGen func(bool) Balanced
 	_, err = tree.Remove(*getNodeKeys([]uint64{200}, txs)[0])
 	require.Error(t, err, "expecting error when removing nonexistent node")
 }
-
-func TestLLRBUpdateKey(t *testing.T) {
-	testUpdateKey(t, NewLLRB, false)
-}
-
-func TestBTreeUpdateKey(t *testing.T) {
-	testUpdateKey(t, NewBTree, false)
-}
-
-func testUpdateKey(t *testing.T, treeGen func(bool) BalancedTree, speedUp bool) {
-	tree := treeGen(speedUp)
-	n := 100
-	txs := getRandomBytes(n)
-	perm := rand.Perm(n)
-	var nks []*NodeKey
-	for i := 0; i < n; i++ {
-		nk := &NodeKey{Priority: uint64(perm[i])}
-		tree.Insert(*nk, txs[perm[i]])
-		nks = append(nks, nk)
-	}
-	for i := 0; i < n; i++ {
-		newKey := *nks[i]
-		newKey.Priority += 100
-		err := tree.UpdateKey(newKey, *nks[i])
-		require.Error(t, err, "expecting error when updating nonexistent keys")
-		err = tree.UpdateKey(*nks[i], newKey)
-		require.NoError(t, err, "expecting no error when updating existed keys")
-		data, _ := tree.Remove(newKey)
-		require.True(t, bytes.Equal(data.([]byte), txs[perm[i]]), "expecting same tx after updating keys")
-	}
-}
-
 func TestLLRBGetNext(t *testing.T) {
 	testGetNext(t, NewLLRB, false)
 }
@@ -279,12 +247,9 @@ func benchmarkGetNext(b *testing.B, treeGen func(bool) BalancedTree, speedUp boo
 	tree := treeGen(speedUp)
 	size := 10000
 	for i := 0; i < size; i++ {
-		rand, _ := cr.Int(cr.Reader, big.NewInt(1000))
+		randNum, _ := cr.Int(cr.Reader, big.NewInt(1000))
 		data := getRandomBytes(1)[0]
-		err := tree.Insert(NodeKey{Priority: rand.Uint64(), Hash: txHash(data)}, data)
-		if err != nil {
-			b.Fatal("failed to insert", err)
-		}
+		tree.Insert(NodeKey{Priority: randNum.Uint64(), Hash: txHash(data)}, data)
 	}
 	if tree.Size() != size {
 		b.Fatal("invalid tree size", tree.Size())
