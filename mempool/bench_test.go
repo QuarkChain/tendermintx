@@ -58,21 +58,21 @@ func benchmarkCheckTx(b *testing.B, enum mpEnum) {
 		}
 	}
 	if mempool.Size() != size {
-		b.Fatal("wrong checkTx size")
+		b.Fatal("wrong transaction size")
 	}
 }
 
-// BenchmarkClistRemoveTx-8   	  770739	      1528 ns/op
+// BenchmarkClistRemoveTx-8   	  659486	      1614 ns/op
 func BenchmarkClistRemoveTx(b *testing.B) {
 	benchmarkRemoveTx(b, enumclistmempool)
 }
 
-// BenchmarkLLRBRemoveTx-8   	  767186	      1542 ns/op
+// BenchmarkLLRBRemoveTx-8   	  745905	      1630 ns/op
 func BenchmarkLLRBRemoveTx(b *testing.B) {
 	benchmarkRemoveTx(b, enumllrbmempool)
 }
 
-// BenchmarkBTreeRemoveTx-8   	  759945	      1597 ns/op
+// BenchmarkBTreeRemoveTx-8   	  723351	      1628 ns/op
 func BenchmarkBTreeRemoveTx(b *testing.B) {
 	benchmarkRemoveTx(b, enumbtreemempool)
 }
@@ -82,10 +82,13 @@ func benchmarkRemoveTx(b *testing.B, enum mpEnum) {
 	cc := proxy.NewLocalClientCreator(app)
 	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
 	defer cleanup()
-	size := 100000
+	size := 1000
 	initTxs(size)
 	for j := 0; j < size; j++ {
 		mempool.CheckTx(txs[j], nil, TxInfo{})
+	}
+	if mempool.Size() != size {
+		b.Fatal("wrong transaction size")
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -149,7 +152,7 @@ func benchmarkMempoolGetNextTxBytes(b *testing.B, enum mpEnum) {
 		mempool.CheckTx(txs[i], nil, TxInfo{})
 	}
 	if mempool.Size() != size {
-		b.Fatal("wrong checkTx size")
+		b.Fatal("wrong transaction size")
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
