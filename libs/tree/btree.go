@@ -69,18 +69,6 @@ func (t *btree) GetNext(starter *NodeKey, predicate func(interface{}) bool) (int
 	return candidate.data, candidate.key, nil
 }
 
-func (t *btree) UpdateKey(oldKey NodeKey, newKey NodeKey) error {
-	data, err := t.Remove(oldKey)
-	if err != nil {
-		return err
-	}
-	t.tree.ReplaceOrInsert(bnode{
-		key:  newKey,
-		data: data,
-	})
-	return nil
-}
-
 // Insert inserts value into the tree
 func (t *btree) Insert(key NodeKey, data interface{}) {
 	t.mtx.RLock()

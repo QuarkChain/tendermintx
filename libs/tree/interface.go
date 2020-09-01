@@ -16,7 +16,6 @@ type BalancedTree interface {
 	GetNext(starter *NodeKey, predicate func(interface{}) bool) (interface{}, NodeKey, error)
 	Insert(key NodeKey, data interface{})
 	Remove(key NodeKey) (interface{}, error)
-	UpdateKey(oldKey NodeKey, newKey NodeKey) error
 }
 
 func NewLLRB() BalancedTree {

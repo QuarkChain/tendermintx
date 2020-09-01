@@ -79,16 +79,6 @@ func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 	return candidate.data, candidate.key, nil
 }
 
-func (t *llrb) UpdateKey(oldKey NodeKey, newKey NodeKey) error {
-	data, err := t.Remove(oldKey)
-	if err != nil {
-		return err
-	}
-
-	t.Insert(newKey, data)
-	return nil
-}
-
 // Insert inserts value into the tree
 func (t *llrb) Insert(key NodeKey, data interface{}) {
 	t.mtx.Lock()
