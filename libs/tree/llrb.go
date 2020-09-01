@@ -8,8 +8,8 @@ import (
 )
 
 var ErrorStopIteration = errors.New("STOP ITERATION")
-var ErrorKeyNotFound = errors.New("KEY NOT FOUND")
-var ErrorKeyConflicted = errors.New("KEY CONFLICTED")
+var errorKeyNotFound = errors.New("KEY NOT FOUND")
+var errorKeyConflicted = errors.New("KEY CONFLICTED")
 
 func (a NodeKey) compare(b NodeKey) int {
 	if a.Priority > b.Priority {
@@ -102,7 +102,7 @@ func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
 	case 1:
 		h.right, err = t.insert(h.right, key, data)
 	default:
-		err = ErrorKeyConflicted
+		return h, errorKeyConflicted
 	}
 
 	if isRed(h.right) && !isRed(h.left) {
@@ -147,7 +147,7 @@ func (t *llrb) Remove(key NodeKey) (interface{}, error) {
 		t.size--
 		return deleted.data, nil
 	}
-	return nil, ErrorKeyNotFound
+	return nil, errorKeyNotFound
 }
 
 func (t *llrb) delete(h *node, key NodeKey) (*node, node) {

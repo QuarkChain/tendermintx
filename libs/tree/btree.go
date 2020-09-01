@@ -90,7 +90,7 @@ func (t *btree) Remove(key NodeKey) (interface{}, error) {
 	}
 	deleted := t.tree.Delete(item)
 	if deleted == nil {
-		return deleted, ErrorKeyNotFound
+		return deleted, errorKeyNotFound
 	}
 	return deleted.(bnode).data, nil
 }
