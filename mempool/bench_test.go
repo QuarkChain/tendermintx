@@ -15,6 +15,21 @@ import (
 
 var txs types.Txs
 
+//goos: darwin
+//goarch: amd64
+//pkg: github.com/tendermint/tendermint/mempool
+//BenchmarkClistCheckTx-8                             3585            318668 ns/op
+//BenchmarkLLRBCheckTx-8                              3415            320087 ns/op
+//BenchmarkBTreeCheckTx-8                             3588            306634 ns/op
+//BenchmarkClistRemoveTx-8                          812334              1522 ns/op
+//BenchmarkLLRBRemoveTx-8                           803126              1466 ns/op
+//BenchmarkBTreeRemoveTx-8                          823885              1445 ns/op
+//BenchmarkCacheInsertTime-8                       1690495               671 ns/op
+//BenchmarkCacheRemoveTime-8                       2572720               421 ns/op
+//BenchmarkClistMempoolGetNextTxBytes-8                  3         429128491 ns/op
+//BenchmarkLLRBMempoolGetNextTxBytes-8                 222           5250141 ns/op
+//BenchmarkBTreeMempoolGetNextTxBytes-8                142           9214519 ns/op
+
 func initTxs(size int) {
 	txs = types.Txs{}
 	for i := 0; i < size; i++ {
@@ -28,17 +43,14 @@ func initTxs(size int) {
 	}
 }
 
-// BenchmarkClistCheckTx-8   	   17149	     71564 ns/op
 func BenchmarkClistCheckTx(b *testing.B) {
 	benchmarkCheckTx(b, enumclistmempool)
 }
 
-// BenchmarkLLRBCheckTx-8   	   17014	     70137 ns/op
 func BenchmarkLLRBCheckTx(b *testing.B) {
 	benchmarkCheckTx(b, enumllrbmempool)
 }
 
-// BenchmarkBTreeCheckTx-8   	   17071	     71053 ns/op
 func BenchmarkBTreeCheckTx(b *testing.B) {
 	benchmarkCheckTx(b, enumbtreemempool)
 }
@@ -48,7 +60,7 @@ func benchmarkCheckTx(b *testing.B, enum mpEnum) {
 	cc := proxy.NewLocalClientCreator(app)
 	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
 	defer cleanup()
-	size := 100
+	size := 5000
 	initTxs(size)
 
 	b.ResetTimer()
@@ -62,17 +74,14 @@ func benchmarkCheckTx(b *testing.B, enum mpEnum) {
 	}
 }
 
-// BenchmarkClistRemoveTx-8   	  659486	      1614 ns/op
 func BenchmarkClistRemoveTx(b *testing.B) {
 	benchmarkRemoveTx(b, enumclistmempool)
 }
 
-// BenchmarkLLRBRemoveTx-8   	  745905	      1630 ns/op
 func BenchmarkLLRBRemoveTx(b *testing.B) {
 	benchmarkRemoveTx(b, enumllrbmempool)
 }
 
-// BenchmarkBTreeRemoveTx-8   	  723351	      1628 ns/op
 func BenchmarkBTreeRemoveTx(b *testing.B) {
 	benchmarkRemoveTx(b, enumbtreemempool)
 }
@@ -82,7 +91,7 @@ func benchmarkRemoveTx(b *testing.B, enum mpEnum) {
 	cc := proxy.NewLocalClientCreator(app)
 	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
 	defer cleanup()
-	size := 1000
+	size := 5000
 	initTxs(size)
 	for j := 0; j < size; j++ {
 		mempool.CheckTx(txs[j], nil, TxInfo{})
@@ -126,17 +135,14 @@ func BenchmarkCacheRemoveTime(b *testing.B) {
 	}
 }
 
-// BenchmarkClistMempoolGetNextTxBytes-8   	      56	  18551073 ns/op
 func BenchmarkClistMempoolGetNextTxBytes(b *testing.B) {
 	benchmarkMempoolGetNextTxBytes(b, enumclistmempool)
 }
 
-// BenchmarkLLRBMempoolGetNextTxBytes-8   	    1030	    980720 ns/op
 func BenchmarkLLRBMempoolGetNextTxBytes(b *testing.B) {
 	benchmarkMempoolGetNextTxBytes(b, enumllrbmempool)
 }
 
-// BenchmarkBTreeMempoolGetNextTxBytes-8   	     730	   1826076 ns/op
 func BenchmarkBTreeMempoolGetNextTxBytes(b *testing.B) {
 	benchmarkMempoolGetNextTxBytes(b, enumbtreemempool)
 }
@@ -146,7 +152,7 @@ func benchmarkMempoolGetNextTxBytes(b *testing.B, enum mpEnum) {
 	cc := proxy.NewLocalClientCreator(app)
 	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
 	defer cleanup()
-	size := 1000
+	size := 5000
 	initTxs(size)
 	for i := 0; i < size; i++ {
 		mempool.CheckTx(txs[i], nil, TxInfo{})
