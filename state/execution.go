@@ -1,6 +1,8 @@
 package state
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"time"
 
@@ -272,6 +274,61 @@ func (blockExec *BlockExecutor) Commit(
 	return res.Data, res.RetainHeight, err
 }
 
+func (blockExec *BlockExecutor) CheckBlock(block *types.Block) error {
+	commitInfo, byzVals := getBlockValidatorInfo(
+		block.Time,
+		block.Height,
+		block.LastCommit,
+		block.Evidence.Evidence,
+		blockExec.db,
+	)
+	pbh := block.Header.ToProto()
+	txs := make([][]byte, 0, len(block.Txs))
+	for _, tx := range block.Txs {
+		txs = append(txs, tx)
+	}
+
+	resp, err := blockExec.proxyApp.CheckBlockSync(abcix.RequestCheckBlock{
+		Height:              block.Height,
+		Hash:                block.Hash(),
+		Header:              *pbh,
+		LastCommitInfo:      commitInfo,
+		ByzantineValidators: byzVals,
+		Txs:                 txs,
+	})
+
+	if err != nil {
+		return err
+	}
+	if resp.Code != 0 {
+		return fmt.Errorf("application error during CheckBlock, code: %d", resp.Code)
+	}
+	for _, tx := range resp.DeliverTxs {
+		if tx.Code != 0 {
+			return fmt.Errorf("invalid transaction, code: %d", tx.Code)
+		}
+	}
+	resultHash := ABCIResponsesResultsHash(&tmstate.ABCIResponses{
+		DeliverBlock: &abcix.ResponseDeliverBlock{Events: resp.Events, DeliverTxs: resp.DeliverTxs}})
+	if !bytes.Equal(resultHash, block.Header.ResultsHash.Bytes()) {
+		blockExec.logger.Error(
+			"resultHash mismatch.", "ResultHash in ResponseCheckBlock:", resultHash,
+			"ResultHash in block header:", block.Header.ResultsHash.Bytes(),
+		)
+		return errors.New("resultHash mismatch")
+	}
+
+	if !bytes.Equal(resp.AppHash, block.Header.AppHash.Bytes()) {
+		blockExec.logger.Error(
+			"appHash mismatch.", "AppHash in ResponseCheckBlock:", resp.AppHash,
+			"AppHash in block header:", block.Header.AppHash.Bytes(),
+		)
+		return errors.New("appHash mismatch")
+	}
+
+	return err
+}
+
 //---------------------------------------------------------
 // Helper functions for executing blocks and updating state
 
@@ -527,3 +584,18 @@ func ExecCommitBlock(
 	// ResponseCommit has no error or log, just data
 	return res.Data, nil
 }
+
+//func CheckBlockResponseResultHash(resp *abcix.ResponseCheckBlock) []byte {
+//	cbeBytes, err := proto.Marshal(&abcix.ResponseCheckBlock{
+//		Events: resp.Events,
+//	})
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	// Build a Merkle tree of proto-encoded DeliverTx results and get a hash.
+//	results := types.NewResults(resp.DeliverTxs)
+//
+//	// Build a Merkle tree out of the above 3 binary slices.
+//	return merkle.HashFromByteSlices([][]byte{cbeBytes, results.Hash()})
+//}

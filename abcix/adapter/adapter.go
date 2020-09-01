@@ -1,14 +1,18 @@
 package adapter
 
 import (
+	"encoding/json"
 	"errors"
+	"io/ioutil"
+	"os"
 	"reflect"
 
 	"github.com/jinzhu/copier"
-	tdypes "github.com/tendermint/tendermint/types"
+	dbm "github.com/tendermint/tm-db"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	abcix "github.com/tendermint/tendermint/abcix/types"
+	tdypes "github.com/tendermint/tendermint/types"
 )
 
 var (
@@ -21,13 +25,19 @@ var (
 	maxVoteBytes = tdypes.MaxVoteBytes
 	// MaxEvidenceBytes is a maximum size of any evidence (including amino overhead).
 	maxEvidenceBytes = tdypes.MaxEvidenceBytes
+
+	stateKey = []byte("adaptorStateKey")
 )
 
+type state struct {
+	db      dbm.DB
+	AppHash []byte        `json:"appHash"`
+	Events  []abcix.Event `json:"events"`
+}
+
 type adaptedApp struct {
-	abciApp     abci.Application
-	resultsHash []byte
-	appHash     []byte
-	events      []abcix.Event
+	abciApp abci.Application
+	state   state
 }
 
 type AdaptedApp interface {
@@ -153,9 +163,10 @@ func (app *adaptedApp) CreateBlock(
 		resp.Txs = append(resp.Txs, tx)
 		remainBytes -= int64(len(tx))
 		remainGas--
+		resp.DeliverTxs = append(resp.DeliverTxs, &abcix.ResponseDeliverTx{Code: 0})
 	}
-	resp.AppHash = app.appHash
-	resp.Events = app.events
+	resp.AppHash = app.state.AppHash
+	resp.Events = app.state.Events
 	return resp
 }
 
@@ -184,7 +195,6 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 		respDeliverTx.Code = abcix.CodeTypeOK
 		resp.DeliverTxs = append(resp.DeliverTxs, &respDeliverTx)
 	}
-	app.resultsHash = req.Header.ResultsHash
 
 	if err := app.applyLegacyABCI(&req, &resp, endblock); err != nil {
 		panic("failed to adapt the ABCI legacy methods: " + err.Error())
@@ -195,7 +205,8 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 	allEvents = append(allEvents, beginEvents...)
 	allEvents = append(allEvents, endEvents...)
 	resp.Events = allEvents
-	app.events = allEvents
+	app.state.Events = allEvents
+	saveState(app.state)
 	return resp
 }
 
@@ -205,13 +216,22 @@ func (app *adaptedApp) Commit() (resp abcix.ResponseCommit) {
 		// TODO: panic for debugging purposes. better error handling soon!
 		panic(err)
 	}
-	app.appHash = resp.Data
+
+	app.state.AppHash = resp.Data
+	saveState(app.state)
 	return
 }
 
 func (app *adaptedApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckBlock {
-	// TODO: defer to consensus engine for now
-	panic("implement me")
+	respDeliverTx := make([]*abcix.ResponseDeliverTx, len(req.Txs))
+	for i := range respDeliverTx {
+		respDeliverTx[i] = &abcix.ResponseDeliverTx{Code: 0}
+	}
+	return abcix.ResponseCheckBlock{
+		AppHash:    app.state.AppHash,
+		DeliverTxs: respDeliverTx,
+		Events:     app.state.Events,
+	}
 }
 
 func (app *adaptedApp) ListSnapshots(req abcix.RequestListSnapshots) (resp abcix.ResponseListSnapshots) {
@@ -242,6 +262,50 @@ func (app *adaptedApp) ApplySnapshotChunk(req abcix.RequestApplySnapshotChunk) (
 	return
 }
 
-func AdaptToABCIx(abciApp abci.Application) abcix.Application {
-	return &adaptedApp{abciApp: abciApp}
+func AdaptToABCIx(abciApp abci.Application, optionDB ...dbm.DB) abcix.Application {
+	var db dbm.DB
+	if len(optionDB) == 0 {
+		dir, err := ioutil.TempDir("/tmp", "adaptor")
+		if err != nil {
+			panic("failed to generate adaptor DB dir")
+		}
+
+		defer os.RemoveAll(dir)
+		db, err = dbm.NewGoLevelDB("adaptor", dir)
+		if err != nil {
+			panic("failed to generate adaptor DB")
+		}
+	} else {
+		db = optionDB[0]
+	}
+	state := loadState(db)
+	return &adaptedApp{abciApp: abciApp, state: state}
+}
+
+func loadState(db dbm.DB) state {
+	var state state
+	state.db = db
+	stateBytes, err := db.Get(stateKey)
+	if err != nil {
+		panic(err)
+	}
+	if len(stateBytes) == 0 {
+		return state
+	}
+	err = json.Unmarshal(stateBytes, &state)
+	if err != nil {
+		panic(err)
+	}
+	return state
+}
+
+func saveState(state state) {
+	stateBytes, err := json.Marshal(state)
+	if err != nil {
+		panic(err)
+	}
+	err = state.db.Set(stateKey, stateBytes)
+	if err != nil {
+		panic(err)
+	}
 }

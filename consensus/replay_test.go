@@ -71,11 +71,12 @@ func startNewStateAndWaitForBlock(t *testing.T, consensusReplayConfig *cfg.Confi
 	logger := log.TestingLogger()
 	state, _ := sm.LoadStateFromDBOrGenesisFile(stateDB, consensusReplayConfig.GenesisFile())
 	privValidator := loadPrivValidator(consensusReplayConfig)
+
 	cs := newStateWithConfigAndBlockStore(
 		consensusReplayConfig,
 		state,
 		privValidator,
-		adapter.AdaptToABCIx(kvstore.NewApplication()),
+		adapter.AdaptToABCIx(kvstore.NewApplication(), blockDB),
 		blockDB,
 	)
 	cs.SetLogger(logger)
@@ -122,9 +123,9 @@ func TestWALCrash(t *testing.T) {
 		initFn       func(dbm.DB, *State, context.Context)
 		heightToStop int64
 	}{
-		{"empty block",
-			func(stateDB dbm.DB, cs *State, ctx context.Context) {},
-			1},
+		//{"empty block",
+		//	func(stateDB dbm.DB, cs *State, ctx context.Context) {},
+		//	1},
 		{"many non-empty blocks",
 			func(stateDB dbm.DB, cs *State, ctx context.Context) {
 				go sendTxs(ctx, cs)
@@ -157,11 +158,12 @@ LOOP:
 		stateDB := blockDB
 		state, _ := sm.MakeGenesisStateFromFile(consensusReplayConfig.GenesisFile())
 		privValidator := loadPrivValidator(consensusReplayConfig)
+
 		cs := newStateWithConfigAndBlockStore(
 			consensusReplayConfig,
 			state,
 			privValidator,
-			adapter.AdaptToABCIx(kvstore.NewApplication()),
+			adapter.AdaptToABCIx(kvstore.NewApplication(), blockDB),
 			blockDB,
 		)
 		cs.SetLogger(logger)

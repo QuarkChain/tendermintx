@@ -299,6 +299,33 @@ func (app *CounterApplication) CheckTx(req abcix.RequestCheckTx) abcix.ResponseC
 	return abcix.ResponseCheckTx{Code: code.CodeTypeOK}
 }
 
+func (app *CounterApplication) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckBlock {
+	ret := abcix.ResponseCheckBlock{}
+
+	count := app.txCount
+	for _, tx := range req.Txs {
+		txValue := txAsUint64(tx)
+		var txResp abcix.ResponseDeliverTx
+		if txValue != uint64(count) {
+			txResp = abcix.ResponseDeliverTx{
+				Code: code.CodeTypeBadNonce,
+				Log:  fmt.Sprintf("Invalid nonce in CheckBlock. Expected %v, got %v", app.txCount, txValue),
+			}
+		} else {
+			txResp = abcix.ResponseDeliverTx{Code: code.CodeTypeOK}
+		}
+		ret.DeliverTxs = append(ret.DeliverTxs, &txResp)
+		count++
+	}
+	if count != 0 {
+		hash := make([]byte, 8)
+		binary.BigEndian.PutUint64(hash, uint64(count))
+		ret.AppHash = hash
+	}
+
+	return ret
+}
+
 func txAsUint64(tx []byte) uint64 {
 	tx8 := make([]byte, 8)
 	copy(tx8[len(tx8)-len(tx):], tx)
