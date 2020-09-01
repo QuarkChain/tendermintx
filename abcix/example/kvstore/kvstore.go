@@ -133,7 +133,7 @@ func (app *Application) CreateBlock(
 		binary.PutVarint(appHash, size)
 		ret.AppHash = appHash
 	}
-
+	ret.Events = nil
 	return ret
 }
 
@@ -169,7 +169,9 @@ func (app *Application) CheckBlock(req types.RequestCheckBlock) types.ResponseCh
 		txResp := types.ResponseDeliverTx{GasUsed: gasUsed}
 		ret.DeliverTxs = append(ret.DeliverTxs, &txResp)
 	}
-	ret.AppHash = lastState.AppHash
+	if len(lastState.AppHash) != 0 {
+		ret.AppHash = lastState.AppHash
+	}
 
 	return ret
 }

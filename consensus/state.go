@@ -929,7 +929,7 @@ func (cs *State) needProofBlock(height int64) bool {
 	if lastBlockMeta == nil {
 		panic(fmt.Sprintf("needProofBlock: last block meta for height %d not found", height-1))
 	}
-	return !bytes.Equal(cs.state.AppHash, lastBlockMeta.Header.AppHash)
+	return true
 }
 
 // Enter (CreateEmptyBlocks): from enterNewRound(height,round)
@@ -1524,7 +1524,7 @@ func (cs *State) finalizeCommit(height int64) {
 	// NOTE The block.AppHash reflects these txs in the current block.
 	var err error
 	var retainHeight int64
-	stateCopy, retainHeight, err = cs.blockExec.ApplyBlock(
+	stateCopy, retainHeight, _, err = cs.blockExec.ApplyBlock(
 		stateCopy,
 		types.BlockID{Hash: block.Hash(), PartSetHeader: blockParts.Header()},
 		block)

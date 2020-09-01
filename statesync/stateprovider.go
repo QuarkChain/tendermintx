@@ -130,8 +130,6 @@ func (s *lightClientStateProvider) State(height uint64) (sm.State, error) {
 	state.LastBlockHeight = header.Height
 	state.LastBlockTime = header.Time
 	state.LastBlockID = header.Commit.BlockID
-	state.AppHash = header.AppHash
-	state.LastResultsHash = header.ResultsHash
 
 	state.LastValidators, _, err = s.lc.TrustedValidatorSet(int64(height))
 	if err != nil {

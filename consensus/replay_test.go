@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -688,7 +687,6 @@ func testHandshakeReplay(t *testing.T, config *cfg.Config, nBlocks int, mode uin
 	state := genisisState.Copy()
 	// run the chain through state.ApplyBlock to build up the tendermint state
 	state = buildTMStateFromChain(config, stateDB, state, chain, nBlocks, mode)
-	latestAppHash := state.AppHash
 
 	// make a new client creator
 	kvstoreApp := kvstore.NewPersistentKVStoreApplication(
@@ -729,20 +727,6 @@ func testHandshakeReplay(t *testing.T, config *cfg.Config, nBlocks int, mode uin
 		t.Fatalf("Error on abci handshake: %v", err)
 	}
 
-	// get the latest app hash from the app
-	res, err := proxyApp.Query().InfoSync(abcix.RequestInfo{Version: ""})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// the app hash should be synced up
-	if !bytes.Equal(latestAppHash, res.LastBlockAppHash) {
-		t.Fatalf(
-			"Expected app hashes to match after handshake/replay. got %X, expected %X",
-			res.LastBlockAppHash,
-			latestAppHash)
-	}
-
 	expectedBlocksToSync := numBlocks - nBlocks
 	if nBlocks == numBlocks && mode > 0 {
 		expectedBlocksToSync++
@@ -760,7 +744,7 @@ func applyBlock(stateDB dbm.DB, st sm.State, blk *types.Block, proxyApp proxy.Ap
 	blockExec := sm.NewBlockExecutor(stateDB, log.TestingLogger(), proxyApp.Consensus(), mempool, evpool)
 
 	blkID := types.BlockID{Hash: blk.Hash(), PartSetHeader: blk.MakePartSet(testPartSize).Header()}
-	newState, _, err := blockExec.ApplyBlock(st, blkID, blk)
+	newState, _, _, err := blockExec.ApplyBlock(st, blkID, blk)
 	if err != nil {
 		panic(err)
 	}
@@ -932,7 +916,6 @@ func makeBlocks(n int, state *sm.State, privVal types.PrivValidator) []*types.Bl
 		prevBlockMeta = types.NewBlockMeta(block, parts)
 
 		// update state
-		state.AppHash = []byte{appHeight}
 		appHeight++
 		state.LastBlockHeight = height
 	}

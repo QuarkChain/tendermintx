@@ -1,6 +1,7 @@
 package adapter
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -217,6 +218,9 @@ func (app *adaptedApp) Commit() (resp abcix.ResponseCommit) {
 		panic(err)
 	}
 
+	if bytes.Equal(resp.Data, bytes.Repeat([]byte{0}, 8)) {
+		resp.Data = nil
+	}
 	app.state.AppHash = resp.Data
 	saveState(app.state)
 	return
