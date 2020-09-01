@@ -3,18 +3,13 @@ package tree
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"math"
 	"sync"
 )
 
-// maxSize is the max allowed number of node a tree is allowed to contain
-const maxSize = int(^uint(0) >> 1)
-
 var ErrorStopIteration = errors.New("STOP ITERATION")
-var ErrorKeyNotFound = errors.New("KEY NOT FOUND")
-var ErrorKeyConflicted = errors.New("KEY CONFLICTED")
-var ErrorExceedTreeSize = fmt.Errorf("tree reached maximum size %d", maxSize)
+var errorKeyNotFound = errors.New("KEY NOT FOUND")
+var errorKeyConflicted = errors.New("KEY CONFLICTED")
 
 func (a NodeKey) compare(b NodeKey) int {
 	if a.Priority > b.Priority {
@@ -40,15 +35,14 @@ type node struct {
 }
 
 type llrb struct {
-	mtx     sync.RWMutex
-	size    int
-	maxSize int
-	root    *node
+	mtx  sync.RWMutex
+	size int
+	root *node
 }
 
 // newLLRB return llrb with given maxSize
-func newLLRB(maxSize int) *llrb {
-	return &llrb{maxSize: maxSize}
+func newLLRB() *llrb {
+	return &llrb{}
 }
 
 // Size returns the number of nodes in the tree
@@ -85,16 +79,8 @@ func (t *llrb) GetNext(starter *NodeKey, predicate func(interface{}) bool) (inte
 	return candidate.data, candidate.key, nil
 }
 
-func (t *llrb) UpdateKey(oldKey NodeKey, newKey NodeKey) error {
-	data, err := t.Remove(oldKey)
-	if err != nil {
-		return err
-	}
-	return t.Insert(newKey, data)
-}
-
 // Insert inserts value into the tree
-func (t *llrb) Insert(key NodeKey, data interface{}) error {
+func (t *llrb) Insert(key NodeKey, data interface{}) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 	var err error
@@ -102,11 +88,7 @@ func (t *llrb) Insert(key NodeKey, data interface{}) error {
 	t.root.black = true
 	if err == nil {
 		t.size++
-		if t.size >= t.maxSize {
-			return ErrorExceedTreeSize
-		}
 	}
-	return err
 }
 
 func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
@@ -120,8 +102,9 @@ func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
 	case 1:
 		h.right, err = t.insert(h.right, key, data)
 	default:
-		err = ErrorKeyConflicted
+		return h, errorKeyConflicted
 	}
+
 	if isRed(h.right) && !isRed(h.left) {
 		h = t.rotateLeft(h)
 	}
@@ -164,7 +147,7 @@ func (t *llrb) Remove(key NodeKey) (interface{}, error) {
 		t.size--
 		return deleted.data, nil
 	}
-	return nil, ErrorKeyNotFound
+	return nil, errorKeyNotFound
 }
 
 func (t *llrb) delete(h *node, key NodeKey) (*node, node) {
