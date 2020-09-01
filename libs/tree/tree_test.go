@@ -326,9 +326,9 @@ func benchmarkGetNext(b *testing.B, treeGen func() BalancedTree) {
 	tree := treeGen()
 	size := 10000
 	for i := 0; i < size; i++ {
-		rand, _ := cr.Int(cr.Reader, big.NewInt(1000))
+		randNum, _ := cr.Int(cr.Reader, big.NewInt(1000))
 		data := getRandomBytes(1)[0]
-		tree.Insert(NodeKey{Priority: rand.Uint64(), Hash: txHash(data)}, data)
+		tree.Insert(NodeKey{Priority: randNum.Uint64(), Hash: txHash(data)}, data)
 	}
 	if tree.Size() != size {
 		b.Fatal("invalid tree size", tree.Size())

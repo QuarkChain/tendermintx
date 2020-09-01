@@ -86,10 +86,9 @@ func (mem *cListMempool) Size() int {
 
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
-func (mem *cListMempool) addTx(memTx *mempoolTx, priority uint64) error {
+func (mem *cListMempool) addTx(memTx *mempoolTx, priority uint64) {
 	e := mem.txs.PushBackWithPriority(memTx, priority)
 	mem.txsMap.Store(TxKey(memTx.tx), e)
-	return nil
 }
 
 // Called from:

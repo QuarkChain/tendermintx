@@ -186,7 +186,7 @@ type mempoolImpl interface {
 	Size() int
 
 	// all private methods will assume locks are held by basemempool so the impl themselves won't need to
-	addTx(*mempoolTx, uint64) error
+	addTx(*mempoolTx, uint64)
 	removeTx(types.Tx) bool // return whether corresponding element is removed or not
 	updateRecheckCursor()
 	reapMaxTxs(int) types.Txs
@@ -489,10 +489,7 @@ func (mem *basemempool) resCbFirstTime(
 				tx:        tx,
 			}
 			memTx.senders.Store(peerID, true)
-			if err := mem.addTx(memTx, r.CheckTx.Priority); err != nil {
-				mem.logger.Error(err.Error())
-				return
-			}
+			mem.addTx(memTx, r.CheckTx.Priority)
 			atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx)))
 			mem.metrics.TxSizeBytes.Observe(float64(len(memTx.tx)))
 			mem.logger.Info("Added good transaction",

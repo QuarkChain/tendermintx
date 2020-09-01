@@ -72,18 +72,11 @@ func (mem *treeMempool) Size() int {
 
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
-func (mem *treeMempool) addTx(memTx *mempoolTx, priority uint64) error {
+func (mem *treeMempool) addTx(memTx *mempoolTx, priority uint64) {
 	hash := TxKey(memTx.tx)
-	newKey := tree.NodeKey{Priority: priority, TS: time.Now(), Hash: hash}
-	if oldEle, ok := mem.txsMap.Load(TxKey(memTx.tx)); ok {
-		if err := mem.txs.UpdateKey(oldEle.(*tElement).nodeKey, newKey); err != nil {
-			return err
-		}
-		return nil
-	}
-	mem.txs.Insert(newKey, memTx)
-	mem.txsMap.Store(hash, &tElement{newKey, memTx})
-	return nil
+	nodeKey := tree.NodeKey{Priority: priority, TS: time.Now(), Hash: hash}
+	mem.txs.Insert(nodeKey, memTx)
+	mem.txsMap.Store(hash, &tElement{nodeKey, memTx})
 }
 
 // Called from:
