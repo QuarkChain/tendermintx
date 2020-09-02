@@ -62,15 +62,14 @@ func benchmarkCheckTx(b *testing.B, enum mpEnum) {
 	cc := proxy.NewLocalClientCreator(app)
 	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
 	defer cleanup()
-	size := 5000
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		for j := 0; j < size; j++ {
+		for j := 0; j < TXSIZE; j++ {
 			mempool.CheckTx(txs[j], nil, TxInfo{})
 		}
 	}
-	if mempool.Size() != size {
+	if mempool.Size() != TXSIZE {
 		b.Fatal("wrong transaction size")
 	}
 }
