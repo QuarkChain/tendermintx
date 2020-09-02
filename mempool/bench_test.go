@@ -1,8 +1,10 @@
 package mempool
 
 import (
+	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 	"testing"
@@ -36,7 +38,8 @@ func init() {
 	txs = types.Txs{}
 	for i := 0; i < txSize; i++ {
 		txBytes := make([]byte, 20)
-		priority := strconv.FormatInt(int64(i)%100, 10)
+		randInt, _ := rand.Int(rand.Reader, big.NewInt(100))
+		priority := strconv.FormatInt(randInt.Int64(), 10)
 		tx := "k" + strconv.Itoa(i) + "=v" + strconv.Itoa(i) + ","
 		extra := 20 - len(tx) - len(priority) - 1
 		tx = tx + strings.Repeat("f", extra) + "," + priority
