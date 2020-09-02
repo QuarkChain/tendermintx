@@ -1,8 +1,10 @@
 package mempool
 
 import (
+	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 	"testing"
@@ -16,17 +18,17 @@ import (
 //goos: darwin
 //goarch: amd64
 //pkg: github.com/tendermint/tendermint/mempool
-//BenchmarkClistCheckTx-8                             3825            296734 ns/op
-//BenchmarkLLRBCheckTx-8                              3690            320052 ns/op
-//BenchmarkBTreeCheckTx-8                             3278            320964 ns/op
-//BenchmarkClistRemoveTx-8                          824952              1461 ns/op
-//BenchmarkLLRBRemoveTx-8                           801897              1463 ns/op
-//BenchmarkBTreeRemoveTx-8                          842322              1422 ns/op
-//BenchmarkCacheInsertTime-8                       1657232               705 ns/op
-//BenchmarkCacheRemoveTime-8                       2419852               508 ns/op
-//BenchmarkClistMempoolGetNextTxBytes-8                  3         441360573 ns/op
-//BenchmarkLLRBMempoolGetNextTxBytes-8                 194           5452566 ns/op
-//BenchmarkBTreeMempoolGetNextTxBytes-8                130           8596139 ns/op
+//BenchmarkClistCheckTx-8                             3847            304484 ns/op
+//BenchmarkLLRBCheckTx-8                              3756            312078 ns/op
+//BenchmarkBTreeCheckTx-8                             3610            308219 ns/op
+//BenchmarkClistRemoveTx-8                          819738              1502 ns/op
+//BenchmarkLLRBRemoveTx-8                           806511              1470 ns/op
+//BenchmarkBTreeRemoveTx-8                          803672              1459 ns/op
+//BenchmarkCacheInsertTime-8                       1694118               706 ns/op
+//BenchmarkCacheRemoveTime-8                       2465884               510 ns/op
+//BenchmarkClistMempoolGetNextTxBytes-8                  3         419214434 ns/op
+//BenchmarkLLRBMempoolGetNextTxBytes-8                 226           5194137 ns/op
+//BenchmarkBTreeMempoolGetNextTxBytes-8                141           8484462 ns/op
 
 var txs types.Txs
 
@@ -36,7 +38,8 @@ func init() {
 	txs = types.Txs{}
 	for i := 0; i < txSize; i++ {
 		txBytes := make([]byte, 20)
-		priority := strconv.FormatInt(int64(i)%100, 10)
+		randInt, _ := rand.Int(rand.Reader, big.NewInt(100))
+		priority := strconv.FormatInt(randInt.Int64(), 10)
 		tx := "k" + strconv.Itoa(i) + "=v" + strconv.Itoa(i) + ","
 		extra := 20 - len(tx) - len(priority) - 1
 		tx = tx + strings.Repeat("f", extra) + "," + priority
