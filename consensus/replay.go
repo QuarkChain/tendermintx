@@ -440,10 +440,9 @@ func (h *Handshaker) replayBlocks(
 			return nil, err
 		}
 		// Extra check to ensure the app was not changed in a way it shouldn't have.
-		if len(appHash) > 0 {
+		if len(block.AppHash) > 0 {
 			assertAppHashEqualsOneFromBlock(appHash, block)
 		}
-
 		h.nBlocks++
 	}
 

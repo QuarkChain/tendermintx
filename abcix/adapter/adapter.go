@@ -1,12 +1,14 @@
 package adapter
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"math"
 	"os"
 	"reflect"
+
+	"github.com/tendermint/tendermint/libs/log"
 
 	"github.com/jinzhu/copier"
 	dbm "github.com/tendermint/tm-db"
@@ -39,6 +41,7 @@ type state struct {
 type adaptedApp struct {
 	abciApp abci.Application
 	state   state
+	logger  log.Logger
 }
 
 type AdaptedApp interface {
@@ -142,7 +145,8 @@ func (app *adaptedApp) CreateBlock(
 	iter *abcix.MempoolIter,
 ) (resp abcix.ResponseCreateBlock) {
 	if maxGas < 0 {
-		maxGas = 1<<(64-1) - 1
+		maxGas = int64(math.MaxInt64)
+
 	}
 	// Update remainBytes based on previous block
 	remainBytes := maxBytes -
@@ -164,7 +168,7 @@ func (app *adaptedApp) CreateBlock(
 		resp.Txs = append(resp.Txs, tx)
 		remainBytes -= int64(len(tx))
 		remainGas--
-		resp.DeliverTxs = append(resp.DeliverTxs, &abcix.ResponseDeliverTx{Code: 0})
+		resp.DeliverTxs = append(resp.DeliverTxs, &abcix.ResponseDeliverTx{Code: abcix.CodeTypeOK})
 	}
 	resp.AppHash = app.state.AppHash
 	resp.Events = app.state.Events
@@ -207,7 +211,7 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 	allEvents = append(allEvents, endEvents...)
 	resp.Events = allEvents
 	app.state.Events = allEvents
-	saveState(app.state)
+	saveState(app.state, app.logger)
 	return resp
 }
 
@@ -218,11 +222,8 @@ func (app *adaptedApp) Commit() (resp abcix.ResponseCommit) {
 		panic(err)
 	}
 
-	if bytes.Equal(resp.Data, bytes.Repeat([]byte{0}, 8)) {
-		resp.Data = nil
-	}
 	app.state.AppHash = resp.Data
-	saveState(app.state)
+	saveState(app.state, app.logger)
 	return
 }
 
@@ -269,21 +270,22 @@ func (app *adaptedApp) ApplySnapshotChunk(req abcix.RequestApplySnapshotChunk) (
 func AdaptToABCIx(abciApp abci.Application, optionDB ...dbm.DB) abcix.Application {
 	var db dbm.DB
 	if len(optionDB) == 0 {
-		dir, err := ioutil.TempDir("/tmp", "adaptor")
+		dir, err := ioutil.TempDir(os.TempDir(), "adaptor")
 		if err != nil {
-			panic("failed to generate adaptor DB dir")
+			panic("failed to generate DB dir")
 		}
-
-		defer os.RemoveAll(dir)
 		db, err = dbm.NewGoLevelDB("adaptor", dir)
 		if err != nil {
 			panic("failed to generate adaptor DB")
 		}
-	} else {
+	} else if len(optionDB) == 1 {
 		db = optionDB[0]
+	} else {
+		panic("wrong options")
 	}
 	state := loadState(db)
-	return &adaptedApp{abciApp: abciApp, state: state}
+	logger := log.NewTMLogger(log.NewSyncWriter(os.Stdout))
+	return &adaptedApp{abciApp: abciApp, state: state, logger: logger}
 }
 
 func loadState(db dbm.DB) state {
@@ -303,13 +305,13 @@ func loadState(db dbm.DB) state {
 	return state
 }
 
-func saveState(state state) {
+func saveState(state state, logger log.Logger) {
 	stateBytes, err := json.Marshal(state)
 	if err != nil {
-		panic(err)
+		logger.Error("failed to marshal state", "err", err)
 	}
 	err = state.db.Set(stateKey, stateBytes)
 	if err != nil {
-		panic(err)
+		logger.Error("failed to save state", "err", err)
 	}
 }

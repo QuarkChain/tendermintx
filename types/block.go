@@ -358,7 +358,7 @@ func (h *Header) Populate(
 	version tmversion.Consensus, chainID string,
 	timestamp time.Time, lastBlockID BlockID,
 	valHash, nextValHash []byte,
-	consensusHash, appHash, lastResultsHash []byte,
+	consensusHash, appHash, resultsHash []byte,
 	proposerAddress Address,
 ) {
 	h.Version = version
@@ -369,7 +369,7 @@ func (h *Header) Populate(
 	h.NextValidatorsHash = nextValHash
 	h.ConsensusHash = consensusHash
 	h.AppHash = appHash
-	h.ResultsHash = lastResultsHash
+	h.ResultsHash = resultsHash
 	h.ProposerAddress = proposerAddress
 }
 

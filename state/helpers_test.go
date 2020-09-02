@@ -3,6 +3,7 @@ package state_test
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"time"
 
 	dbm "github.com/tendermint/tm-db"
@@ -246,7 +247,7 @@ func (app *testApp) CreateBlock(req abcix.RequestCreateBlock, iter *abcix.Mempoo
 		types.MaxHeaderBytes -
 		int64(len(req.LastCommitInfo.Votes))*types.MaxVoteBytes -
 		int64(len(req.ByzantineValidators))*types.MaxEvidenceBytes
-	remainGas := int64(1<<(64-1) - 1)
+	remainGas := int64(math.MaxInt64)
 
 	for {
 		tx, err := iter.GetNextTransaction(remainBytes, remainGas)
@@ -292,11 +293,13 @@ func (app *testApp) Commit() abcix.ResponseCommit {
 }
 
 func (app *testApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckBlock {
+	// mock Response with error code 1
 	if req.Height == 1 {
 		return abcix.ResponseCheckBlock{
 			Code: 1,
 		}
 	}
+	// mock Response with invalid tx
 	if req.Height == 2 {
 		return abcix.ResponseCheckBlock{
 			DeliverTxs: []*abcix.ResponseDeliverTx{
@@ -306,6 +309,7 @@ func (app *testApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckB
 			},
 		}
 	}
+	// mock Response with fixed ResultHash
 	if req.Height == 3 {
 		return abcix.ResponseCheckBlock{
 			DeliverTxs: []*abcix.ResponseDeliverTx{
@@ -315,6 +319,7 @@ func (app *testApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckB
 			},
 		}
 	}
+	// mock Response with random AppHash
 	if req.Height == 4 {
 		return abcix.ResponseCheckBlock{
 			AppHash: tmrand.Bytes(20),

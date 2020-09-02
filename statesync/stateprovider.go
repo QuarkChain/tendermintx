@@ -84,7 +84,6 @@ func (s *lightClientStateProvider) AppHash(height uint64) ([]byte, error) {
 	s.Lock()
 	defer s.Unlock()
 
-	// We have to fetch the next height, which contains the app hash for the previous height.
 	header, err := s.lc.VerifyHeaderAtHeight(int64(height), time.Now())
 	if err != nil {
 		return nil, err
