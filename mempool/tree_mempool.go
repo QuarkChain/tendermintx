@@ -65,6 +65,15 @@ func NewLLRBMempool(
 	return newTreeMempool(config, proxyAppConn, height, tree.NewLLRB, options...)
 }
 
+func NewBTreeMempool(
+	config *cfg.MempoolConfig,
+	proxyAppConn proxy.AppConnMempool,
+	height int64,
+	options ...Option,
+) Mempool {
+	return newTreeMempool(config, proxyAppConn, height, tree.NewBTree, options...)
+}
+
 // Safe for concurrent use by multiple goroutines.
 func (mem *treeMempool) Size() int {
 	return mem.txs.Size()
