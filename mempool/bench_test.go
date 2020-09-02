@@ -30,11 +30,11 @@ import (
 
 var txs types.Txs
 
-const TXSIZE = 5000
+const txSize = 5000
 
 func init() {
 	txs = types.Txs{}
-	for i := 0; i < TXSIZE; i++ {
+	for i := 0; i < txSize; i++ {
 		txBytes := make([]byte, 20)
 		priority := strconv.FormatInt(int64(i)%100, 10)
 		tx := "k" + strconv.Itoa(i) + "=v" + strconv.Itoa(i) + ","
@@ -65,11 +65,11 @@ func benchmarkCheckTx(b *testing.B, enum mpEnum) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		for j := 0; j < TXSIZE; j++ {
+		for j := 0; j < txSize; j++ {
 			mempool.CheckTx(txs[j], nil, TxInfo{})
 		}
 	}
-	if mempool.Size() != TXSIZE {
+	if mempool.Size() != txSize {
 		b.Fatal("wrong transaction size")
 	}
 }
@@ -91,10 +91,10 @@ func benchmarkRemoveTx(b *testing.B, enum mpEnum) {
 	cc := proxy.NewLocalClientCreator(app)
 	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
 	defer cleanup()
-	for j := 0; j < TXSIZE; j++ {
+	for j := 0; j < txSize; j++ {
 		mempool.CheckTx(txs[j], nil, TxInfo{})
 	}
-	if mempool.Size() != TXSIZE {
+	if mempool.Size() != txSize {
 		b.Fatal("wrong transaction size")
 	}
 	b.ResetTimer()
@@ -150,10 +150,10 @@ func benchmarkMempoolGetNextTxBytes(b *testing.B, enum mpEnum) {
 	cc := proxy.NewLocalClientCreator(app)
 	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
 	defer cleanup()
-	for i := 0; i < TXSIZE; i++ {
+	for i := 0; i < txSize; i++ {
 		mempool.CheckTx(txs[i], nil, TxInfo{})
 	}
-	if mempool.Size() != TXSIZE {
+	if mempool.Size() != txSize {
 		b.Fatal("wrong transaction size")
 	}
 	b.ResetTimer()
