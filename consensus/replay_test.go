@@ -940,7 +940,15 @@ func makeBlock(state sm.State, lastBlock *types.Block, lastBlockMeta *types.Bloc
 			lastBlockMeta.BlockID, []types.CommitSig{vote.CommitSig()})
 	}
 	mockHash := bytes.Repeat([]byte{0}, 8)
-	return state.MakeBlock(height, []types.Tx{}, lastCommit, nil, state.Validators.GetProposer().Address, mockHash, mockHash)
+	return state.MakeBlock(
+		height,
+		[]types.Tx{},
+		lastCommit,
+		nil,
+		state.Validators.GetProposer().Address,
+		mockHash,
+		mockHash,
+	)
 }
 
 type badApp struct {
