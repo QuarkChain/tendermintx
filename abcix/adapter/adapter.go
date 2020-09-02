@@ -269,7 +269,8 @@ func (app *adaptedApp) ApplySnapshotChunk(req abcix.RequestApplySnapshotChunk) (
 
 func AdaptToABCIx(abciApp abci.Application, optionDB ...dbm.DB) abcix.Application {
 	var db dbm.DB
-	if len(optionDB) == 0 {
+	switch len(optionDB) {
+	case 0:
 		dir, err := ioutil.TempDir(os.TempDir(), "adaptor")
 		if err != nil {
 			panic("failed to generate DB dir")
@@ -278,10 +279,11 @@ func AdaptToABCIx(abciApp abci.Application, optionDB ...dbm.DB) abcix.Applicatio
 		if err != nil {
 			panic("failed to generate adaptor DB")
 		}
-	} else if len(optionDB) == 1 {
+	case 1:
 		db = optionDB[0]
-	} else {
+	default:
 		panic("wrong options")
+
 	}
 	state := loadState(db)
 	logger := log.NewTMLogger(log.NewSyncWriter(os.Stdout))
