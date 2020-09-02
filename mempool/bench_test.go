@@ -13,26 +13,28 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
-var txs types.Txs
-
 //goos: darwin
 //goarch: amd64
 //pkg: github.com/tendermint/tendermint/mempool
-//BenchmarkClistCheckTx-8                             3585            318668 ns/op
-//BenchmarkLLRBCheckTx-8                              3415            320087 ns/op
-//BenchmarkBTreeCheckTx-8                             3588            306634 ns/op
-//BenchmarkClistRemoveTx-8                          812334              1522 ns/op
-//BenchmarkLLRBRemoveTx-8                           803126              1466 ns/op
-//BenchmarkBTreeRemoveTx-8                          823885              1445 ns/op
-//BenchmarkCacheInsertTime-8                       1690495               671 ns/op
-//BenchmarkCacheRemoveTime-8                       2572720               421 ns/op
-//BenchmarkClistMempoolGetNextTxBytes-8                  3         429128491 ns/op
-//BenchmarkLLRBMempoolGetNextTxBytes-8                 222           5250141 ns/op
-//BenchmarkBTreeMempoolGetNextTxBytes-8                142           9214519 ns/op
+//BenchmarkClistCheckTx-8                             3825            296734 ns/op
+//BenchmarkLLRBCheckTx-8                              3690            320052 ns/op
+//BenchmarkBTreeCheckTx-8                             3278            320964 ns/op
+//BenchmarkClistRemoveTx-8                          824952              1461 ns/op
+//BenchmarkLLRBRemoveTx-8                           801897              1463 ns/op
+//BenchmarkBTreeRemoveTx-8                          842322              1422 ns/op
+//BenchmarkCacheInsertTime-8                       1657232               705 ns/op
+//BenchmarkCacheRemoveTime-8                       2419852               508 ns/op
+//BenchmarkClistMempoolGetNextTxBytes-8                  3         441360573 ns/op
+//BenchmarkLLRBMempoolGetNextTxBytes-8                 194           5452566 ns/op
+//BenchmarkBTreeMempoolGetNextTxBytes-8                130           8596139 ns/op
 
-func initTxs(size int) {
+var txs types.Txs
+
+const TXSIZE = 5000
+
+func init() {
 	txs = types.Txs{}
-	for i := 0; i < size; i++ {
+	for i := 0; i < TXSIZE; i++ {
 		txBytes := make([]byte, 20)
 		priority := strconv.FormatInt(int64(i)%100, 10)
 		tx := "k" + strconv.Itoa(i) + "=v" + strconv.Itoa(i) + ","
@@ -61,7 +63,6 @@ func benchmarkCheckTx(b *testing.B, enum mpEnum) {
 	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
 	defer cleanup()
 	size := 5000
-	initTxs(size)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -91,12 +92,10 @@ func benchmarkRemoveTx(b *testing.B, enum mpEnum) {
 	cc := proxy.NewLocalClientCreator(app)
 	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
 	defer cleanup()
-	size := 5000
-	initTxs(size)
-	for j := 0; j < size; j++ {
+	for j := 0; j < TXSIZE; j++ {
 		mempool.CheckTx(txs[j], nil, TxInfo{})
 	}
-	if mempool.Size() != size {
+	if mempool.Size() != TXSIZE {
 		b.Fatal("wrong transaction size")
 	}
 	b.ResetTimer()
@@ -152,12 +151,10 @@ func benchmarkMempoolGetNextTxBytes(b *testing.B, enum mpEnum) {
 	cc := proxy.NewLocalClientCreator(app)
 	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
 	defer cleanup()
-	size := 5000
-	initTxs(size)
-	for i := 0; i < size; i++ {
+	for i := 0; i < TXSIZE; i++ {
 		mempool.CheckTx(txs[i], nil, TxInfo{})
 	}
-	if mempool.Size() != size {
+	if mempool.Size() != TXSIZE {
 		b.Fatal("wrong transaction size")
 	}
 	b.ResetTimer()
