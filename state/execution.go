@@ -581,18 +581,3 @@ func ExecCommitBlock(
 	// ResponseCommit has no error or log, just data
 	return res.Data, nil
 }
-
-//func CheckBlockResponseResultHash(resp *abcix.ResponseCheckBlock) []byte {
-//	cbeBytes, err := proto.Marshal(&abcix.ResponseCheckBlock{
-//		Events: resp.Events,
-//	})
-//	if err != nil {
-//		panic(err)
-//	}
-//
-//	// Build a Merkle tree of proto-encoded DeliverTx results and get a hash.
-//	results := types.NewResults(resp.DeliverTxs)
-//
-//	// Build a Merkle tree out of the above 3 binary slices.
-//	return merkle.HashFromByteSlices([][]byte{cbeBytes, results.Hash()})
-//}

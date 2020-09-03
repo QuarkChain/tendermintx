@@ -170,7 +170,6 @@ func (app *Application) CheckBlock(req types.RequestCheckBlock) types.ResponseCh
 	appHash := make([]byte, 8)
 	binary.PutVarint(appHash, size)
 	ret.AppHash = appHash
-
 	return ret
 }
 

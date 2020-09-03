@@ -258,11 +258,9 @@ func (app *CounterApplication) CreateBlock(
 		remainGas--
 	}
 
-	if count != 0 {
-		hash := make([]byte, 8)
-		binary.BigEndian.PutUint64(hash, uint64(count))
-		ret.AppHash = hash
-	}
+	hash := make([]byte, 8)
+	binary.BigEndian.PutUint64(hash, uint64(count))
+	ret.AppHash = hash
 	return ret
 }
 
@@ -314,12 +312,9 @@ func (app *CounterApplication) CheckBlock(req abcix.RequestCheckBlock) abcix.Res
 		ret.DeliverTxs = append(ret.DeliverTxs, &txResp)
 		count++
 	}
-	if count != 0 {
-		hash := make([]byte, 8)
-		binary.BigEndian.PutUint64(hash, uint64(count))
-		ret.AppHash = hash
-	}
-
+	hash := make([]byte, 8)
+	binary.BigEndian.PutUint64(hash, uint64(count))
+	ret.AppHash = hash
 	return ret
 }
 

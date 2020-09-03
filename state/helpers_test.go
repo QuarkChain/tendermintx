@@ -261,7 +261,6 @@ func (app *testApp) CreateBlock(req abcix.RequestCreateBlock, iter *abcix.Mempoo
 		remainBytes -= int64(len(tx))
 		ret.DeliverTxs = append(ret.DeliverTxs, &abcix.ResponseDeliverTx{})
 	}
-
 	return ret
 }
 
@@ -272,7 +271,6 @@ func (app *testApp) DeliverBlock(req abcix.RequestDeliverBlock) abcix.ResponseDe
 	for range req.Txs {
 		deliverTxResp = append(deliverTxResp, &abcix.ResponseDeliverTx{})
 	}
-
 	return abcix.ResponseDeliverBlock{
 		ValidatorUpdates: app.ValidatorUpdates,
 		ConsensusParamUpdates: &abcix.ConsensusParams{
@@ -325,7 +323,6 @@ func (app *testApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckB
 			AppHash: tmrand.Bytes(20),
 		}
 	}
-
 	return abcix.ResponseCheckBlock{}
 }
 
