@@ -47,7 +47,7 @@ type mempoolGen func(
 	proxy.AppConnMempool,
 	int64,
 	bool,
-...Option,
+	...Option,
 ) Mempool
 
 var (
@@ -72,7 +72,11 @@ func newMempoolWithAppAndConfig(cc proxy.ClientCreator, config *cfg.Config, me m
 	return mempool, func() { os.RemoveAll(config.RootDir) }
 }
 
-func newLegacyMempoolWithAppAndConfig(cc proxy.LegacyClientCreator, cfg *cfg.Config, me mpEnum, supIter bool) (Mempool, cleanupFunc) {
+func newLegacyMempoolWithAppAndConfig(
+	cc proxy.LegacyClientCreator,
+	cfg *cfg.Config,
+	me mpEnum,
+	supIter bool) (Mempool, cleanupFunc) {
 	appConnMem, _ := cc.NewABCIClient()
 	appConnMem.SetLogger(log.TestingLogger().With("module", "abci-client", "connection", "mempool"))
 	err := appConnMem.Start()
@@ -337,7 +341,8 @@ func TestMempoolMaxMsgSize(t *testing.T) {
 		{maxMsgSize + 1, true},
 	}
 	for _, mpEnum := range mpEnums {
-		mp, cleanup := newLegacyMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum)), mpEnum, false)
+		mp, cleanup := newLegacyMempoolWithAppAndConfig(
+			cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum)), mpEnum, false)
 		defer cleanup()
 
 		for i, testCase := range testCases {

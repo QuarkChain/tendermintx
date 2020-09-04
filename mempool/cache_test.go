@@ -58,7 +58,7 @@ func TestCacheAfterUpdate(t *testing.T) {
 	}
 	for _, mpEnum := range mpEnums {
 		config := cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum))
-		mp, cleanup := newLegacyMempoolWithAppAndConfig(cc, config, mpEnum,false)
+		mp, cleanup := newLegacyMempoolWithAppAndConfig(cc, config, mpEnum, false)
 		defer cleanup()
 		for tcIndex, tc := range tests {
 			for i := 0; i < tc.numTxsToCreate; i++ {

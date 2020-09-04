@@ -3,7 +3,6 @@ package tree
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"math"
 	"sync"
 )
@@ -36,11 +35,10 @@ type node struct {
 }
 
 type llrb struct {
-	mtx      sync.RWMutex
-	size     int
-	root     *node
-	useStack bool
-	stack    []*node
+	mtx  sync.RWMutex
+	size int
+	root *node
+	//stack []*node
 }
 
 // Size returns the number of nodes in the tree
@@ -268,24 +266,25 @@ func flip(h *node) {
 	h.right.black = !h.right.black
 }
 
-func (t *llrb) printStack() {
-	for i, v := range t.stack {
-		fmt.Printf("%dth %d %x;", i, v.key.Priority, v.data.([]byte))
-	}
-	fmt.Println()
-}
-
-func (t *llrb) iterateAll() {
-	helper(t.root)
-}
-
-func helper(root *node) {
-	if root == nil {
-		return
-	}
-	fmt.Printf("%d,%x\n", root.key.Priority, root.data.([]byte))
-	fmt.Println("Left is")
-	helper(root.left)
-	fmt.Println("Right is")
-	helper(root.right)
-}
+//
+//func (t *llrb) printStack() {
+//	for i, v := range t.stack {
+//		fmt.Printf("%dth %d %x;", i, v.key.Priority, v.data.([]byte))
+//	}
+//	fmt.Println()
+//}
+//
+//func (t *llrb) iterateAll() {
+//	helper(t.root)
+//}
+//
+//func helper(root *node) {
+//	if root == nil {
+//		return
+//	}
+//	fmt.Printf("%d,%x\n", root.key.Priority, root.data.([]byte))
+//	fmt.Println("Left is")
+//	helper(root.left)
+//	fmt.Println("Right is")
+//	helper(root.right)
+//}

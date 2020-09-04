@@ -244,6 +244,7 @@ func TestCreateProposalBlock(t *testing.T) {
 		config.Mempool,
 		proxyApp.Mempool(),
 		state.LastBlockHeight,
+		false,
 		mempl.WithMetrics(memplMetrics),
 		mempl.WithPreCheck(sm.TxPreCheck(state)),
 		mempl.WithPostCheck(sm.TxPostCheck(state)),
