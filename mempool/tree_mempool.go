@@ -30,8 +30,9 @@ type tElement struct {
 // mempool uses a balanced tree structure for storing transactions that can
 // be efficiently accessed by multiple concurrent readers.
 type treeMempool struct {
-	txs     tree.BalancedTree        // balanced tree of good txs
-	treeGen func() tree.BalancedTree // return a specified balanced tree
+	txs          tree.BalancedTree        // balanced tree of good txs
+	iterableTree tree.IterableTree        // iterableTree provide an o(1) iterator for getNext
+	treeGen      func() tree.BalancedTree // return a specified balanced tree
 
 	// Map for quick access to txs to record sender in CheckTx.
 	// txsMap: txKey -> tElement
@@ -50,9 +51,13 @@ func newTreeMempool(
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
 	treeGen func() tree.BalancedTree,
+	supportIterable bool,
 	options ...Option,
 ) Mempool {
 	treeMempool := &treeMempool{txs: treeGen(), treeGen: treeGen}
+	if supportIterable {
+		treeMempool.iterableTree = treeMempool.txs.(tree.IterableTree)
+	}
 	return newBasemempool(treeMempool, config, proxyAppConn, height, options...)
 }
 
@@ -60,18 +65,21 @@ func NewLLRBMempool(
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
+	supportIterable bool,
 	options ...Option,
 ) Mempool {
-	return newTreeMempool(config, proxyAppConn, height, tree.NewLLRB, options...)
+	t := newTreeMempool(config, proxyAppConn, height, tree.NewLLRB, supportIterable, options...)
+	return t
 }
 
 func NewBTreeMempool(
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
+	supportIterable bool,
 	options ...Option,
 ) Mempool {
-	return newTreeMempool(config, proxyAppConn, height, tree.NewBTree, options...)
+	return newTreeMempool(config, proxyAppConn, height, tree.NewBTree, false, options...)
 }
 
 // Safe for concurrent use by multiple goroutines.

@@ -43,6 +43,7 @@ func NewCListMempool(
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
+	supportIterable bool,
 	options ...Option,
 ) Mempool {
 

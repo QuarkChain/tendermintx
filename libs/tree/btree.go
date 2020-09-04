@@ -27,7 +27,7 @@ func (a bnode) Less(b gbt.Item) bool {
 }
 
 // newBTree return btree with given maxSize
-func newBTree(speedUp bool) *btree {
+func newBTree() *btree {
 	return &btree{tree: gbt.New(*btreeDegree)}
 }
 

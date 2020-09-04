@@ -18,10 +18,15 @@ type BalancedTree interface {
 	Remove(key NodeKey) (interface{}, error)
 }
 
-func NewLLRB(speedUp bool) BalancedTree {
-	return newLLRB(speedUp)
+type IterableTree interface {
+	Register(uid uint64) error
+	IterNext(uid uint64, starter *NodeKey, predicate func(interface{}) bool) (interface{}, NodeKey, error)
 }
 
-func NewBTree(speedUp bool) BalancedTree {
-	return newBTree(speedUp)
+func NewLLRB() BalancedTree {
+	return newLLRB()
+}
+
+func NewBTree() BalancedTree {
+	return newBTree()
 }
