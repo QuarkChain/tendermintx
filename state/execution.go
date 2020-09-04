@@ -311,16 +311,16 @@ func (blockExec *BlockExecutor) CheckBlock(block *types.Block) error {
 		DeliverBlock: &abcix.ResponseDeliverBlock{Events: resp.Events, DeliverTxs: resp.DeliverTxs}})
 	if !bytes.Equal(resultHash, block.Header.ResultsHash.Bytes()) {
 		blockExec.logger.Error(
-			"resultHash mismatch.", "ResultHash in ResponseCheckBlock", resultHash,
-			"ResultHash in block header:", block.Header.ResultsHash.Bytes(),
+			"resultHash mismatch", "resultHash in ResponseCheckBlock", resultHash,
+			"resultHash in block header", block.Header.ResultsHash.Bytes(),
 		)
 		return errors.New("resultHash mismatch")
 	}
 
 	if !bytes.Equal(resp.AppHash, block.Header.AppHash.Bytes()) {
 		blockExec.logger.Error(
-			"appHash mismatch.", "AppHash in ResponseCheckBlock", resp.AppHash,
-			"AppHash in block header:", block.Header.AppHash.Bytes(),
+			"appHash mismatch", "appHash in ResponseCheckBlock", resp.AppHash,
+			"appHash in block header", block.Header.AppHash.Bytes(),
 		)
 		return errors.New("appHash mismatch")
 	}
