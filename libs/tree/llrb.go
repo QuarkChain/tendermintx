@@ -213,7 +213,6 @@ func (t *llrb) iterNext(stack []*node) []*node {
 	return stack
 }
 
-
 func (t *llrb) delete(h *node, key NodeKey) (*node, node) {
 	deleted := node{}
 	if h == nil {

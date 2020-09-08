@@ -15,6 +15,14 @@ import (
 
 type emptyMempool struct{}
 
+func (m emptyMempool) Register(uid uint64) error {
+	panic("implement me")
+}
+
+func (m emptyMempool) IterNext(uid uint64, remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
+	panic("implement me")
+}
+
 var _ mempl.Mempool = emptyMempool{}
 
 func (emptyMempool) Lock()     {}

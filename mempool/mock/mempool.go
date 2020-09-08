@@ -11,6 +11,14 @@ import (
 // Mempool is an empty implementation of a Mempool, useful for testing.
 type Mempool struct{}
 
+func (m Mempool) Register(uid uint64) error {
+	return nil
+}
+
+func (m Mempool) IterNext(uid uint64, remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
+	return nil, nil
+}
+
 var _ mempl.Mempool = Mempool{}
 
 func (Mempool) Lock()     {}

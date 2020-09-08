@@ -63,7 +63,8 @@ func BenchmarkBTreeCheckTx(b *testing.B) {
 func benchmarkCheckTx(b *testing.B, enum mpEnum) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLocalClientCreator(app)
-	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum, false)
+	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)),
+		enum, false)
 	defer cleanup()
 
 	b.ResetTimer()
@@ -92,7 +93,8 @@ func BenchmarkBTreeRemoveTx(b *testing.B) {
 func benchmarkRemoveTx(b *testing.B, enum mpEnum) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLocalClientCreator(app)
-	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum, false)
+	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)),
+		enum, false)
 	defer cleanup()
 	for j := 0; j < txSize; j++ {
 		mempool.CheckTx(txs[j], nil, TxInfo{})
@@ -155,7 +157,8 @@ func BenchmarkBTreeMempoolGetNextTxBytes(b *testing.B) {
 func benchmarkMempoolGetNextTxBytes(b *testing.B, enum mpEnum, supportIterable bool) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLocalClientCreator(app)
-	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum, supportIterable)
+	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)),
+		enum, supportIterable)
 	defer cleanup()
 	for i := 0; i < txSize; i++ {
 		mempool.CheckTx(txs[i], nil, TxInfo{})
