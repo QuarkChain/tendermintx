@@ -4,6 +4,7 @@ import (
 	"bytes"
 	cr "crypto/rand"
 	"crypto/sha256"
+	"math"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -91,18 +92,18 @@ func testRandomInsertDeleteNonExistent(t *testing.T, treeGen func() BalancedTree
 	require.Error(t, err, "expecting error when removing nonexistent node")
 }
 func TestLLRBGetNext(t *testing.T) {
-	testGetNext(t, NewLLRB)
+	testGetNext(t, NewLLRB, false)
 }
 
 func TestLLRBIterNext(t *testing.T) {
-	testGetNext(t, NewLLRB)
+	testGetNext(t, NewLLRB, true)
 }
 
 func TestBTreeGetNext(t *testing.T) {
-	testGetNext(t, NewBTree)
+	testGetNext(t, NewBTree, false)
 }
 
-func testGetNext(t *testing.T, treeGen func() BalancedTree) {
+func testGetNext(t *testing.T, treeGen func() BalancedTree, useIterator bool) {
 	testCases := []struct {
 		priorities      []uint64 // Priority of each tx
 		byteLength      []int    // Byte length of each tx
@@ -129,41 +130,41 @@ func testGetNext(t *testing.T, treeGen func() BalancedTree) {
 			priorities:      []uint64{1, 3, 5, 4, 2},
 			expectedTxOrder: []int{2, 3, 1, 4, 0},
 		},
-		//{
-		//	priorities:      []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
-		//	byteLength:      []int{2, 2, 2, 2},
-		//	expectedTxOrder: []int{0, 1, 2, 3},
-		//},
-		////Byte limitation test
-		//{
-		//	priorities:      []uint64{0, 0, 0, 0, 0},
-		//	byteLimit:       1,
-		//	expectedTxOrder: []int{},
-		//},
-		//{
-		//	priorities:      []uint64{0, 0, 0, 0, 0},
-		//	byteLength:      []int{1, 2, 3, 4, 5},
-		//	byteLimit:       1,
-		//	expectedTxOrder: []int{0},
-		//},
-		//{
-		//	priorities:      []uint64{0, 0, 0, 0, 0},
-		//	byteLength:      []int{1, 2, 3, 4, 5},
-		//	byteLimit:       3,
-		//	expectedTxOrder: []int{0, 1, 2},
-		//},
-		//{
-		//	priorities:      []uint64{1, 0, 1, 0, 1},
-		//	byteLength:      []int{1, 2, 3, 4, 5},
-		//	byteLimit:       3,
-		//	expectedTxOrder: []int{0, 2, 1},
-		//},
-		//{
-		//	priorities:      []uint64{1, 3, 5, 4, 2},
-		//	byteLength:      []int{1, 3, 5, 4, 2},
-		//	byteLimit:       3,
-		//	expectedTxOrder: []int{1, 4, 0},
-		//},
+		{
+			priorities:      []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
+			byteLength:      []int{2, 2, 2, 2},
+			expectedTxOrder: []int{0, 1, 2, 3},
+		},
+		//Byte limitation test
+		{
+			priorities:      []uint64{0, 0, 0, 0, 0},
+			byteLimit:       1,
+			expectedTxOrder: []int{},
+		},
+		{
+			priorities:      []uint64{0, 0, 0, 0, 0},
+			byteLength:      []int{1, 2, 3, 4, 5},
+			byteLimit:       1,
+			expectedTxOrder: []int{0},
+		},
+		{
+			priorities:      []uint64{0, 0, 0, 0, 0},
+			byteLength:      []int{1, 2, 3, 4, 5},
+			byteLimit:       3,
+			expectedTxOrder: []int{0, 1, 2},
+		},
+		{
+			priorities:      []uint64{1, 0, 1, 0, 1},
+			byteLength:      []int{1, 2, 3, 4, 5},
+			byteLimit:       3,
+			expectedTxOrder: []int{0, 2, 1},
+		},
+		{
+			priorities:      []uint64{1, 3, 5, 4, 2},
+			byteLength:      []int{1, 3, 5, 4, 2},
+			byteLimit:       3,
+			expectedTxOrder: []int{1, 4, 0},
+		},
 	}
 
 	for i, tc := range testCases {
@@ -180,7 +181,16 @@ func testGetNext(t *testing.T, treeGen func() BalancedTree) {
 		for j := 0; j < len(nks); j++ {
 			tree.Insert(*nks[j], txs[j])
 		}
-		ordered := getNextOrderedTxs(tree, limit)
+		var ordered [][]byte
+		if useIterator {
+			return
+		}
+		if useIterator {
+			ordered = iterNextOrderedTxs(tree, limit)
+		} else {
+			ordered = getNextOrderedTxs(tree, limit)
+		}
+
 		require.Equal(t, len(tc.expectedTxOrder), len(ordered), "expecting equal tx count at testcase %d", i)
 		for j, k := range tc.expectedTxOrder {
 			require.True(t, bytes.Equal(txs[k], ordered[j]), "expecting equal bytes at testcase %d", i)
@@ -308,6 +318,22 @@ func getNextOrderedTxs(t interface{}, byteLimit int) [][]byte {
 	var tree = t.(BalancedTree)
 	for i := 0; i < 5; i++ {
 		result, next, err := tree.GetNext(starter, func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
+		if err != nil {
+			break
+		}
+		txs = append(txs, result.([]byte))
+		starter = &next
+	}
+	return txs
+}
+
+func iterNextOrderedTxs(t interface{}, byteLimit int) [][]byte {
+	var starter *NodeKey
+	var txs [][]byte
+	var tree = t.(IterableTree)
+	tree.Register(0)
+	for i := 0; i < 5; i++ {
+		result, next, err := tree.IterNext(0, starter, func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
 		if err != nil {
 			break
 		}

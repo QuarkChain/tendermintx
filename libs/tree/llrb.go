@@ -38,7 +38,9 @@ type llrb struct {
 	mtx  sync.RWMutex
 	size int
 	root *node
-	//stack []*node
+
+	// uid => iterator stack
+	stkmap sync.Map
 }
 
 // Size returns the number of nodes in the tree
@@ -105,16 +107,67 @@ func (t *llrb) Remove(key NodeKey) (interface{}, error) {
 }
 
 // Register initialize the iterator to the first node meet the requirements
-func (t *llrb) Register(uid uint) error {
+func (t *llrb) Register(uid uint64) error {
+	t.mtx.RLock()
+	defer t.mtx.RUnlock()
+	if _, ok := t.stkmap.Load(uid); ok {
+		return errorKeyConflicted
+	}
+	t.stkmap.Store(uid, []*node{})
 	return nil
 }
 
 // IterNext return current value and move iterator backwards by one step
 func (t *llrb) IterNext(uid uint64, starter *NodeKey, predicate func(interface{}) bool) (interface{}, NodeKey, error) {
-	return nil, NodeKey{}, nil
+	t.mtx.RLock()
+	defer t.mtx.RUnlock()
+	s, ok := t.stkmap.Load(uid)
+	if !ok {
+		return nil, NodeKey{}, errorKeyNotFound
+	}
+	stack := s.([]*node)
+	startKey := NodeKey{Priority: uint64(math.MaxUint64)}
+	if starter != nil {
+		startKey = *starter
+	}
+	if len(stack) == 0 {
+		// Initiate the iterator
+		for h := t.root; h != nil; {
+			stack = append(stack, h)
+			if h.key.compare(startKey) == -1 {
+				h = h.right
+			} else {
+				h = h.left
+			}
+		}
+	}
+
+	for value := stack[len(stack)-1].data; len(stack) > 0 && !predicate(value); stack = t.iterNext(stack) {
+		value = stack[len(stack)-1]
+	}
+
+	if len(stack) == 0 {
+		t.stkmap.Delete(uid)
+		return nil, NodeKey{}, ErrorStopIteration
+	}
+	t.stkmap.Store(uid, stack)
+	return stack[len(stack)-1].data, stack[len(stack)-1].key, nil
 }
 
-// newLLRB return llrb with given maxSize
+func (t *llrb) iterNext(stack []*node) []*node {
+	l := len(stack)
+	if l == 0 {
+		return stack
+	}
+	curr := stack[l-1].left
+	stack = stack[:l-1]
+	for curr != nil {
+		stack = append(stack, curr)
+		curr = curr.right
+	}
+	return stack
+}
+
 func newLLRB() *llrb {
 	return &llrb{}
 }
@@ -265,26 +318,3 @@ func flip(h *node) {
 	h.left.black = !h.left.black
 	h.right.black = !h.right.black
 }
-
-//
-//func (t *llrb) printStack() {
-//	for i, v := range t.stack {
-//		fmt.Printf("%dth %d %x;", i, v.key.Priority, v.data.([]byte))
-//	}
-//	fmt.Println()
-//}
-//
-//func (t *llrb) iterateAll() {
-//	helper(t.root)
-//}
-//
-//func helper(root *node) {
-//	if root == nil {
-//		return
-//	}
-//	fmt.Printf("%d,%x\n", root.key.Priority, root.data.([]byte))
-//	fmt.Println("Left is")
-//	helper(root.left)
-//	fmt.Println("Right is")
-//	helper(root.right)
-//}
