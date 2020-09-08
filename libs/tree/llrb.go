@@ -38,9 +38,12 @@ type llrb struct {
 	mtx  sync.RWMutex
 	size int
 	root *node
-
 	// uid => iterator stack
 	stkmap sync.Map
+}
+
+func newLLRB() *llrb {
+	return &llrb{}
 }
 
 // Size returns the number of nodes in the tree
@@ -87,6 +90,48 @@ func (t *llrb) Insert(key NodeKey, data interface{}) {
 	if err == nil {
 		t.size++
 	}
+}
+
+func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
+	if h == nil {
+		return &node{key: key, data: data}, nil
+	}
+	var err error
+	switch key.compare(h.key) {
+	case -1:
+		h.left, err = t.insert(h.left, key, data)
+	case 1:
+		h.right, err = t.insert(h.right, key, data)
+	default:
+		return h, errorKeyConflicted
+	}
+
+	if isRed(h.right) && !isRed(h.left) {
+		h = t.rotateLeft(h)
+	}
+	if isRed(h.left) && isRed(h.left.left) {
+		h = t.rotateRight(h)
+	}
+	if isRed(h.left) && isRed(h.right) {
+		flip(h)
+	}
+	return h, err
+}
+
+func (t *llrb) deleteMin(h *node) (*node, node) {
+	deleted := node{}
+	if h == nil {
+		return nil, deleted
+	}
+	if h.left == nil {
+		return nil, *h
+	}
+
+	if !isRed(h.left) && !isRed(h.left.left) {
+		h = t.moveRedLeft(h)
+	}
+	h.left, deleted = t.deleteMin(h.left)
+	return t.fixUp(h), deleted
 }
 
 // Remove removes a value from the tree with provided key
@@ -168,51 +213,6 @@ func (t *llrb) iterNext(stack []*node) []*node {
 	return stack
 }
 
-func newLLRB() *llrb {
-	return &llrb{}
-}
-
-func (t *llrb) insert(h *node, key NodeKey, data interface{}) (*node, error) {
-	if h == nil {
-		return &node{key: key, data: data}, nil
-	}
-	var err error
-	switch key.compare(h.key) {
-	case -1:
-		h.left, err = t.insert(h.left, key, data)
-	case 1:
-		h.right, err = t.insert(h.right, key, data)
-	default:
-		return h, errorKeyConflicted
-	}
-
-	if isRed(h.right) && !isRed(h.left) {
-		h = t.rotateLeft(h)
-	}
-	if isRed(h.left) && isRed(h.left.left) {
-		h = t.rotateRight(h)
-	}
-	if isRed(h.left) && isRed(h.right) {
-		flip(h)
-	}
-	return h, err
-}
-
-func (t *llrb) deleteMin(h *node) (*node, node) {
-	deleted := node{}
-	if h == nil {
-		return nil, deleted
-	}
-	if h.left == nil {
-		return nil, *h
-	}
-
-	if !isRed(h.left) && !isRed(h.left.left) {
-		h = t.moveRedLeft(h)
-	}
-	h.left, deleted = t.deleteMin(h.left)
-	return t.fixUp(h), deleted
-}
 
 func (t *llrb) delete(h *node, key NodeKey) (*node, node) {
 	deleted := node{}

@@ -63,7 +63,7 @@ func BenchmarkBTreeCheckTx(b *testing.B) {
 func benchmarkCheckTx(b *testing.B, enum mpEnum) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLocalClientCreator(app)
-	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
+	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum, false)
 	defer cleanup()
 
 	b.ResetTimer()
@@ -92,7 +92,7 @@ func BenchmarkBTreeRemoveTx(b *testing.B) {
 func benchmarkRemoveTx(b *testing.B, enum mpEnum) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLocalClientCreator(app)
-	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
+	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum, false)
 	defer cleanup()
 	for j := 0; j < txSize; j++ {
 		mempool.CheckTx(txs[j], nil, TxInfo{})
@@ -137,21 +137,25 @@ func BenchmarkCacheRemoveTime(b *testing.B) {
 }
 
 func BenchmarkClistMempoolGetNextTxBytes(b *testing.B) {
-	benchmarkMempoolGetNextTxBytes(b, enumclistmempool)
+	benchmarkMempoolGetNextTxBytes(b, enumclistmempool, false)
 }
 
 func BenchmarkLLRBMempoolGetNextTxBytes(b *testing.B) {
-	benchmarkMempoolGetNextTxBytes(b, enumllrbmempool)
+	benchmarkMempoolGetNextTxBytes(b, enumllrbmempool, false)
+}
+
+func BenchmarkLLRBMempoolIterNextTxBytes(b *testing.B) {
+	benchmarkMempoolGetNextTxBytes(b, enumllrbmempool, true)
 }
 
 func BenchmarkBTreeMempoolGetNextTxBytes(b *testing.B) {
-	benchmarkMempoolGetNextTxBytes(b, enumbtreemempool)
+	benchmarkMempoolGetNextTxBytes(b, enumbtreemempool, false)
 }
 
-func benchmarkMempoolGetNextTxBytes(b *testing.B, enum mpEnum) {
+func benchmarkMempoolGetNextTxBytes(b *testing.B, enum mpEnum, supportIterable bool) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLocalClientCreator(app)
-	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
+	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum, supportIterable)
 	defer cleanup()
 	for i := 0; i < txSize; i++ {
 		mempool.CheckTx(txs[i], nil, TxInfo{})
@@ -161,13 +165,25 @@ func benchmarkMempoolGetNextTxBytes(b *testing.B, enum mpEnum) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		starter, _ := mempool.GetNextTxBytes(1000, 1, nil)
-		for starter != nil {
-			next, _ := mempool.GetNextTxBytes(1000, 1, starter)
-			if getPriority(next) > getPriority(starter) {
-				b.Fatal("invalid iteration")
+		if supportIterable {
+			mempool.Register(0)
+			starter, _ := mempool.IterNext(0, 1000, 1, nil)
+			for starter != nil {
+				next, _ := mempool.IterNext(0, 1000, 1, starter)
+				if getPriority(next) > getPriority(starter) {
+					b.Fatal("invalid iteration")
+				}
+				starter = next
 			}
-			starter = next
+		} else {
+			starter, _ := mempool.GetNextTxBytes(1000, 1, nil)
+			for starter != nil {
+				next, _ := mempool.GetNextTxBytes(1000, 1, starter)
+				if getPriority(next) > getPriority(starter) {
+					b.Fatal("invalid iteration")
+				}
+				starter = next
+			}
 		}
 	}
 }

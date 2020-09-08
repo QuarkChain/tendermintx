@@ -13,6 +13,74 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func getNodeKeys(priorities []uint64, txs [][]byte) []*NodeKey {
+	var nks []*NodeKey
+	for i := 0; i < len(priorities); i++ {
+		nk := &NodeKey{
+			Priority: priorities[i],
+			TS:       time.Now(),
+			Hash:     txHash(txs[i]),
+		}
+		nks = append(nks, nk)
+	}
+	return nks
+}
+
+func getRandomBytes(count int) [][]byte {
+	var txs [][]byte
+	for i := 0; i < count; i++ {
+		tx := make([]byte, 20)
+		cr.Read(tx)
+		txs = append(txs, tx)
+	}
+	return txs
+}
+
+func getFixedBytes(byteLength []int) [][]byte {
+	var txs [][]byte
+	for i := 0; i < len(byteLength); i++ {
+		tx := make([]byte, byteLength[i])
+		cr.Read(tx)
+		txs = append(txs, tx)
+	}
+	return txs
+}
+
+func getNextOrderedTxs(t interface{}, byteLimit int) [][]byte {
+	var starter *NodeKey
+	var txs [][]byte
+	var tree = t.(BalancedTree)
+	for i := 0; i < 5; i++ {
+		result, next, err := tree.GetNext(starter, func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
+		if err != nil {
+			break
+		}
+		txs = append(txs, result.([]byte))
+		starter = &next
+	}
+	return txs
+}
+
+func iterNextOrderedTxs(t interface{}, byteLimit int) [][]byte {
+	var starter *NodeKey
+	var txs [][]byte
+	var tree = t.(IterableTree)
+	tree.Register(0)
+	for i := 0; i < 5; i++ {
+		result, next, err := tree.IterNext(0, starter, func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
+		if err != nil {
+			break
+		}
+		txs = append(txs, result.([]byte))
+		starter = &next
+	}
+	return txs
+}
+
+func txHash(tx []byte) [sha256.Size]byte {
+	return sha256.Sum256(tx)
+}
+
 func TestLLRBBasics(t *testing.T) {
 	testTreeBasics(t, NewLLRB)
 }
@@ -132,7 +200,6 @@ func testGetNext(t *testing.T, treeGen func() BalancedTree, useIterator bool) {
 		},
 		{
 			priorities:      []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
-			byteLength:      []int{2, 2, 2, 2},
 			expectedTxOrder: []int{0, 1, 2, 3},
 		},
 		//Byte limitation test
@@ -183,14 +250,10 @@ func testGetNext(t *testing.T, treeGen func() BalancedTree, useIterator bool) {
 		}
 		var ordered [][]byte
 		if useIterator {
-			return
-		}
-		if useIterator {
 			ordered = iterNextOrderedTxs(tree, limit)
 		} else {
 			ordered = getNextOrderedTxs(tree, limit)
 		}
-
 		require.Equal(t, len(tc.expectedTxOrder), len(ordered), "expecting equal tx count at testcase %d", i)
 		for j, k := range tc.expectedTxOrder {
 			require.True(t, bytes.Equal(txs[k], ordered[j]), "expecting equal bytes at testcase %d", i)
@@ -275,74 +338,4 @@ func benchmarkGetNext(b *testing.B, treeGen func() BalancedTree) {
 			startKey = next
 		}
 	}
-}
-
-//------------------------------help funcs--------------------------------------
-
-func getRandomBytes(count int) [][]byte {
-	var txs [][]byte
-	for i := 0; i < count; i++ {
-		tx := make([]byte, 20)
-		cr.Read(tx)
-		txs = append(txs, tx)
-	}
-	return txs
-}
-
-func getNodeKeys(priorities []uint64, txs [][]byte) []*NodeKey {
-	var nks []*NodeKey
-	for i := 0; i < len(priorities); i++ {
-		nk := &NodeKey{
-			Priority: priorities[i],
-			TS:       time.Now(),
-			Hash:     txHash(txs[i]),
-		}
-		nks = append(nks, nk)
-	}
-	return nks
-}
-
-func getFixedBytes(byteLength []int) [][]byte {
-	var txs [][]byte
-	for i := 0; i < len(byteLength); i++ {
-		tx := make([]byte, byteLength[i])
-		cr.Read(tx)
-		txs = append(txs, tx)
-	}
-	return txs
-}
-
-func getNextOrderedTxs(t interface{}, byteLimit int) [][]byte {
-	var starter *NodeKey
-	var txs [][]byte
-	var tree = t.(BalancedTree)
-	for i := 0; i < 5; i++ {
-		result, next, err := tree.GetNext(starter, func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
-		if err != nil {
-			break
-		}
-		txs = append(txs, result.([]byte))
-		starter = &next
-	}
-	return txs
-}
-
-func iterNextOrderedTxs(t interface{}, byteLimit int) [][]byte {
-	var starter *NodeKey
-	var txs [][]byte
-	var tree = t.(IterableTree)
-	tree.Register(0)
-	for i := 0; i < 5; i++ {
-		result, next, err := tree.IterNext(0, starter, func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
-		if err != nil {
-			break
-		}
-		txs = append(txs, result.([]byte))
-		starter = &next
-	}
-	return txs
-}
-
-func txHash(tx []byte) [sha256.Size]byte {
-	return sha256.Sum256(tx)
 }

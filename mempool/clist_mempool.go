@@ -38,6 +38,14 @@ type cListMempool struct {
 	server        *mempoolServer
 }
 
+func (mem *cListMempool) register(u uint64) error {
+	panic("implement me")
+}
+
+func (mem *cListMempool) iterNext(u uint64, i int64, i2 int64, bytes []byte) ([]byte, error) {
+	panic("implement me")
+}
+
 // NewCListMempool returns a new mempool with the given configuration and connection to an application.
 func NewCListMempool(
 	config *cfg.MempoolConfig,

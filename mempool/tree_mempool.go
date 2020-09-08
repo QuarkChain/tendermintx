@@ -31,7 +31,7 @@ type tElement struct {
 // be efficiently accessed by multiple concurrent readers.
 type treeMempool struct {
 	txs          tree.BalancedTree        // balanced tree of good txs
-	iterableTree tree.IterableTree        // iterableTree provide an o(1) iterator for getNext
+	iterableTree tree.IterableTree        // iterableTree provide an o(1) iterator of getNext
 	treeGen      func() tree.BalancedTree // return a specified balanced tree
 
 	// Map for quick access to txs to record sender in CheckTx.
@@ -43,6 +43,28 @@ type treeMempool struct {
 	// serial (ie. by abci responses which are called in serial).
 	recheckCursor *tElement    // next expected response
 	recheckEnd    tree.NodeKey // re-checking stops here
+}
+
+func (mem *treeMempool) register(uid uint64) error {
+	return mem.iterableTree.Register(uid)
+}
+
+func (mem *treeMempool) iterNext(uid uint64, remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
+	var prevNodeKey *tree.NodeKey
+	if len(starter) > 0 {
+		if e, ok := mem.txsMap.Load(TxKey(starter)); ok {
+			prevNodeKey = &e.(*tElement).nodeKey
+		}
+	}
+	memTx, _, err := mem.iterableTree.IterNext(uid, prevNodeKey, func(i interface{}) bool {
+		return i.(*mempoolTx).gasWanted <= remainGas && (int64(len(i.(*mempoolTx).tx)) <= remainBytes)
+	})
+	if err == tree.ErrorStopIteration {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Wrap(err, "failed to get next tx from tree")
+	}
+	return memTx.(*mempoolTx).tx, nil
 }
 
 // newTreeMempool returns a new mempool with the given configuration and connection to an application.
@@ -79,7 +101,7 @@ func NewBTreeMempool(
 	supportIterable bool,
 	options ...Option,
 ) Mempool {
-	return newTreeMempool(config, proxyAppConn, height, tree.NewBTree, false, options...)
+	return newTreeMempool(config, proxyAppConn, height, tree.NewBTree, supportIterable, options...)
 }
 
 // Safe for concurrent use by multiple goroutines.

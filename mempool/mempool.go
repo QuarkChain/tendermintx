@@ -39,6 +39,10 @@ type Mempool interface {
 	// than the priority of stater
 	GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error)
 
+	Register(uid uint64) error
+
+	IterNext(uid uint64, remainBytes int64, remainGas int64, starter []byte) ([]byte, error)
+
 	// Lock locks the mempool. The consensus must be able to hold lock to safely update.
 	Lock()
 
@@ -196,6 +200,9 @@ type mempoolImpl interface {
 	getRecheckCursorTx() *mempoolTx
 	getMempoolTx(types.Tx) *mempoolTx
 	deleteAll()
+	// llrb only
+	register(uint64) error
+	iterNext(uint64, int64, int64, []byte) ([]byte, error)
 }
 
 // Option sets an optional parameter on the basemempool.
@@ -669,6 +676,17 @@ func (mem *basemempool) RemoveTxs(txs types.Txs) error {
 		mem.cache.Remove(tx)
 	}
 	return nil
+}
+
+// llrb only
+// Register an iterable tree
+func (mem *basemempool) Register(uid uint64) error {
+	return mem.register(uid)
+}
+
+// Use iterable tree to get next transaction
+func (mem *basemempool) IterNext(uid uint64, remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
+	return mem.iterNext(uid, remainBytes, remainGas, starter)
 }
 
 //--------------------------------------------------------------------------------

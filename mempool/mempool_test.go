@@ -47,7 +47,7 @@ type mempoolGen func(
 	proxy.AppConnMempool,
 	int64,
 	bool,
-	...Option,
+...Option,
 ) Mempool
 
 var (
@@ -59,7 +59,7 @@ var (
 	mpEnums = []mpEnum{enumclistmempool, enumllrbmempool, enumbtreemempool}
 )
 
-func newMempoolWithAppAndConfig(cc proxy.ClientCreator, config *cfg.Config, me mpEnum) (Mempool, cleanupFunc) {
+func newMempoolWithAppAndConfig(cc proxy.ClientCreator, config *cfg.Config, me mpEnum, supportIterable bool) (Mempool, cleanupFunc) {
 	appConnMem, _ := cc.NewABCIClient()
 	appConnMem.SetLogger(log.TestingLogger().With("module", "abci-client", "connection", "mempool"))
 	err := appConnMem.Start()
@@ -67,7 +67,7 @@ func newMempoolWithAppAndConfig(cc proxy.ClientCreator, config *cfg.Config, me m
 		panic(err)
 	}
 	legacyProxyAppConnMem := proxy.NewAppConnMempool(appConnMem)
-	mempool := mempoolFactory[me](config.Mempool, legacyProxyAppConnMem, 0, false)
+	mempool := mempoolFactory[me](config.Mempool, legacyProxyAppConnMem, 0, supportIterable)
 	mempool.SetLogger(log.TestingLogger())
 	return mempool, func() { os.RemoveAll(config.RootDir) }
 }
@@ -163,7 +163,7 @@ func TestMempoolFilters(t *testing.T) {
 		{10, PreCheckMaxBytes(20), PostCheckMaxGas(0), 0},
 	}
 	for _, mpEnum := range mpEnums {
-		mp, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum)), mpEnum)
+		mp, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum)), mpEnum, false)
 		defer cleanup()
 		for tcIndex, tt := range tests {
 			err := mp.Update(1, emptyTxArr, abciResponses(len(emptyTxArr), abci.CodeTypeOK), tt.preFilter, tt.postFilter)
@@ -180,7 +180,7 @@ func TestMempoolUpdate(t *testing.T) {
 	cc := proxy.NewLocalClientCreator(app)
 
 	for _, mpEnum := range mpEnums {
-		mp, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum)), mpEnum)
+		mp, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum)), mpEnum, false)
 		defer cleanup()
 		// 1. Adds valid txs to the cache
 		{
@@ -220,7 +220,7 @@ func TestTxsAvailable(t *testing.T) {
 	cc := proxy.NewLocalClientCreator(app)
 
 	for _, mpEnum := range mpEnums {
-		mp, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum)), mpEnum)
+		mp, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum)), mpEnum, false)
 		defer cleanup()
 		mp.EnableTxsAvailable()
 
@@ -475,7 +475,7 @@ func TestBaseMempool_GetNextTxBytes(t *testing.T) {
 		},
 	}
 	for _, mpEnum := range mpEnums {
-		mp, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum)), mpEnum)
+		mp, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum)), mpEnum, false)
 		defer cleanup()
 
 		for i, testCase := range testCases {
