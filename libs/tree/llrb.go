@@ -159,7 +159,6 @@ func (t *llrb) Register(uid uint64) error {
 		return errorKeyConflicted
 	}
 	t.stkmap.Store(uid, []*node{})
-	//t.printAll()
 	return nil
 }
 
@@ -204,10 +203,6 @@ func (t *llrb) IterNext(uid uint64, starter *NodeKey, predicate func(interface{}
 		t.stkmap.Delete(uid)
 		return nil, NodeKey{}, ErrorStopIteration
 	}
-	//
-	//fmt.Printf("Returned value is %d\n", len(value.([]byte)))
-	//fmt.Println("Current Stack is ")
-	//printStack(stack)
 
 	stack = t.iterNext(stack)
 	if len(stack) == 0 {
@@ -336,25 +331,3 @@ func flip(h *node) {
 	h.left.black = !h.left.black
 	h.right.black = !h.right.black
 }
-
-//
-//func (t *llrb) printAll() {
-//	pa(t.root)
-//}
-//
-//func pa(h *node) {
-//	if h == nil {
-//		return
-//	}
-//	fmt.Printf("Priority %d, Tx %d\n", h.key.Priority, len(h.data.([]byte)))
-//	fmt.Println("Left:")
-//	pa(h.left)
-//	fmt.Println("Right:")
-//	pa(h.right)
-//}
-//
-//func printStack(stk []*node) {
-//	for i, v := range stk {
-//		fmt.Printf("%dth node in stack is p%dt%d\n", i, v.key.Priority, len(v.data.([]byte)))
-//	}
-//}
