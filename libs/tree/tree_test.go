@@ -66,7 +66,7 @@ func iterNextOrderedTxs(t interface{}, byteLimit int) [][]byte {
 	var txs [][]byte
 	var tree = t.(IterableTree)
 	tree.Register(0)
-	for i := 0; i < 10; i++ {
+	for {
 		result, next, err := tree.IterNext(0, starter, func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
 		if err != nil {
 			break
@@ -314,6 +314,31 @@ func BenchmarkLLRBGetNext(b *testing.B) {
 // BenchmarkBTreeGetNext-8   	     121	  10038807 ns/op
 func BenchmarkBTreeGetNext(b *testing.B) {
 	benchmarkGetNext(b, NewBTree)
+}
+
+// BenchmarkLLRBIterNext-8   	22984006	        54.4 ns/op
+func BenchmarkLLRBIterNext(b *testing.B) {
+	tree := newLLRB()
+	size := 10000
+	for i := 0; i < size; i++ {
+		randNum, _ := cr.Int(cr.Reader, big.NewInt(1000))
+		data := getRandomBytes(1)[0]
+		tree.Insert(NodeKey{Priority: randNum.Uint64(), Hash: txHash(data)}, data)
+	}
+	if tree.Size() != size {
+		b.Fatal("invalid tree size", tree.Size())
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, startKey, _ := tree.IterNext(0, nil, func(interface{}) bool { return true })
+		for startKey != (NodeKey{}) {
+			_, next, _ := tree.IterNext(0, &startKey, func(interface{}) bool { return true })
+			if next.Priority > startKey.Priority {
+				b.Fatal("invalid iteration")
+			}
+			startKey = next
+		}
+	}
 }
 
 func benchmarkGetNext(b *testing.B, treeGen func() BalancedTree) {
