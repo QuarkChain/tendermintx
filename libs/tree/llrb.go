@@ -191,7 +191,7 @@ func (t *llrb) IterNext(uid uint64, starter *NodeKey, predicate func(interface{}
 	}
 
 	for value := stack[len(stack)-1].data; len(stack) > 0 && !predicate(value); stack = t.iterNext(stack) {
-		value = stack[len(stack)-1]
+		value = stack[len(stack)-1].data
 	}
 
 	if len(stack) == 0 {
@@ -203,7 +203,11 @@ func (t *llrb) IterNext(uid uint64, starter *NodeKey, predicate func(interface{}
 	key := stack[len(stack)-1].key
 
 	stack = t.iterNext(stack)
-	t.stkmap.Store(uid, stack)
+	if len(stack) == 0 {
+		t.stkmap.Delete(uid)
+	} else {
+		t.stkmap.Store(uid, stack)
+	}
 	return value, key, nil
 }
 

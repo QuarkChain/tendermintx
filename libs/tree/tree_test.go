@@ -5,6 +5,7 @@ import (
 	cr "crypto/rand"
 	"crypto/sha256"
 	"fmt"
+	"math"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -66,7 +67,7 @@ func iterNextOrderedTxs(t interface{}, byteLimit int) [][]byte {
 	var txs [][]byte
 	var tree = t.(IterableTree)
 	tree.Register(0)
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 10; i++ {
 		result, next, err := tree.IterNext(0, starter, func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
 		if err != nil {
 			break
@@ -199,28 +200,29 @@ func testGetNext(t *testing.T, treeGen func() BalancedTree, useIterator bool) {
 			priorities:      []uint64{1, 3, 5, 4, 2},
 			expectedTxOrder: []int{2, 3, 1, 4, 0},
 		},
-		//{
-		//	priorities:      []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
-		//	expectedTxOrder: []int{0, 1, 2, 3},
-		//},
-		////Byte limitation test
-		//{
-		//	priorities:      []uint64{0, 0, 0, 0, 0},
-		//	byteLimit:       1,
-		//	expectedTxOrder: []int{},
-		//},
-		//{
-		//	priorities:      []uint64{0, 0, 0, 0, 0},
-		//	byteLength:      []int{1, 2, 3, 4, 5},
-		//	byteLimit:       1,
-		//	expectedTxOrder: []int{0},
-		//},
-		//{
-		//	priorities:      []uint64{0, 0, 0, 0, 0},
-		//	byteLength:      []int{1, 2, 3, 4, 5},
-		//	byteLimit:       3,
-		//	expectedTxOrder: []int{0, 1, 2},
-		//},
+		{
+			priorities:      []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
+			expectedTxOrder: []int{0, 1, 2, 3},
+		},
+		//Byte limitation test
+		{
+			priorities:      []uint64{0, 0, 0, 0, 0},
+			byteLength:      []int{2, 2, 2, 2, 2},
+			byteLimit:       1,
+			expectedTxOrder: []int{},
+		},
+		{
+			priorities:      []uint64{0, 0, 0, 0, 0},
+			byteLength:      []int{1, 2, 3, 4, 5},
+			byteLimit:       1,
+			expectedTxOrder: []int{0},
+		},
+		{
+			priorities:      []uint64{0, 0, 0, 0, 0},
+			byteLength:      []int{1, 2, 3, 4, 5},
+			byteLimit:       3,
+			expectedTxOrder: []int{0, 1, 2},
+		},
 		//{
 		//	priorities:      []uint64{1, 0, 1, 0, 1},
 		//	byteLength:      []int{1, 2, 3, 4, 5},
