@@ -316,7 +316,7 @@ func BenchmarkBTreeGetNext(b *testing.B) {
 	benchmarkGetNext(b, NewBTree)
 }
 
-// BenchmarkLLRBIterNext-8   	22984006	        54.4 ns/op
+// BenchmarkLLRBIterNext-8   	     459	   3002616 ns/op
 func BenchmarkLLRBIterNext(b *testing.B) {
 	tree := newLLRB()
 	size := 10000
@@ -330,6 +330,7 @@ func BenchmarkLLRBIterNext(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		tree.Register(0)
 		_, startKey, _ := tree.IterNext(0, nil, func(interface{}) bool { return true })
 		for startKey != (NodeKey{}) {
 			_, next, _ := tree.IterNext(0, &startKey, func(interface{}) bool { return true })
@@ -352,15 +353,16 @@ func benchmarkGetNext(b *testing.B, treeGen func() BalancedTree) {
 	if tree.Size() != size {
 		b.Fatal("invalid tree size", tree.Size())
 	}
+	var nextKey NodeKey
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, startKey, _ := tree.GetNext(nil, func(interface{}) bool { return true })
-		for startKey != (NodeKey{}) {
-			_, next, _ := tree.GetNext(&startKey, func(interface{}) bool { return true })
-			if next.Priority > startKey.Priority {
+		_, startKey, err := tree.GetNext(nil, func(interface{}) bool { return true })
+		for err != nil {
+			_, nextKey, err = tree.GetNext(&startKey, func(interface{}) bool { return true })
+			if startKey.Priority > nextKey.Priority {
 				b.Fatal("invalid iteration")
 			}
-			startKey = next
+			startKey = nextKey
 		}
 	}
 }
