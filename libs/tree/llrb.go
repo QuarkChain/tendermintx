@@ -173,7 +173,6 @@ func (t *llrb) IterNext(uid uint64, starter *NodeKey, predicate func(interface{}
 		return nil, NodeKey{}, errorKeyNotFound
 	}
 	stack := s.([]*node)
-	printStack(stack)
 	startKey := NodeKey{Priority: uint64(math.MaxUint64)}
 	if starter != nil {
 		startKey = *starter
@@ -201,6 +200,10 @@ func (t *llrb) IterNext(uid uint64, starter *NodeKey, predicate func(interface{}
 
 	value := stack[len(stack)-1].data
 	key := stack[len(stack)-1].key
+
+	fmt.Printf("Returned value is %x\n", value.([]byte))
+	fmt.Println("Current Stack is ")
+	printStack(stack)
 
 	stack = t.iterNext(stack)
 	if len(stack) == 0 {
@@ -338,13 +341,15 @@ func pa(h *node) {
 	if h == nil {
 		return
 	}
-	fmt.Printf("Priority %d, Tx %x\n", h.key.Priority, h.data.([]byte))
+	fmt.Printf("Priority %d, Tx %d\n", h.key.Priority, len(h.data.([]byte)))
+	fmt.Println("Left:")
 	pa(h.left)
+	fmt.Println("Right:")
 	pa(h.right)
 }
 
 func printStack(stk []*node) {
 	for i, v := range stk {
-		fmt.Printf("%dth node in stack is %x\n", i, v.data.([]byte))
+		fmt.Printf("%dth node in stack is p%dt%d\n", i, v.key.Priority, len(v.data.([]byte)))
 	}
 }
