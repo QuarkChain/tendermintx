@@ -4,7 +4,6 @@ import (
 	"bytes"
 	cr "crypto/rand"
 	"crypto/sha256"
-	"fmt"
 	"math"
 	"math/big"
 	"math/rand"
@@ -72,7 +71,6 @@ func iterNextOrderedTxs(t interface{}, byteLimit int) [][]byte {
 		if err != nil {
 			break
 		}
-		fmt.Printf("Got tx %x\n", result.([]byte))
 		txs = append(txs, result.([]byte))
 		starter = &next
 	}
@@ -223,18 +221,18 @@ func testGetNext(t *testing.T, treeGen func() BalancedTree, useIterator bool) {
 			byteLimit:       3,
 			expectedTxOrder: []int{0, 1, 2},
 		},
-		//{
-		//	priorities:      []uint64{1, 0, 1, 0, 1},
-		//	byteLength:      []int{1, 2, 3, 4, 5},
-		//	byteLimit:       3,
-		//	expectedTxOrder: []int{0, 2, 1},
-		//},
-		//{
-		//	priorities:      []uint64{1, 3, 5, 4, 2},
-		//	byteLength:      []int{1, 3, 5, 4, 2},
-		//	byteLimit:       3,
-		//	expectedTxOrder: []int{1, 4, 0},
-		//},
+		{
+			priorities:      []uint64{1, 0, 1, 0, 1},
+			byteLength:      []int{1, 2, 3, 4, 5},
+			byteLimit:       3,
+			expectedTxOrder: []int{0, 2, 1},
+		},
+		{
+			priorities:      []uint64{1, 3, 5, 4, 2},
+			byteLength:      []int{1, 3, 5, 4, 2},
+			byteLimit:       3,
+			expectedTxOrder: []int{1, 4, 0},
+		},
 	}
 
 	for i, tc := range testCases {
