@@ -3,6 +3,7 @@ package tree
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 )
@@ -159,6 +160,7 @@ func (t *llrb) Register(uid uint64) error {
 		return errorKeyConflicted
 	}
 	t.stkmap.Store(uid, []*node{})
+	t.printAll()
 	return nil
 }
 
@@ -171,6 +173,7 @@ func (t *llrb) IterNext(uid uint64, starter *NodeKey, predicate func(interface{}
 		return nil, NodeKey{}, errorKeyNotFound
 	}
 	stack := s.([]*node)
+	printStack(stack)
 	startKey := NodeKey{Priority: uint64(math.MaxUint64)}
 	if starter != nil {
 		startKey = *starter
@@ -195,8 +198,13 @@ func (t *llrb) IterNext(uid uint64, starter *NodeKey, predicate func(interface{}
 		t.stkmap.Delete(uid)
 		return nil, NodeKey{}, ErrorStopIteration
 	}
+
+	value := stack[len(stack)-1].data
+	key := stack[len(stack)-1].key
+
+	stack = t.iterNext(stack)
 	t.stkmap.Store(uid, stack)
-	return stack[len(stack)-1].data, stack[len(stack)-1].key, nil
+	return value, key, nil
 }
 
 func (t *llrb) iterNext(stack []*node) []*node {
@@ -316,4 +324,23 @@ func flip(h *node) {
 	h.black = !h.black
 	h.left.black = !h.left.black
 	h.right.black = !h.right.black
+}
+
+func (t *llrb) printAll() {
+	pa(t.root)
+}
+
+func pa(h *node) {
+	if h == nil {
+		return
+	}
+	fmt.Printf("Priority %d, Tx %x\n", h.key.Priority, h.data.([]byte))
+	pa(h.left)
+	pa(h.right)
+}
+
+func printStack(stk []*node) {
+	for i, v := range stk {
+		fmt.Printf("%dth node in stack is %x\n", i, v.data.([]byte))
+	}
 }
