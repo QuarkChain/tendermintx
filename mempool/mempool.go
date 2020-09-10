@@ -39,8 +39,10 @@ type Mempool interface {
 	// than the priority of stater
 	GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error)
 
+	// Register a IterableTree
 	Register(uid uint64) error
 
+	// IterNext retrieve next transaction by iterable tree
 	IterNext(uid uint64, remainBytes int64, remainGas int64, starter []byte) ([]byte, error)
 
 	// Lock locks the mempool. The consensus must be able to hold lock to safely update.
@@ -678,13 +680,10 @@ func (mem *basemempool) RemoveTxs(txs types.Txs) error {
 	return nil
 }
 
-// llrb only
-// Register an iterable tree
 func (mem *basemempool) Register(uid uint64) error {
 	return mem.register(uid)
 }
 
-// Use iterable tree to get next transaction
 func (mem *basemempool) IterNext(uid uint64, remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
 	return mem.iterNext(uid, remainBytes, remainGas, starter)
 }

@@ -18,18 +18,18 @@ import (
 //goos: darwin
 //goarch: amd64
 //pkg: github.com/tendermint/tendermint/mempool
-//BenchmarkClistCheckTx-8                             3934            299667 ns/op
-//BenchmarkLLRBCheckTx-8                              3621            313719 ns/op
-//BenchmarkBTreeCheckTx-8                             3753            312218 ns/op
-//BenchmarkClistRemoveTx-8                          813098              1467 ns/op
-//BenchmarkLLRBRemoveTx-8                           784455              1454 ns/op
-//BenchmarkBTreeRemoveTx-8                          842328              1484 ns/op
-//BenchmarkCacheInsertTime-8                       1641598               714 ns/op
-//BenchmarkCacheRemoveTime-8                       2507824               509 ns/op
-//BenchmarkClistMempoolGetNextTxBytes-8                  3         440541878 ns/op
-//BenchmarkLLRBMempoolGetNextTxBytes-8                 206           5342702 ns/op
-//BenchmarkLLRBMempoolIterNextTxBytes-8                226           5021245 ns/op
-//BenchmarkBTreeMempoolGetNextTxBytes-8                136           8407435 ns/op
+//BenchmarkClistCheckTx-8                             3673            318504 ns/op
+//BenchmarkLLRBCheckTx-8                              3454            329866 ns/op
+//BenchmarkBTreeCheckTx-8                             3525            330461 ns/op
+//BenchmarkClistRemoveTx-8                          774331              1530 ns/op
+//BenchmarkLLRBRemoveTx-8                           767287              1564 ns/op
+//BenchmarkBTreeRemoveTx-8                          774445              1552 ns/op
+//BenchmarkCacheInsertTime-8                       1607788               736 ns/op
+//BenchmarkCacheRemoveTime-8                       2453636               579 ns/op
+//BenchmarkClistMempoolGetNextTxBytes-8                  3         441422537 ns/op
+//BenchmarkLLRBMempoolGetNextTxBytes-8                 200           5899147 ns/op
+//BenchmarkLLRBMempoolIterNextTxBytes-8                219           5608503 ns/op
+//BenchmarkBTreeMempoolGetNextTxBytes-8                121           9824497 ns/op
 
 var txs types.Txs
 
@@ -64,8 +64,7 @@ func BenchmarkBTreeCheckTx(b *testing.B) {
 func benchmarkCheckTx(b *testing.B, enum mpEnum) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLocalClientCreator(app)
-	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)),
-		enum, false)
+	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
 	defer cleanup()
 
 	b.ResetTimer()
@@ -94,8 +93,7 @@ func BenchmarkBTreeRemoveTx(b *testing.B) {
 func benchmarkRemoveTx(b *testing.B, enum mpEnum) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLocalClientCreator(app)
-	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)),
-		enum, false)
+	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
 	defer cleanup()
 	for j := 0; j < txSize; j++ {
 		mempool.CheckTx(txs[j], nil, TxInfo{})
@@ -158,8 +156,7 @@ func BenchmarkBTreeMempoolGetNextTxBytes(b *testing.B) {
 func benchmarkMempoolGetNextTxBytes(b *testing.B, enum mpEnum, supportIterable bool) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLocalClientCreator(app)
-	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)),
-		enum, supportIterable)
+	mempool, cleanup := newMempoolWithAppAndConfig(cc, cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", enum)), enum)
 	defer cleanup()
 	for i := 0; i < txSize; i++ {
 		mempool.CheckTx(txs[i], nil, TxInfo{})

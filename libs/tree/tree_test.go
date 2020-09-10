@@ -50,7 +50,7 @@ func getNextOrderedTxs(t interface{}, byteLimit int) [][]byte {
 	var starter *NodeKey
 	var txs [][]byte
 	var tree = t.(BalancedTree)
-	for i := 0; i < 5; i++ {
+	for {
 		result, next, err := tree.GetNext(starter, func(v interface{}) bool { return len(v.([]byte)) <= byteLimit })
 		if err != nil {
 			break

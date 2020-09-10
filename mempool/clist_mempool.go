@@ -39,11 +39,11 @@ type cListMempool struct {
 }
 
 func (mem *cListMempool) register(u uint64) error {
-	panic("implement me")
+	return nil
 }
 
 func (mem *cListMempool) iterNext(u uint64, i int64, i2 int64, bytes []byte) ([]byte, error) {
-	panic("implement me")
+	return nil, nil
 }
 
 // NewCListMempool returns a new mempool with the given configuration and connection to an application.
@@ -51,7 +51,6 @@ func NewCListMempool(
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
-	supportIterable bool,
 	options ...Option,
 ) Mempool {
 

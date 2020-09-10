@@ -52,7 +52,6 @@ func TestCreateProposalBlock_MempoolRemoveTxs(t *testing.T) {
 		config.Mempool,
 		proxyApp.Mempool(),
 		state.LastBlockHeight,
-		false,
 	)
 
 	txs := []types.Tx{[]byte{0x01}, []byte{0x02}, []byte{0x03}}

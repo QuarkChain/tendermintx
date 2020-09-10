@@ -73,35 +73,34 @@ func newTreeMempool(
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
 	treeGen func() tree.BalancedTree,
-	supportIterable bool,
 	options ...Option,
 ) Mempool {
 	treeMempool := &treeMempool{txs: treeGen(), treeGen: treeGen}
-	if supportIterable {
-		treeMempool.iterableTree = treeMempool.txs.(tree.IterableTree)
-	}
 	return newBasemempool(treeMempool, config, proxyAppConn, height, options...)
+}
+
+func supportIterable(bm *basemempool) {
+	tm := bm.mempoolImpl.(*treeMempool)
+	tm.iterableTree = tm.txs.(tree.IterableTree)
 }
 
 func NewLLRBMempool(
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
-	supportIterable bool,
 	options ...Option,
 ) Mempool {
-	t := newTreeMempool(config, proxyAppConn, height, tree.NewLLRB, supportIterable, options...)
-	return t
+	options = append(options, supportIterable)
+	return newTreeMempool(config, proxyAppConn, height, tree.NewLLRB, options...)
 }
 
 func NewBTreeMempool(
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
-	supportIterable bool,
 	options ...Option,
 ) Mempool {
-	return newTreeMempool(config, proxyAppConn, height, tree.NewBTree, supportIterable, options...)
+	return newTreeMempool(config, proxyAppConn, height, tree.NewBTree, options...)
 }
 
 // Safe for concurrent use by multiple goroutines.

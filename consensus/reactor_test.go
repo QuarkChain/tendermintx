@@ -150,7 +150,7 @@ func TestReactorWithEvidence(t *testing.T) {
 		appConnMem := proxy.NewAppConnMempool(proxyAppConnMem)
 
 		// Make Mempool
-		mempool := mempl.NewCListMempool(thisConfig.Mempool, appConnMem, 0, false)
+		mempool := mempl.NewCListMempool(thisConfig.Mempool, appConnMem, 0)
 		mempool.SetLogger(log.TestingLogger().With("module", "mempool"))
 		if thisConfig.Consensus.WaitForTxs() {
 			mempool.EnableTxsAvailable()

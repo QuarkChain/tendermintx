@@ -383,7 +383,7 @@ func newStateWithConfigAndBlockStore(
 	appConnMem := proxy.NewAppConnMempool(proxyAppConnMem)
 
 	// Make Mempool
-	mempool := mempl.NewCListMempool(thisConfig.Mempool, appConnMem, 0, false)
+	mempool := mempl.NewCListMempool(thisConfig.Mempool, appConnMem, 0)
 	mempool.SetLogger(log.TestingLogger().With("module", "mempool"))
 	if thisConfig.Consensus.WaitForTxs() {
 		mempool.EnableTxsAvailable()
@@ -451,7 +451,7 @@ func randStateWithEvpool(nValidators int) (*State, []*validatorStub, *evidence.P
 	proxyAppConnCon := abcixcli.NewLocalClient(mtx, adaptedABCIxApp)
 	appConnMem := proxy.NewAppConnMempool(proxyAppConnMem)
 
-	mempool := mempl.NewCListMempool(config.Mempool, appConnMem, 0, false)
+	mempool := mempl.NewCListMempool(config.Mempool, appConnMem, 0)
 	mempool.SetLogger(log.TestingLogger().With("module", "mempool"))
 	if config.Consensus.WaitForTxs() {
 		mempool.EnableTxsAvailable()
