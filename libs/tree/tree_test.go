@@ -202,7 +202,7 @@ func testGetNext(t *testing.T, treeGen func() BalancedTree, useIterator bool) {
 			priorities:      []uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, 1},
 			expectedTxOrder: []int{0, 1, 2, 3},
 		},
-		//Byte limitation test
+		// Byte limitation test
 		{
 			priorities:      []uint64{0, 0, 0, 0, 0},
 			byteLimit:       1,
