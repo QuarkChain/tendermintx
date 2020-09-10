@@ -897,7 +897,18 @@ func (cs *State) enterNewRound(height int64, round int32) {
 	cs.eventBus.PublishEventNewRound(cs.NewRoundEvent())
 	cs.metrics.Rounds.Set(float64(round))
 
-	cs.enterPropose(height, round)
+	// Wait for txs to be available in the mempool
+	// before we enterPropose in round 0. If the height == 1,
+	// we enterPropose immediately.
+	waitForTxs := cs.config.WaitForTxs() && round == 0 && height > 1
+	if waitForTxs {
+		if cs.config.CreateEmptyBlocksInterval > 0 {
+			cs.scheduleTimeout(cs.config.CreateEmptyBlocksInterval, height, round,
+				cstypes.RoundStepNewRound)
+		}
+	} else {
+		cs.enterPropose(height, round)
+	}
 }
 
 // Enter (CreateEmptyBlocks): from enterNewRound(height,round)

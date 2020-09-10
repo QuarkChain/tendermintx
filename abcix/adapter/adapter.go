@@ -15,19 +15,12 @@ import (
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	abcix "github.com/tendermint/tendermint/abcix/types"
-	tdypes "github.com/tendermint/tendermint/types"
+	tdtypes "github.com/tendermint/tendermint/types"
 )
 
 var (
-	maxBytes            = tdypes.DefaultConsensusParams().Block.MaxBytes
-	maxGas              = tdypes.DefaultConsensusParams().Block.MaxGas
-	maxOverheadForBlock = tdypes.MaxOverheadForBlock
-	// MaxHeaderBytes is a maximum header size.
-	maxHeaderBytes = tdypes.MaxHeaderBytes
-	// MaxVoteBytes is a maximum vote size (including amino overhead).
-	maxVoteBytes = tdypes.MaxVoteBytes
-	// MaxEvidenceBytes is a maximum size of any evidence (including amino overhead).
-	maxEvidenceBytes = tdypes.MaxEvidenceBytes
+	maxBytes = tdtypes.DefaultConsensusParams().Block.MaxBytes
+	maxGas   = tdtypes.DefaultConsensusParams().Block.MaxGas
 
 	stateKey = []byte("adaptorStateKey")
 )
@@ -149,11 +142,7 @@ func (app *adaptedApp) CreateBlock(
 
 	}
 	// Update remainBytes based on previous block
-	remainBytes := maxBytes -
-		maxOverheadForBlock -
-		maxHeaderBytes -
-		int64(len(req.LastCommitInfo.Votes))*maxVoteBytes -
-		int64(len(req.ByzantineValidators))*maxEvidenceBytes
+	remainBytes := CalcRemainBytes(req)
 	remainGas := maxGas
 
 	for {
@@ -316,4 +305,13 @@ func saveState(state state, logger log.Logger) {
 	if err != nil {
 		logger.Error("failed to save state", "err", err)
 	}
+}
+
+func CalcRemainBytes(req abcix.RequestCreateBlock) int64 {
+	remainBytes := maxBytes -
+		tdtypes.MaxOverheadForBlock -
+		tdtypes.MaxHeaderBytes -
+		int64(len(req.LastCommitInfo.Votes))*tdtypes.MaxVoteBytes -
+		int64(len(req.ByzantineValidators))*tdtypes.MaxEvidenceBytes
+	return remainBytes
 }

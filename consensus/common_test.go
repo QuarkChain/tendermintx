@@ -507,6 +507,13 @@ func ensureNoNewEvent(ch <-chan tmpubsub.Message, timeout time.Duration,
 	}
 }
 
+func ensureNoNewEventOnChannel(ch <-chan tmpubsub.Message) {
+	ensureNoNewEvent(
+		ch,
+		ensureTimeout,
+		"We should be stuck waiting, not receiving new event on the channel")
+}
+
 func ensureNoNewRoundStep(stepCh <-chan tmpubsub.Message) {
 	ensureNoNewEvent(
 		stepCh,

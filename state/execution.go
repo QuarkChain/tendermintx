@@ -160,7 +160,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 ) (State, int64, []byte, error) {
 
 	if err := blockExec.ValidateBlock(state, block); err != nil {
-		return state, 0, []byte{}, ErrInvalidBlock(err)
+		return state, 0, nil, ErrInvalidBlock(err)
 	}
 
 	startTime := time.Now().UnixNano()
@@ -168,7 +168,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	endTime := time.Now().UnixNano()
 	blockExec.metrics.BlockProcessingTime.Observe(float64(endTime-startTime) / 1000000)
 	if err != nil {
-		return state, 0, []byte{}, ErrProxyAppConn(err)
+		return state, 0, nil, ErrProxyAppConn(err)
 	}
 
 	fail.Fail() // XXX
@@ -182,11 +182,11 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	abciValUpdates := abciResponses.DeliverBlock.ValidatorUpdates
 	err = validateValidatorUpdates(abciValUpdates, state.ConsensusParams.Validator)
 	if err != nil {
-		return state, 0, []byte{}, fmt.Errorf("error in validator updates: %v", err)
+		return state, 0, nil, fmt.Errorf("error in validator updates: %v", err)
 	}
 	validatorUpdates, err := types.PB2TM.ValidatorUpdates(abciValUpdates)
 	if err != nil {
-		return state, 0, []byte{}, err
+		return state, 0, nil, err
 	}
 	if len(validatorUpdates) > 0 {
 		blockExec.logger.Info("Updates to validators", "updates", types.ValidatorListString(validatorUpdates))
@@ -195,13 +195,13 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	// Update the state with the block and responses.
 	state, err = updateState(state, blockID, &block.Header, abciResponses, validatorUpdates)
 	if err != nil {
-		return state, 0, []byte{}, fmt.Errorf("commit failed for application: %v", err)
+		return state, 0, nil, fmt.Errorf("commit failed for application: %v", err)
 	}
 
 	// Lock mempool, commit app state, update mempoool.
 	appHash, retainHeight, err := blockExec.Commit(state, block, abciResponses.DeliverBlock)
 	if err != nil {
-		return state, 0, []byte{}, fmt.Errorf("commit failed for application: %v", err)
+		return state, 0, nil, fmt.Errorf("commit failed for application: %v", err)
 	}
 
 	// Update evpool with the block and state.
@@ -311,16 +311,16 @@ func (blockExec *BlockExecutor) CheckBlock(block *types.Block) error {
 		DeliverBlock: &abcix.ResponseDeliverBlock{Events: resp.Events, DeliverTxs: resp.DeliverTxs}})
 	if !bytes.Equal(resultHash, block.Header.ResultsHash.Bytes()) {
 		blockExec.logger.Error(
-			"resultHash mismatch", "resultHash in ResponseCheckBlock", resultHash,
-			"resultHash in block header", block.Header.ResultsHash.Bytes(),
+			"resultHash mismatch", "response_CheckBlock", resultHash,
+			"block_header", block.Header.ResultsHash.Bytes(),
 		)
 		return errors.New("resultHash mismatch")
 	}
 
 	if !bytes.Equal(resp.AppHash, block.Header.AppHash.Bytes()) {
 		blockExec.logger.Error(
-			"appHash mismatch", "appHash in ResponseCheckBlock", resp.AppHash,
-			"appHash in block header", block.Header.AppHash.Bytes(),
+			"appHash mismatch", "response_CheckBlock", resp.AppHash,
+			"block_header", block.Header.AppHash.Bytes(),
 		)
 		return errors.New("appHash mismatch")
 	}

@@ -6,6 +6,8 @@ import (
 	"math"
 	"time"
 
+	"github.com/tendermint/tendermint/abcix/adapter"
+
 	dbm "github.com/tendermint/tm-db"
 
 	abcix "github.com/tendermint/tendermint/abcix/types"
@@ -242,11 +244,7 @@ func (app *testApp) Info(req abcix.RequestInfo) (resInfo abcix.ResponseInfo) {
 func (app *testApp) CreateBlock(req abcix.RequestCreateBlock, iter *abcix.MempoolIter) abcix.ResponseCreateBlock {
 	ret := abcix.ResponseCreateBlock{}
 
-	remainBytes := types.DefaultConsensusParams().Block.MaxBytes -
-		types.MaxOverheadForBlock -
-		types.MaxHeaderBytes -
-		int64(len(req.LastCommitInfo.Votes))*types.MaxVoteBytes -
-		int64(len(req.ByzantineValidators))*types.MaxEvidenceBytes
+	remainBytes := adapter.CalcRemainBytes(req)
 	remainGas := int64(math.MaxInt64)
 
 	for {
@@ -259,6 +257,7 @@ func (app *testApp) CreateBlock(req abcix.RequestCreateBlock, iter *abcix.Mempoo
 		}
 		ret.Txs = append(ret.Txs, tx)
 		remainBytes -= int64(len(tx))
+		remainGas--
 		ret.DeliverTxs = append(ret.DeliverTxs, &abcix.ResponseDeliverTx{})
 	}
 	return ret

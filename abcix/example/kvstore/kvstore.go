@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/tendermint/tendermint/abcix/adapter"
+
 	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
 	dbm "github.com/tendermint/tm-db"
@@ -14,7 +16,6 @@ import (
 	"github.com/tendermint/tendermint/abcix/example/code"
 	"github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/libs/log"
-	tdtypes "github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/version"
 )
 
@@ -22,7 +23,6 @@ var (
 	kvPairPrefixKey = []byte("kvPairKey:")
 
 	ProtocolVersion uint64 = 0x1
-	maxBytes               = tdtypes.DefaultConsensusParams().Block.MaxBytes
 	maxGas          int64  = 10
 )
 
@@ -96,15 +96,11 @@ func (app *Application) CreateBlock(
 	req types.RequestCreateBlock,
 	mempool *types.MempoolIter,
 ) types.ResponseCreateBlock {
-	var size int64
-	remainBytes := maxBytes -
-		tdtypes.MaxOverheadForBlock -
-		tdtypes.MaxHeaderBytes -
-		int64(len(req.LastCommitInfo.Votes))*tdtypes.MaxVoteBytes -
-		int64(len(req.ByzantineValidators))*tdtypes.MaxEvidenceBytes
+	remainBytes := adapter.CalcRemainBytes(req)
 	remainGas := maxGas
 
 	ret := types.ResponseCreateBlock{}
+	tempState := app.state
 	for {
 		tx, err := mempool.GetNextTransaction(remainBytes, remainGas)
 		if err != nil {
@@ -115,13 +111,13 @@ func (app *Application) CreateBlock(
 			break
 		}
 
-		newState, gasUsed, err := executeTx(app.state, tx, true)
+		newState, gasUsed, err := executeTx(tempState, tx, true)
 		if err != nil {
 			ret.InvalidTxs = append(ret.InvalidTxs, tx)
 			continue
 		}
 		ret.Txs = append(ret.Txs, tx)
-		size = newState.Size
+		tempState = newState
 		remainBytes -= int64(len(tx))
 		remainGas -= gasUsed
 		txResp := &types.ResponseDeliverTx{GasUsed: gasUsed}
@@ -129,7 +125,7 @@ func (app *Application) CreateBlock(
 	}
 
 	appHash := make([]byte, 8)
-	binary.PutVarint(appHash, size)
+	binary.PutVarint(appHash, tempState.Size)
 	ret.AppHash = appHash
 	ret.Events = nil
 	return ret
@@ -158,8 +154,9 @@ func (app *Application) CheckBlock(req types.RequestCheckBlock) types.ResponseCh
 	ret := types.ResponseCheckBlock{}
 
 	var size int64
+	lastState := app.state
 	for _, tx := range req.Txs {
-		newState, gasUsed, err := executeTx(app.state, tx, true)
+		newState, gasUsed, err := executeTx(lastState, tx, true)
 		if err != nil {
 			panic("consensus failure: invalid tx found in CheckBlock: " + err.Error())
 		}
