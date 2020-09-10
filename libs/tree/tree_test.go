@@ -261,12 +261,21 @@ func testGetNext(t *testing.T, treeGen func() BalancedTree, useIterator bool) {
 	}
 }
 
-// BenchmarkLLRBInsert-8   	 1399514	       770 ns/op
+//goos: darwin
+//goarch: amd64
+//pkg: github.com/tendermint/tendermint/libs/tree
+//BenchmarkLLRBInsert-8            1724072               663 ns/op
+//BenchmarkBTreeInsert-8           1675202               769 ns/op
+//BenchmarkLLRBRemove-8            1211070              1019 ns/op
+//BenchmarkBTreeRemove-8           2185234               616 ns/op
+//BenchmarkLLRBGetNext-8           2956316               390 ns/op
+//BenchmarkLLRBIterNext-8          2958500               406 ns/op
+//BenchmarkBTreeGetNext-8          3353264               340 ns/op
+
 func BenchmarkLLRBInsert(b *testing.B) {
 	benchmarkInsert(b, NewLLRB)
 }
 
-// BenchmarkBTreeInsert-8   	 1000000	      1561 ns/op
 func BenchmarkBTreeInsert(b *testing.B) {
 	benchmarkInsert(b, NewBTree)
 }
@@ -278,12 +287,10 @@ func benchmarkInsert(b *testing.B, treeGen func() BalancedTree) {
 	}
 }
 
-// BenchmarkLLRBRemove-8   	 1000000	      1382 ns/op
 func BenchmarkLLRBRemove(b *testing.B) {
 	benchmarkRemove(b, NewLLRB)
 }
 
-// BenchmarkBTreeRemove-8   	 1834498	       672 ns/op
 func BenchmarkBTreeRemove(b *testing.B) {
 	benchmarkRemove(b, NewBTree)
 }
@@ -306,20 +313,13 @@ func benchmarkRemove(b *testing.B, treeGen func() BalancedTree) {
 	}
 }
 
-// BenchmarkLLRBGetNext-8   	     390	   2798607 ns/op
 func BenchmarkLLRBGetNext(b *testing.B) {
 	benchmarkGetNext(b, NewLLRB)
 }
 
-// BenchmarkBTreeGetNext-8   	     121	  10038807 ns/op
-func BenchmarkBTreeGetNext(b *testing.B) {
-	benchmarkGetNext(b, NewBTree)
-}
-
-// BenchmarkLLRBIterNext-8   	     459	   3002616 ns/op
 func BenchmarkLLRBIterNext(b *testing.B) {
 	tree := newLLRB()
-	size := 10000
+	size := 1000000
 	for i := 0; i < size; i++ {
 		randNum, _ := cr.Int(cr.Reader, big.NewInt(1000))
 		data := getRandomBytes(1)[0]
@@ -331,20 +331,24 @@ func BenchmarkLLRBIterNext(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		tree.Register(0)
-		_, startKey, _ := tree.IterNext(0, nil, func(interface{}) bool { return true })
-		for startKey != (NodeKey{}) {
-			_, next, _ := tree.IterNext(0, &startKey, func(interface{}) bool { return true })
-			if next.Priority > startKey.Priority {
+		_, startKey, err := tree.IterNext(0, nil, func(interface{}) bool { return true })
+		for err != nil {
+			_, nextKey, _ := tree.IterNext(0, &startKey, func(interface{}) bool { return true })
+			if startKey.Priority > nextKey.Priority {
 				b.Fatal("invalid iteration")
 			}
-			startKey = next
+			startKey = nextKey
 		}
 	}
 }
 
+func BenchmarkBTreeGetNext(b *testing.B) {
+	benchmarkGetNext(b, NewBTree)
+}
+
 func benchmarkGetNext(b *testing.B, treeGen func() BalancedTree) {
 	tree := treeGen()
-	size := 10000
+	size := 1000000
 	for i := 0; i < size; i++ {
 		randNum, _ := cr.Int(cr.Reader, big.NewInt(1000))
 		data := getRandomBytes(1)[0]
