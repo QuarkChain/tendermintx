@@ -9,12 +9,13 @@ import (
 
 	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
+	dbm "github.com/tendermint/tm-db"
+
 	"github.com/tendermint/tendermint/abcix/adapter"
 	"github.com/tendermint/tendermint/abcix/example/code"
 	"github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/version"
-	dbm "github.com/tendermint/tm-db"
 )
 
 var (

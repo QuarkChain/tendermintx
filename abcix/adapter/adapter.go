@@ -8,12 +8,13 @@ import (
 	"os"
 	"reflect"
 
+	dbm "github.com/tendermint/tm-db"
+
 	"github.com/jinzhu/copier"
 	abci "github.com/tendermint/tendermint/abci/types"
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/libs/log"
 	tdtypes "github.com/tendermint/tendermint/types"
-	dbm "github.com/tendermint/tm-db"
 )
 
 var (
