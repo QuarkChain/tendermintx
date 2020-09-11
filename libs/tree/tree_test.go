@@ -317,31 +317,31 @@ func benchmarkRemove(b *testing.B, treeGen func() BalancedTree) {
 //BenchmarkLLRBGetNext-8            108014             10832 ns/op
 //BenchmarkLLRBIterNext-8            63244             20879 ns/op
 //BenchmarkBTreeGetNext-8            16766             77508 ns/op
-//BenchmarkGetALl-8                  54942             18655 ns/op
-//BenchmarkIterALl-8                195439              6608 ns/op
+//BenchmarkGetAll-8                  54942             18655 ns/op
+//BenchmarkIterAll-8                195439              6608 ns/op
 // testsize = 1000
 //BenchmarkLLRBGetNext-8              5124            228192 ns/op
 //BenchmarkLLRBIterNext-8             4693            235503 ns/op
 //BenchmarkBTreeGetNext-8             1441            792664 ns/op
-//BenchmarkGetALl-8                   4402            237955 ns/op
-//BenchmarkIterALl-8                 23947             52018 ns/op
+//BenchmarkGetAll-8                   4402            237955 ns/op
+//BenchmarkIterAll-8                 23947             52018 ns/op
 // testsize = 10000
 //BenchmarkLLRBGetNext-8               424           2960079 ns/op
 //BenchmarkLLRBIterNext-8              501           2226079 ns/op
 //BenchmarkBTreeGetNext-8               99          10119141 ns/op
-//BenchmarkGetALl-8                    175           6181894 ns/op
-//BenchmarkIterALl-8                   538           2051830 ns/op
+//BenchmarkGetAll-8                    175           6181894 ns/op
+//BenchmarkIterAll-8                   538           2051830 ns/op
 // testsize = 100000
 //BenchmarkLLRBGetNext-8                20          51832558 ns/op
 //BenchmarkLLRBIterNext-8               32          35636880 ns/op
 //BenchmarkBTreeGetNext-8                9         120034507 ns/op
-//BenchmarkGetALl-8                     12          97441124 ns/op
-//BenchmarkIterALl-8                    36          33734100 ns/op
+//BenchmarkGetAll-8                     12          97441124 ns/op
+//BenchmarkIterAll-8                    36          33734100 ns/op
 // testsize = 1000000
 //BenchmarkLLRBGetNext-8                 2         592568886 ns/op
 //BenchmarkLLRBIterNext-8                3         385438734 ns/op
 //BenchmarkBTreeGetNext-8                1        1456426722 ns/op
-//BenchmarkGetALl-8                      1        1826249765 ns/op
+//BenchmarkGetAll-8                      1        1826249765 ns/op
 //BenchmarkIterALl-8                     3         480941656 ns/op
 
 func BenchmarkLLRBGetNext(b *testing.B) {
@@ -401,7 +401,7 @@ func benchmarkGetNext(b *testing.B, treeGen func() BalancedTree) {
 	}
 }
 
-func BenchmarkGetALl(b *testing.B) {
+func BenchmarkGetAll(b *testing.B) {
 	tree := newLLRB()
 	for i := 0; i < testSize; i++ {
 		randNum, _ := cr.Int(cr.Reader, big.NewInt(1000))
@@ -420,7 +420,7 @@ func BenchmarkGetALl(b *testing.B) {
 	}
 }
 
-func BenchmarkIterALl(b *testing.B) {
+func BenchmarkIterAll(b *testing.B) {
 	tree := newLLRB()
 	for i := 0; i < testSize; i++ {
 		randNum, _ := cr.Int(cr.Reader, big.NewInt(1000))
