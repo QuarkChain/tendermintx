@@ -312,6 +312,38 @@ func benchmarkRemove(b *testing.B, treeGen func() BalancedTree) {
 	}
 }
 
+// GetNext Benchmarks
+// testsize = 100
+//BenchmarkLLRBGetNext-8            108014             10832 ns/op
+//BenchmarkLLRBIterNext-8            63244             20879 ns/op
+//BenchmarkBTreeGetNext-8            16766             77508 ns/op
+//BenchmarkGetALl-8                  54942             18655 ns/op
+//BenchmarkIterALl-8                195439              6608 ns/op
+// testsize = 1000
+//BenchmarkLLRBGetNext-8              5124            228192 ns/op
+//BenchmarkLLRBIterNext-8             4693            235503 ns/op
+//BenchmarkBTreeGetNext-8             1441            792664 ns/op
+//BenchmarkGetALl-8                   4402            237955 ns/op
+//BenchmarkIterALl-8                 23947             52018 ns/op
+// testsize = 10000
+//BenchmarkLLRBGetNext-8               424           2960079 ns/op
+//BenchmarkLLRBIterNext-8              501           2226079 ns/op
+//BenchmarkBTreeGetNext-8               99          10119141 ns/op
+//BenchmarkGetALl-8                    175           6181894 ns/op
+//BenchmarkIterALl-8                   538           2051830 ns/op
+// testsize = 100000
+//BenchmarkLLRBGetNext-8                20          51832558 ns/op
+//BenchmarkLLRBIterNext-8               32          35636880 ns/op
+//BenchmarkBTreeGetNext-8                9         120034507 ns/op
+//BenchmarkGetALl-8                     12          97441124 ns/op
+//BenchmarkIterALl-8                    36          33734100 ns/op
+// testsize = 1000000
+//BenchmarkLLRBGetNext-8                 2         592568886 ns/op
+//BenchmarkLLRBIterNext-8                3         385438734 ns/op
+//BenchmarkBTreeGetNext-8                1        1456426722 ns/op
+//BenchmarkGetALl-8                      1        1826249765 ns/op
+//BenchmarkIterALl-8                     3         480941656 ns/op
+
 func BenchmarkLLRBGetNext(b *testing.B) {
 	benchmarkGetNext(b, NewLLRB)
 }
@@ -326,44 +358,20 @@ func BenchmarkLLRBIterNext(b *testing.B) {
 	if tree.Size() != testSize {
 		b.Fatal("invalid tree size", tree.Size())
 	}
+	var nextKey NodeKey
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		tree.Register(0)
 		_, startKey, err := tree.IterNext(0, nil, func(interface{}) bool { return true })
-		for err != nil {
-			_, nextKey, _ := tree.IterNext(0, &startKey, func(interface{}) bool { return true })
-			if startKey.Priority > nextKey.Priority {
+		for err == nil {
+			_, nextKey, err = tree.IterNext(0, &startKey, func(interface{}) bool { return true })
+			if nextKey.Priority > startKey.Priority {
 				b.Fatal("invalid iteration")
 			}
 			startKey = nextKey
 		}
 	}
 }
-
-// testSize = 5000
-//BenchmarkLLRBGetNext-8           5197504               228 ns/op
-//BenchmarkLLRBIterNext-8          4741790               240 ns/op
-//BenchmarkBTreeGetNext-8          5203962               234 ns/op
-//BenchmarkGetALl-8                    296           3383481 ns/op
-//BenchmarkIterALl-8                  1118           1047621 ns/op
-// testSize = 10000
-//BenchmarkLLRBGetNext-8           4591156               265 ns/op
-//BenchmarkLLRBIterNext-8          4558165               321 ns/op
-//BenchmarkBTreeGetNext-8          3705967               297 ns/op
-//BenchmarkGetALl-8                    135           8573072 ns/op
-//BenchmarkIterALl-8                   544           2652684 ns/op
-// testSize = 100000
-//BenchmarkLLRBGetNext-8           3317214               336 ns/op
-//BenchmarkLLRBIterNext-8          2832264               433 ns/op
-//BenchmarkBTreeGetNext-8          3881713               334 ns/op
-//BenchmarkGetALl-8                     10         118716044 ns/op
-//BenchmarkIterALl-8                    33          33010783 ns/op
-// testSize = 1000000
-//BenchmarkLLRBGetNext-8           2807612               428 ns/op
-//BenchmarkLLRBIterNext-8          2916266               415 ns/op
-//BenchmarkBTreeGetNext-8          3128041               333 ns/op
-//BenchmarkGetALl-8                      1        2023211493 ns/op
-//BenchmarkIterALl-8                     3         472334005 ns/op
 
 func BenchmarkBTreeGetNext(b *testing.B) {
 	benchmarkGetNext(b, NewBTree)
@@ -383,9 +391,9 @@ func benchmarkGetNext(b *testing.B, treeGen func() BalancedTree) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, startKey, err := tree.GetNext(nil, func(interface{}) bool { return true })
-		for err != nil {
+		for err == nil {
 			_, nextKey, err = tree.GetNext(&startKey, func(interface{}) bool { return true })
-			if startKey.Priority > nextKey.Priority {
+			if nextKey.Priority > startKey.Priority {
 				b.Fatal("invalid iteration")
 			}
 			startKey = nextKey
@@ -409,10 +417,6 @@ func BenchmarkGetALl(b *testing.B) {
 		if len(result) != testSize {
 			b.Fatal("invalid result size", tree.Size())
 		}
-		//for _,v := range(result) {
-		//	fmt.Println(v.Priority)
-		//}
-		//fmt.Println("End iteration")
 	}
 }
 
@@ -432,9 +436,5 @@ func BenchmarkIterALl(b *testing.B) {
 		if len(result) != testSize {
 			b.Fatal("invalid result size", tree.Size())
 		}
-		//for _,v := range(result) {
-		//	fmt.Println(v.Priority)
-		//}
-		//fmt.Println("End iteration")
 	}
 }
