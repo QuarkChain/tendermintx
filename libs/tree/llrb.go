@@ -227,6 +227,62 @@ func (t *llrb) iterNext(stack []*node) []*node {
 	return stack
 }
 
+func (t *llrb) iterAll(predicate func(interface{}) bool) []NodeKey {
+	t.mtx.RLock()
+	defer t.mtx.RUnlock()
+	stack := []*node{}
+	startKey := NodeKey{Priority: uint64(math.MaxUint64)}
+	for h := t.root; h != nil; {
+		stack = append(stack, h)
+		if h.key.compare(startKey) == -1 {
+			h = h.right
+		} else {
+			h = h.left
+		}
+	}
+
+	// validate top of the stack until predicate true
+	keys := []NodeKey{}
+
+	for value, key := stack[len(stack)-1].data, stack[len(stack)-1].key; predicate(value); {
+		keys = append(keys, key)
+		stack = t.iterNext(stack)
+		if len(stack) == 0 {
+			break
+		}
+		value = stack[len(stack)-1].data
+		key = stack[len(stack)-1].key
+	}
+	return keys
+}
+
+func (t *llrb) getAll(predicate func(interface{}) bool, starter *NodeKey, prevKeys []NodeKey) []NodeKey {
+	t.mtx.RLock()
+	defer t.mtx.RUnlock()
+	startKey := NodeKey{
+		Priority: uint64(math.MaxUint64),
+	}
+	if starter != nil {
+		startKey = *starter
+	}
+	var candidate *node
+	for h := t.root; h != nil; {
+		if h.key.compare(startKey) == -1 {
+			if (predicate == nil || predicate(h.data)) && (candidate == nil || candidate.key.compare(h.key) == -1) {
+				candidate = h
+			}
+			h = h.right
+		} else {
+			h = h.left
+		}
+	}
+	if candidate == nil {
+		return prevKeys
+	}
+	prevKeys = append(prevKeys, candidate.key)
+	return t.getAll(predicate, &candidate.key, prevKeys)
+}
+
 func (t *llrb) delete(h *node, key NodeKey) (*node, node) {
 	deleted := node{}
 	if h == nil {

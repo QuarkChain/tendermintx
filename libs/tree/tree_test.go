@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var testSize = 1000000
+
 func getNodeKeys(priorities []uint64, txs [][]byte) []*NodeKey {
 	var nks []*NodeKey
 	for i := 0; i < len(priorities); i++ {
@@ -268,9 +270,6 @@ func testGetNext(t *testing.T, treeGen func() BalancedTree, useIterator bool) {
 //BenchmarkBTreeInsert-8           1675202               769 ns/op
 //BenchmarkLLRBRemove-8            1211070              1019 ns/op
 //BenchmarkBTreeRemove-8           2185234               616 ns/op
-//BenchmarkLLRBGetNext-8           2956316               390 ns/op
-//BenchmarkLLRBIterNext-8          2958500               406 ns/op
-//BenchmarkBTreeGetNext-8          3353264               340 ns/op
 
 func BenchmarkLLRBInsert(b *testing.B) {
 	benchmarkInsert(b, NewLLRB)
@@ -319,13 +318,12 @@ func BenchmarkLLRBGetNext(b *testing.B) {
 
 func BenchmarkLLRBIterNext(b *testing.B) {
 	tree := newLLRB()
-	size := 1000000
-	for i := 0; i < size; i++ {
+	for i := 0; i < testSize; i++ {
 		randNum, _ := cr.Int(cr.Reader, big.NewInt(1000))
 		data := getRandomBytes(1)[0]
 		tree.Insert(NodeKey{Priority: randNum.Uint64(), Hash: txHash(data)}, data)
 	}
-	if tree.Size() != size {
+	if tree.Size() != testSize {
 		b.Fatal("invalid tree size", tree.Size())
 	}
 	b.ResetTimer()
@@ -342,19 +340,43 @@ func BenchmarkLLRBIterNext(b *testing.B) {
 	}
 }
 
+// testSize = 5000
+//BenchmarkLLRBGetNext-8           5197504               228 ns/op
+//BenchmarkLLRBIterNext-8          4741790               240 ns/op
+//BenchmarkBTreeGetNext-8          5203962               234 ns/op
+//BenchmarkGetALl-8                    296           3383481 ns/op
+//BenchmarkIterALl-8                  1118           1047621 ns/op
+// testSize = 10000
+//BenchmarkLLRBGetNext-8           4591156               265 ns/op
+//BenchmarkLLRBIterNext-8          4558165               321 ns/op
+//BenchmarkBTreeGetNext-8          3705967               297 ns/op
+//BenchmarkGetALl-8                    135           8573072 ns/op
+//BenchmarkIterALl-8                   544           2652684 ns/op
+// testSize = 100000
+//BenchmarkLLRBGetNext-8           3317214               336 ns/op
+//BenchmarkLLRBIterNext-8          2832264               433 ns/op
+//BenchmarkBTreeGetNext-8          3881713               334 ns/op
+//BenchmarkGetALl-8                     10         118716044 ns/op
+//BenchmarkIterALl-8                    33          33010783 ns/op
+// testSize = 1000000
+//BenchmarkLLRBGetNext-8           2807612               428 ns/op
+//BenchmarkLLRBIterNext-8          2916266               415 ns/op
+//BenchmarkBTreeGetNext-8          3128041               333 ns/op
+//BenchmarkGetALl-8                      1        2023211493 ns/op
+//BenchmarkIterALl-8                     3         472334005 ns/op
+
 func BenchmarkBTreeGetNext(b *testing.B) {
 	benchmarkGetNext(b, NewBTree)
 }
 
 func benchmarkGetNext(b *testing.B, treeGen func() BalancedTree) {
 	tree := treeGen()
-	size := 1000000
-	for i := 0; i < size; i++ {
+	for i := 0; i < testSize; i++ {
 		randNum, _ := cr.Int(cr.Reader, big.NewInt(1000))
 		data := getRandomBytes(1)[0]
 		tree.Insert(NodeKey{Priority: randNum.Uint64(), Hash: txHash(data)}, data)
 	}
-	if tree.Size() != size {
+	if tree.Size() != testSize {
 		b.Fatal("invalid tree size", tree.Size())
 	}
 	var nextKey NodeKey
@@ -368,5 +390,51 @@ func benchmarkGetNext(b *testing.B, treeGen func() BalancedTree) {
 			}
 			startKey = nextKey
 		}
+	}
+}
+
+func BenchmarkGetALl(b *testing.B) {
+	tree := newLLRB()
+	for i := 0; i < testSize; i++ {
+		randNum, _ := cr.Int(cr.Reader, big.NewInt(1000))
+		data := getRandomBytes(1)[0]
+		tree.Insert(NodeKey{Priority: randNum.Uint64(), Hash: txHash(data)}, data)
+	}
+	if tree.Size() != testSize {
+		b.Fatal("invalid tree size", tree.Size())
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		result := tree.getAll(func(interface{}) bool { return true }, nil, []NodeKey{})
+		if len(result) != testSize {
+			b.Fatal("invalid result size", tree.Size())
+		}
+		//for _,v := range(result) {
+		//	fmt.Println(v.Priority)
+		//}
+		//fmt.Println("End iteration")
+	}
+}
+
+func BenchmarkIterALl(b *testing.B) {
+	tree := newLLRB()
+	for i := 0; i < testSize; i++ {
+		randNum, _ := cr.Int(cr.Reader, big.NewInt(1000))
+		data := getRandomBytes(1)[0]
+		tree.Insert(NodeKey{Priority: randNum.Uint64(), Hash: txHash(data)}, data)
+	}
+	if tree.Size() != testSize {
+		b.Fatal("invalid tree size", tree.Size())
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		result := tree.iterAll(func(interface{}) bool { return true })
+		if len(result) != testSize {
+			b.Fatal("invalid result size", tree.Size())
+		}
+		//for _,v := range(result) {
+		//	fmt.Println(v.Priority)
+		//}
+		//fmt.Println("End iteration")
 	}
 }
