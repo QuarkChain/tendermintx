@@ -13,15 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tendermint/tendermint/abcix/adapter"
-
 	"github.com/go-kit/kit/log/term"
 	"github.com/stretchr/testify/require"
-
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/tendermint/tendermint/abci/example/counter"
 	"github.com/tendermint/tendermint/abci/example/kvstore"
+	"github.com/tendermint/tendermint/abcix/adapter"
 	abcixcli "github.com/tendermint/tendermint/abcix/client"
 	abcix "github.com/tendermint/tendermint/abcix/types"
 	cfg "github.com/tendermint/tendermint/config"
@@ -40,6 +36,7 @@ import (
 	"github.com/tendermint/tendermint/store"
 	"github.com/tendermint/tendermint/types"
 	tmtime "github.com/tendermint/tendermint/types/time"
+	dbm "github.com/tendermint/tm-db"
 )
 
 const (

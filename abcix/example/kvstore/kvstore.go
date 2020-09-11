@@ -7,16 +7,14 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/tendermint/tendermint/abcix/adapter"
-
 	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
-	dbm "github.com/tendermint/tm-db"
-
+	"github.com/tendermint/tendermint/abcix/adapter"
 	"github.com/tendermint/tendermint/abcix/example/code"
 	"github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/version"
+	dbm "github.com/tendermint/tm-db"
 )
 
 var (
@@ -153,19 +151,18 @@ func (app *Application) CheckBlock(req types.RequestCheckBlock) types.ResponseCh
 	// e.g. "a=41,c=42,alice,100"
 	ret := types.ResponseCheckBlock{}
 
-	var size int64
 	lastState := app.state
 	for _, tx := range req.Txs {
 		newState, gasUsed, err := executeTx(lastState, tx, true)
 		if err != nil {
 			panic("consensus failure: invalid tx found in CheckBlock: " + err.Error())
 		}
-		size = newState.Size
+		lastState = newState
 		txResp := types.ResponseDeliverTx{GasUsed: gasUsed}
 		ret.DeliverTxs = append(ret.DeliverTxs, &txResp)
 	}
 	appHash := make([]byte, 8)
-	binary.PutVarint(appHash, size)
+	binary.PutVarint(appHash, lastState.Size)
 	ret.AppHash = appHash
 	return ret
 }

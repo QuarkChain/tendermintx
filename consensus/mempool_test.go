@@ -8,18 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tendermint/tendermint/abcix/adapter"
-
-	abcix "github.com/tendermint/tendermint/abcix/types"
-
 	"github.com/stretchr/testify/assert"
-
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/tendermint/tendermint/abci/example/code"
+	"github.com/tendermint/tendermint/abcix/adapter"
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	mempl "github.com/tendermint/tendermint/mempool"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
+	dbm "github.com/tendermint/tm-db"
 )
 
 // for testing

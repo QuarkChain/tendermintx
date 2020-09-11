@@ -9,13 +9,11 @@ import (
 	"time"
 
 	abcix "github.com/tendermint/tendermint/abcix/types"
-
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/proxy"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
+	dbm "github.com/tendermint/tm-db"
 )
 
 var crc32c = crc32.MakeTable(crc32.Castagnoli)
