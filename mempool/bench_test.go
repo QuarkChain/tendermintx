@@ -26,10 +26,6 @@ import (
 //BenchmarkBTreeRemoveTx-8                          774445              1552 ns/op
 //BenchmarkCacheInsertTime-8                       1607788               736 ns/op
 //BenchmarkCacheRemoveTime-8                       2453636               579 ns/op
-//BenchmarkClistMempoolGetNextTxBytes-8                  3         441422537 ns/op
-//BenchmarkLLRBMempoolGetNextTxBytes-8                 200           5899147 ns/op
-//BenchmarkLLRBMempoolIterNextTxBytes-8                219           5608503 ns/op
-//BenchmarkBTreeMempoolGetNextTxBytes-8                121           9824497 ns/op
 
 var txs types.Txs
 
@@ -136,6 +132,47 @@ func BenchmarkCacheRemoveTime(b *testing.B) {
 		cache.Remove(txs[i])
 	}
 }
+
+// txSize = 100
+//BenchmarkClistMempoolGetNextTxBytes-8               5145            215172 ns/op
+//BenchmarkLLRBMempoolGetNextTxBytes-8               15721             75926 ns/op
+//BenchmarkLLRBMempoolIterNextTxBytes-8              14548             84590 ns/op
+//BenchmarkBTreeMempoolGetNextTxBytes-8               8058            135202 ns/op
+// txSize = 500
+//BenchmarkClistMempoolGetNextTxBytes-8                238           4598056 ns/op
+//BenchmarkLLRBMempoolGetNextTxBytes-8                2491            427522 ns/op
+//BenchmarkLLRBMempoolIterNextTxBytes-8               2828            410575 ns/op
+//BenchmarkBTreeMempoolGetNextTxBytes-8               1534            682226 ns/op
+// txSize = 1000
+//BenchmarkClistMempoolGetNextTxBytes-8                 62          19520278 ns/op
+//BenchmarkLLRBMempoolGetNextTxBytes-8                1060           1218037 ns/op
+//BenchmarkLLRBMempoolIterNextTxBytes-8               1296            858727 ns/op
+//BenchmarkBTreeMempoolGetNextTxBytes-8                730           1443280 ns/op
+// txSize = 5000
+//BenchmarkClistMempoolGetNextTxBytes-8                  3         396747638 ns/op
+//BenchmarkLLRBMempoolGetNextTxBytes-8                 225           4939424 ns/op
+//BenchmarkLLRBMempoolIterNextTxBytes-8                192           6514984 ns/op
+//BenchmarkBTreeMempoolGetNextTxBytes-8                126           9231797 ns/op
+//txSize = 5000 again
+//BenchmarkClistMempoolGetNextTxBytes-8                  3         399225165 ns/op
+//BenchmarkLLRBMempoolGetNextTxBytes-8                 208           5537551 ns/op
+//BenchmarkLLRBMempoolIterNextTxBytes-8                252           5572525 ns/op
+//BenchmarkBTreeMempoolGetNextTxBytes-8                130           8967672 ns/op
+// txSize = 7500
+//BenchmarkClistMempoolGetNextTxBytes-8                  1        1183883588 ns/op
+//BenchmarkLLRBMempoolGetNextTxBytes-8                 104          11753040 ns/op
+//BenchmarkLLRBMempoolIterNextTxBytes-8                118           8695232 ns/op
+//BenchmarkBTreeMempoolGetNextTxBytes-8                 85          13243029 ns/op
+// txSize = 10000
+//BenchmarkClistMempoolGetNextTxBytes-8                  1        1579712404 ns/op
+//BenchmarkLLRBMempoolGetNextTxBytes-8                  96          12655440 ns/op
+//BenchmarkLLRBMempoolIterNextTxBytes-8                102          11744083 ns/op
+//BenchmarkBTreeMempoolGetNextTxBytes-8                 62          18232574 ns/op
+// txSize = 15000
+//BenchmarkClistMempoolGetNextTxBytes-8                  1        4879638275 ns/op
+//BenchmarkLLRBMempoolGetNextTxBytes-8                  50          32104254 ns/op
+//BenchmarkLLRBMempoolIterNextTxBytes-8                 62          21118181 ns/op
+//BenchmarkBTreeMempoolGetNextTxBytes-8                 34          30635612 ns/op
 
 func BenchmarkClistMempoolGetNextTxBytes(b *testing.B) {
 	benchmarkMempoolGetNextTxBytes(b, enumclistmempool, false)
