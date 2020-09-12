@@ -3,7 +3,10 @@ package state_test
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"time"
+
+	"github.com/tendermint/tendermint/abcix/adapter"
 
 	dbm "github.com/tendermint/tm-db"
 
@@ -54,13 +57,13 @@ func makeAndCommitGoodBlock(
 
 func makeAndApplyGoodBlock(state sm.State, height int64, lastCommit *types.Commit, proposerAddr []byte,
 	blockExec *sm.BlockExecutor, evidence []types.Evidence) (sm.State, types.BlockID, error) {
-	block, _ := state.MakeBlock(height, makeTxs(height), lastCommit, evidence, proposerAddr)
+	block, _ := state.MakeBlock(height, makeTxs(height), lastCommit, evidence, proposerAddr, nil, nil)
 	if err := blockExec.ValidateBlock(state, block); err != nil {
 		return state, types.BlockID{}, err
 	}
 	blockID := types.BlockID{Hash: block.Hash(),
 		PartSetHeader: types.PartSetHeader{Total: 3, Hash: tmrand.Bytes(32)}}
-	state, _, err := blockExec.ApplyBlock(state, blockID, block)
+	state, _, _, err := blockExec.ApplyBlock(state, blockID, block)
 	if err != nil {
 		return state, types.BlockID{}, err
 	}
@@ -133,6 +136,8 @@ func makeBlock(state sm.State, height int64) *types.Block {
 		new(types.Commit),
 		nil,
 		state.Validators.GetProposer().Address,
+		nil,
+		nil,
 	)
 	return block
 }
@@ -236,8 +241,26 @@ func (app *testApp) Info(req abcix.RequestInfo) (resInfo abcix.ResponseInfo) {
 	return abcix.ResponseInfo{}
 }
 
-func (app *testApp) CreateBlock(req abcix.RequestCreateBlock, mempool *abcix.MempoolIter) abcix.ResponseCreateBlock {
-	return abcix.ResponseCreateBlock{}
+func (app *testApp) CreateBlock(req abcix.RequestCreateBlock, iter *abcix.MempoolIter) abcix.ResponseCreateBlock {
+	ret := abcix.ResponseCreateBlock{}
+
+	remainBytes := adapter.CalcRemainBytes(req)
+	remainGas := int64(math.MaxInt64)
+
+	for {
+		tx, err := iter.GetNextTransaction(remainBytes, remainGas)
+		if err != nil {
+			panic(err)
+		}
+		if len(tx) == 0 {
+			break
+		}
+		ret.Txs = append(ret.Txs, tx)
+		remainBytes -= int64(len(tx))
+		remainGas--
+		ret.DeliverTxs = append(ret.DeliverTxs, &abcix.ResponseDeliverTx{})
+	}
+	return ret
 }
 
 func (app *testApp) DeliverBlock(req abcix.RequestDeliverBlock) abcix.ResponseDeliverBlock {
@@ -247,7 +270,6 @@ func (app *testApp) DeliverBlock(req abcix.RequestDeliverBlock) abcix.ResponseDe
 	for range req.Txs {
 		deliverTxResp = append(deliverTxResp, &abcix.ResponseDeliverTx{})
 	}
-
 	return abcix.ResponseDeliverBlock{
 		ValidatorUpdates: app.ValidatorUpdates,
 		ConsensusParamUpdates: &abcix.ConsensusParams{
@@ -268,11 +290,13 @@ func (app *testApp) Commit() abcix.ResponseCommit {
 }
 
 func (app *testApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckBlock {
+	// mock Response with error code 1
 	if req.Height == 1 {
 		return abcix.ResponseCheckBlock{
 			Code: 1,
 		}
 	}
+	// mock Response with invalid tx
 	if req.Height == 2 {
 		return abcix.ResponseCheckBlock{
 			DeliverTxs: []*abcix.ResponseDeliverTx{
@@ -282,13 +306,22 @@ func (app *testApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckB
 			},
 		}
 	}
-	//TODO: uncomment
-	//if req.Height == 4 {
-	//	return abcix.ResponseCheckBlock{
-	//		AppHash: tmrand.Bytes(20),
-	//	}
-	//}
-
+	// mock Response with fixed ResultHash
+	if req.Height == 3 {
+		return abcix.ResponseCheckBlock{
+			DeliverTxs: []*abcix.ResponseDeliverTx{
+				{
+					Code: 0,
+				},
+			},
+		}
+	}
+	// mock Response with random AppHash
+	if req.Height == 4 {
+		return abcix.ResponseCheckBlock{
+			AppHash: tmrand.Bytes(20),
+		}
+	}
 	return abcix.ResponseCheckBlock{}
 }
 

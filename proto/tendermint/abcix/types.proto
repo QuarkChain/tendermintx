@@ -205,11 +205,12 @@ message ResponseQuery {
 }
 
 message ResponseCreateBlock {
-  repeated bytes txs         = 1;
-  repeated bytes invalid_txs = 2;
-  bytes          hash        = 3;
-  repeated Event events      = 4
+  repeated bytes             txs         = 1;
+  repeated bytes             invalid_txs = 2;
+  bytes                      app_hash    = 3;
+  repeated Event             events      = 4
       [(gogoproto.nullable) = false, (gogoproto.jsontag) = "events,omitempty"];
+  repeated ResponseDeliverTx deliver_txs = 5;
 }
 
 message ResponseCheckTx {

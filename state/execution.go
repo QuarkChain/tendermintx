@@ -121,6 +121,10 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		panic(err)
 	}
 
+	appHash := resp.AppHash
+	resultHash := ABCIResponsesResultsHash(&tmstate.ABCIResponses{
+		DeliverBlock: &abcix.ResponseDeliverBlock{Events: resp.Events, DeliverTxs: resp.DeliverTxs}})
+
 	// remove invalid txs from mempool
 	var invalidTxs = make([]types.Tx, len(resp.InvalidTxs))
 	for i, invalidTx := range resp.InvalidTxs {
@@ -137,7 +141,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	for _, txBytes := range resp.Txs {
 		txs = append(txs, txBytes)
 	}
-	return state.MakeBlock(height, txs, commit, evidence, proposerAddr)
+	return state.MakeBlock(height, txs, commit, evidence, proposerAddr, appHash, resultHash)
 }
 
 // ValidateBlock validates the given block against the given state.
@@ -156,10 +160,10 @@ func (blockExec *BlockExecutor) ValidateBlock(state State, block *types.Block) e
 // It takes a blockID to avoid recomputing the parts hash.
 func (blockExec *BlockExecutor) ApplyBlock(
 	state State, blockID types.BlockID, block *types.Block,
-) (State, int64, error) {
+) (State, int64, []byte, error) {
 
 	if err := blockExec.ValidateBlock(state, block); err != nil {
-		return state, 0, ErrInvalidBlock(err)
+		return state, 0, nil, ErrInvalidBlock(err)
 	}
 
 	startTime := time.Now().UnixNano()
@@ -167,7 +171,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	endTime := time.Now().UnixNano()
 	blockExec.metrics.BlockProcessingTime.Observe(float64(endTime-startTime) / 1000000)
 	if err != nil {
-		return state, 0, ErrProxyAppConn(err)
+		return state, 0, nil, ErrProxyAppConn(err)
 	}
 
 	fail.Fail() // XXX
@@ -181,11 +185,11 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	abciValUpdates := abciResponses.DeliverBlock.ValidatorUpdates
 	err = validateValidatorUpdates(abciValUpdates, state.ConsensusParams.Validator)
 	if err != nil {
-		return state, 0, fmt.Errorf("error in validator updates: %v", err)
+		return state, 0, nil, fmt.Errorf("error in validator updates: %v", err)
 	}
 	validatorUpdates, err := types.PB2TM.ValidatorUpdates(abciValUpdates)
 	if err != nil {
-		return state, 0, err
+		return state, 0, nil, err
 	}
 	if len(validatorUpdates) > 0 {
 		blockExec.logger.Info("Updates to validators", "updates", types.ValidatorListString(validatorUpdates))
@@ -194,13 +198,13 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	// Update the state with the block and responses.
 	state, err = updateState(state, blockID, &block.Header, abciResponses, validatorUpdates)
 	if err != nil {
-		return state, 0, fmt.Errorf("commit failed for application: %v", err)
+		return state, 0, nil, fmt.Errorf("commit failed for application: %v", err)
 	}
 
 	// Lock mempool, commit app state, update mempoool.
 	appHash, retainHeight, err := blockExec.Commit(state, block, abciResponses.DeliverBlock)
 	if err != nil {
-		return state, 0, fmt.Errorf("commit failed for application: %v", err)
+		return state, 0, nil, fmt.Errorf("commit failed for application: %v", err)
 	}
 
 	// Update evpool with the block and state.
@@ -208,8 +212,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 
 	fail.Fail() // XXX
 
-	// Update the app hash and save the state.
-	state.AppHash = appHash
+	// Save the state.
 	SaveState(blockExec.db, state)
 
 	fail.Fail() // XXX
@@ -218,7 +221,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	// NOTE: if we crash between Commit and Save, events wont be fired during replay
 	fireEvents(blockExec.logger, blockExec.eventBus, block, abciResponses, validatorUpdates)
 
-	return state, retainHeight, nil
+	return state, retainHeight, appHash, nil
 }
 
 // Commit locks the mempool, runs the ABCI Commit message, and updates the
@@ -307,19 +310,20 @@ func (blockExec *BlockExecutor) CheckBlock(block *types.Block) error {
 			return fmt.Errorf("invalid transaction, code: %d", tx.Code)
 		}
 	}
-	resultHash := CheckBlockResponseResultHash(resp)
-	if !bytes.Equal(resultHash, block.Header.LastResultsHash.Bytes()) {
+	resultHash := ABCIResponsesResultsHash(&tmstate.ABCIResponses{
+		DeliverBlock: &abcix.ResponseDeliverBlock{Events: resp.Events, DeliverTxs: resp.DeliverTxs}})
+	if !bytes.Equal(resultHash, block.Header.ResultsHash.Bytes()) {
 		blockExec.logger.Error(
-			"resultHash mismatch. ResultHash in ResponseCheckBlock: %X\n ResultHash in block header: %X",
-			resultHash, block.Header.LastResultsHash,
+			"resultHash mismatch", "response_CheckBlock", resultHash,
+			"block_header", block.Header.ResultsHash.Bytes(),
 		)
 		return errors.New("resultHash mismatch")
 	}
 
 	if !bytes.Equal(resp.AppHash, block.Header.AppHash.Bytes()) {
 		blockExec.logger.Error(
-			"appHash mismatch. AppHash in ResponseCheckBlock: %X\n AppHash in block header: %X",
-			resp.AppHash, block.Header.AppHash,
+			"appHash mismatch", "response_CheckBlock", resp.AppHash,
+			"block_header", block.Header.AppHash.Bytes(),
 		)
 		return errors.New("appHash mismatch")
 	}
@@ -517,8 +521,6 @@ func updateState(
 		LastHeightValidatorsChanged:      lastHeightValsChanged,
 		ConsensusParams:                  nextParams,
 		LastHeightConsensusParamsChanged: lastHeightParamsChanged,
-		LastResultsHash:                  ABCIResponsesResultsHash(abciResponses),
-		AppHash:                          nil,
 	}, nil
 }
 

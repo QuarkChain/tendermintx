@@ -198,13 +198,13 @@ func TestStateBadProposal(t *testing.T) {
 	round++
 	incrementRound(vss[1:]...)
 
-	// make the block bad by tampering with statehash
-	stateHash := propBlock.AppHash
-	if len(stateHash) == 0 {
-		stateHash = make([]byte, 32)
+	// make the block bad by tampering with lastBlockID
+	lastBlockID := propBlock.LastBlockID.Hash
+	if len(lastBlockID) == 0 {
+		lastBlockID = make([]byte, 32)
 	}
-	stateHash[0] = (stateHash[0] + 1) % 255
-	propBlock.AppHash = stateHash
+	lastBlockID[0] = (lastBlockID[0] + 1) % 255
+	propBlock.LastBlockID.Hash = lastBlockID
 	propBlockParts := propBlock.MakePartSet(partSize)
 	blockID := types.BlockID{Hash: propBlock.Hash(), PartSetHeader: propBlockParts.Header()}
 	proposal := types.NewProposal(vs2.Height, round, -1, blockID)

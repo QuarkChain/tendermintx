@@ -627,7 +627,7 @@ func makeHeaderRandom() *Header {
 		NextValidatorsHash: crypto.CRandBytes(tmhash.Size),
 		ConsensusHash:      crypto.CRandBytes(tmhash.Size),
 		AppHash:            crypto.CRandBytes(tmhash.Size),
-		LastResultsHash:    crypto.CRandBytes(tmhash.Size),
+		ResultsHash:        crypto.CRandBytes(tmhash.Size),
 		EvidenceHash:       crypto.CRandBytes(tmhash.Size),
 		ProposerAddress:    crypto.CRandBytes(crypto.AddressSize),
 	}

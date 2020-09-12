@@ -75,7 +75,7 @@ func startNewStateAndWaitForBlock(t *testing.T, consensusReplayConfig *cfg.Confi
 		consensusReplayConfig,
 		state,
 		privValidator,
-		adapter.AdaptToABCIx(kvstore.NewApplication()),
+		adapter.AdaptToABCIx(kvstore.NewApplication(), blockDB),
 		blockDB,
 	)
 	cs.SetLogger(logger)
@@ -157,11 +157,12 @@ LOOP:
 		stateDB := blockDB
 		state, _ := sm.MakeGenesisStateFromFile(consensusReplayConfig.GenesisFile())
 		privValidator := loadPrivValidator(consensusReplayConfig)
+
 		cs := newStateWithConfigAndBlockStore(
 			consensusReplayConfig,
 			state,
 			privValidator,
-			adapter.AdaptToABCIx(kvstore.NewApplication()),
+			adapter.AdaptToABCIx(kvstore.NewApplication(), blockDB),
 			blockDB,
 		)
 		cs.SetLogger(logger)
@@ -686,7 +687,6 @@ func testHandshakeReplay(t *testing.T, config *cfg.Config, nBlocks int, mode uin
 	state := genisisState.Copy()
 	// run the chain through state.ApplyBlock to build up the tendermint state
 	state = buildTMStateFromChain(config, stateDB, state, chain, nBlocks, mode)
-	latestAppHash := state.AppHash
 
 	// make a new client creator
 	kvstoreApp := kvstore.NewPersistentKVStoreApplication(
@@ -727,20 +727,6 @@ func testHandshakeReplay(t *testing.T, config *cfg.Config, nBlocks int, mode uin
 		t.Fatalf("Error on abci handshake: %v", err)
 	}
 
-	// get the latest app hash from the app
-	res, err := proxyApp.Query().InfoSync(abcix.RequestInfo{Version: ""})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// the app hash should be synced up
-	if !bytes.Equal(latestAppHash, res.LastBlockAppHash) {
-		t.Fatalf(
-			"Expected app hashes to match after handshake/replay. got %X, expected %X",
-			res.LastBlockAppHash,
-			latestAppHash)
-	}
-
 	expectedBlocksToSync := numBlocks - nBlocks
 	if nBlocks == numBlocks && mode > 0 {
 		expectedBlocksToSync++
@@ -758,7 +744,7 @@ func applyBlock(stateDB dbm.DB, st sm.State, blk *types.Block, proxyApp proxy.Ap
 	blockExec := sm.NewBlockExecutor(stateDB, log.TestingLogger(), proxyApp.Consensus(), mempool, evpool)
 
 	blkID := types.BlockID{Hash: blk.Hash(), PartSetHeader: blk.MakePartSet(testPartSize).Header()}
-	newState, _, err := blockExec.ApplyBlock(st, blkID, blk)
+	newState, _, _, err := blockExec.ApplyBlock(st, blkID, blk)
 	if err != nil {
 		panic(err)
 	}
@@ -930,7 +916,6 @@ func makeBlocks(n int, state *sm.State, privVal types.PrivValidator) []*types.Bl
 		prevBlockMeta = types.NewBlockMeta(block, parts)
 
 		// update state
-		state.AppHash = []byte{appHeight}
 		appHeight++
 		state.LastBlockHeight = height
 	}
@@ -953,8 +938,16 @@ func makeBlock(state sm.State, lastBlock *types.Block, lastBlockMeta *types.Bloc
 		lastCommit = types.NewCommit(vote.Height, vote.Round,
 			lastBlockMeta.BlockID, []types.CommitSig{vote.CommitSig()})
 	}
-
-	return state.MakeBlock(height, []types.Tx{}, lastCommit, nil, state.Validators.GetProposer().Address)
+	mockHash := bytes.Repeat([]byte{0}, 8)
+	return state.MakeBlock(
+		height,
+		[]types.Tx{},
+		lastCommit,
+		nil,
+		state.Validators.GetProposer().Address,
+		mockHash,
+		mockHash,
+	)
 }
 
 type badApp struct {

@@ -8,13 +8,12 @@ import (
 	"testing"
 	"time"
 
-	abcix "github.com/tendermint/tendermint/abcix/types"
-
 	"github.com/stretchr/testify/assert"
-
 	dbm "github.com/tendermint/tm-db"
 
 	"github.com/tendermint/tendermint/abci/example/code"
+	"github.com/tendermint/tendermint/abcix/adapter"
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	mempl "github.com/tendermint/tendermint/mempool"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
@@ -40,7 +39,6 @@ func TestMempoolNoProgressUntilTxsAvailable(t *testing.T) {
 	ensureNoNewEventOnChannel(newBlockCh)
 	deliverTxsRange(cs, 0, 1)
 	ensureNewEventOnChannel(newBlockCh) // commit txs
-	ensureNewEventOnChannel(newBlockCh) // commit updated app hash
 	ensureNoNewEventOnChannel(newBlockCh)
 }
 
@@ -127,8 +125,8 @@ func TestMempoolTxConcurrentWithCommit(t *testing.T) {
 		case msg := <-newBlockHeaderCh:
 			headerEvent := msg.Data().(types.EventDataNewBlockHeader)
 			n += headerEvent.NumTxs
-		case <-time.After(30 * time.Second):
-			t.Fatal("Timed out waiting 30s to commit blocks with transactions")
+		case <-time.After(40 * time.Second):
+			t.Fatal("Timed out waiting 40s to commit blocks with transactions")
 		}
 	}
 }
@@ -227,12 +225,8 @@ func (app *CounterApplication) CreateBlock(
 ) abcix.ResponseCreateBlock {
 	ret := abcix.ResponseCreateBlock{}
 
-	remainBytes := types.DefaultConsensusParams().Block.MaxBytes -
-		types.MaxOverheadForBlock -
-		types.MaxHeaderBytes -
-		int64(len(req.LastCommitInfo.Votes))*types.MaxVoteBytes -
-		int64(len(req.ByzantineValidators))*types.MaxEvidenceBytes
-	remainGas := int64(1<<(64-1) - 1)
+	remainBytes := adapter.CalcRemainBytes(req)
+	remainGas := int64(math.MaxInt64)
 	count := app.txCount
 
 	for {
@@ -249,6 +243,8 @@ func (app *CounterApplication) CreateBlock(
 			continue
 		}
 		ret.Txs = append(ret.Txs, tx)
+		txResp := abcix.ResponseDeliverTx{Code: code.CodeTypeOK}
+		ret.DeliverTxs = append(ret.DeliverTxs, &txResp)
 		count++
 		remainBytes -= int64(len(tx))
 		remainGas--
@@ -256,7 +252,7 @@ func (app *CounterApplication) CreateBlock(
 
 	hash := make([]byte, 8)
 	binary.BigEndian.PutUint64(hash, uint64(count))
-	ret.Hash = hash
+	ret.AppHash = hash
 	return ret
 }
 
@@ -266,10 +262,7 @@ func (app *CounterApplication) DeliverBlock(req abcix.RequestDeliverBlock) abcix
 		txValue := txAsUint64(tx)
 		var txResp abcix.ResponseDeliverTx
 		if txValue != uint64(app.txCount) {
-			txResp = abcix.ResponseDeliverTx{
-				Code: code.CodeTypeBadNonce,
-				Log:  fmt.Sprintf("Invalid nonce. Expected %v, got %v", app.txCount, txValue),
-			}
+			panic("consensus failure: invalid tx found in DeliverBlock")
 		} else {
 			txResp = abcix.ResponseDeliverTx{Code: code.CodeTypeOK}
 		}
@@ -291,10 +284,23 @@ func (app *CounterApplication) CheckTx(req abcix.RequestCheckTx) abcix.ResponseC
 }
 
 func (app *CounterApplication) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckBlock {
-	return abcix.ResponseCheckBlock{
-		//TODO: uncomment
-		//AppHash:    req.Header.AppHash,
+	ret := abcix.ResponseCheckBlock{}
+	count := app.txCount
+	for _, tx := range req.Txs {
+		txValue := txAsUint64(tx)
+		var txResp abcix.ResponseDeliverTx
+		if txValue != uint64(count) {
+			panic("consensus failure: invalid tx found in CheckBlock")
+		} else {
+			txResp = abcix.ResponseDeliverTx{Code: code.CodeTypeOK}
+		}
+		ret.DeliverTxs = append(ret.DeliverTxs, &txResp)
+		count++
 	}
+	hash := make([]byte, 8)
+	binary.BigEndian.PutUint64(hash, uint64(count))
+	ret.AppHash = hash
+	return ret
 }
 
 func txAsUint64(tx []byte) uint64 {

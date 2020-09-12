@@ -11,10 +11,10 @@ import (
 	"github.com/pkg/errors"
 	dbm "github.com/tendermint/tm-db"
 
+	"github.com/tendermint/tendermint/abcix/adapter"
 	"github.com/tendermint/tendermint/abcix/example/code"
 	"github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/libs/log"
-	tdtypes "github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/version"
 )
 
@@ -22,7 +22,6 @@ var (
 	kvPairPrefixKey = []byte("kvPairKey:")
 
 	ProtocolVersion uint64 = 0x1
-	maxBytes               = tdtypes.DefaultConsensusParams().Block.MaxBytes
 	maxGas          int64  = 10
 )
 
@@ -96,10 +95,11 @@ func (app *Application) CreateBlock(
 	req types.RequestCreateBlock,
 	mempool *types.MempoolIter,
 ) types.ResponseCreateBlock {
-	var txs, invalidTxs [][]byte
-	var size int64
+	remainBytes := adapter.CalcRemainBytes(req)
+	remainGas := maxGas
 
-	remainBytes, remainGas := maxBytes, maxGas
+	ret := types.ResponseCreateBlock{}
+	tempState := app.state
 	for {
 		tx, err := mempool.GetNextTransaction(remainBytes, remainGas)
 		if err != nil {
@@ -110,21 +110,24 @@ func (app *Application) CreateBlock(
 			break
 		}
 
-		newState, gasUsed, err := executeTx(app.state, tx, true)
+		newState, gasUsed, err := executeTx(tempState, tx, true)
 		if err != nil {
-			invalidTxs = append(invalidTxs, tx)
+			ret.InvalidTxs = append(ret.InvalidTxs, tx)
 			continue
 		}
-		txs = append(txs, tx)
-		size = newState.Size
+		ret.Txs = append(ret.Txs, tx)
+		tempState = newState
 		remainBytes -= int64(len(tx))
 		remainGas -= gasUsed
+		txResp := &types.ResponseDeliverTx{GasUsed: gasUsed}
+		ret.DeliverTxs = append(ret.DeliverTxs, txResp)
 	}
 
 	appHash := make([]byte, 8)
-	binary.PutVarint(appHash, size)
-
-	return types.ResponseCreateBlock{Txs: txs, InvalidTxs: invalidTxs, Hash: appHash, Events: nil}
+	binary.PutVarint(appHash, tempState.Size)
+	ret.AppHash = appHash
+	ret.Events = nil
+	return ret
 }
 
 // Combination of ABCI.BeginBlock, []ABCI.DeliverTx, and ABCI.EndBlock
@@ -153,16 +156,15 @@ func (app *Application) CheckBlock(req types.RequestCheckBlock) types.ResponseCh
 	for _, tx := range req.Txs {
 		newState, gasUsed, err := executeTx(lastState, tx, true)
 		if err != nil {
-			panic("consensus failure: invalid tx found in DeliverBlock: " + err.Error())
+			panic("consensus failure: invalid tx found in CheckBlock: " + err.Error())
 		}
 		lastState = newState
 		txResp := types.ResponseDeliverTx{GasUsed: gasUsed}
 		ret.DeliverTxs = append(ret.DeliverTxs, &txResp)
 	}
-	if len(lastState.AppHash) != 0 {
-		ret.AppHash = lastState.AppHash
-	}
-
+	appHash := make([]byte, 8)
+	binary.PutVarint(appHash, lastState.Size)
+	ret.AppHash = appHash
 	return ret
 }
 

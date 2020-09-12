@@ -11,18 +11,13 @@ import (
 	"testing"
 	"time"
 
-	abcixcli "github.com/tendermint/tendermint/abcix/client"
-
-	abcix "github.com/tendermint/tendermint/abcix/types"
-
-	"github.com/tendermint/tendermint/proxy"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	dbm "github.com/tendermint/tm-db"
 
 	"github.com/tendermint/tendermint/abci/example/kvstore"
+	abcixcli "github.com/tendermint/tendermint/abcix/client"
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	cfg "github.com/tendermint/tendermint/config"
 	cstypes "github.com/tendermint/tendermint/consensus/types"
 	cryptoenc "github.com/tendermint/tendermint/crypto/encoding"
@@ -34,6 +29,7 @@ import (
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/p2p/mock"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
+	"github.com/tendermint/tendermint/proxy"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/store"
 	"github.com/tendermint/tendermint/types"

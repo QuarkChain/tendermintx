@@ -343,9 +343,9 @@ type Header struct {
 	ValidatorsHash     tmbytes.HexBytes `json:"validators_hash"`      // validators for the current block
 	NextValidatorsHash tmbytes.HexBytes `json:"next_validators_hash"` // validators for the next block
 	ConsensusHash      tmbytes.HexBytes `json:"consensus_hash"`       // consensus params for current block
-	AppHash            tmbytes.HexBytes `json:"app_hash"`             // state after txs from the previous block
-	// root hash of all results from the txs from the previous block
-	LastResultsHash tmbytes.HexBytes `json:"last_results_hash"`
+	AppHash            tmbytes.HexBytes `json:"app_hash"`             // state after txs from the current block
+	// root hash of all results from the txs from the current block
+	ResultsHash tmbytes.HexBytes `json:"results_hash"`
 
 	// consensus info
 	EvidenceHash    tmbytes.HexBytes `json:"evidence_hash"`    // evidence included in the block
@@ -358,7 +358,7 @@ func (h *Header) Populate(
 	version tmversion.Consensus, chainID string,
 	timestamp time.Time, lastBlockID BlockID,
 	valHash, nextValHash []byte,
-	consensusHash, appHash, lastResultsHash []byte,
+	consensusHash, appHash, resultsHash []byte,
 	proposerAddress Address,
 ) {
 	h.Version = version
@@ -369,7 +369,7 @@ func (h *Header) Populate(
 	h.NextValidatorsHash = nextValHash
 	h.ConsensusHash = consensusHash
 	h.AppHash = appHash
-	h.LastResultsHash = lastResultsHash
+	h.ResultsHash = resultsHash
 	h.ProposerAddress = proposerAddress
 }
 
@@ -423,8 +423,8 @@ func (h Header) ValidateBasic() error {
 		return fmt.Errorf("wrong ConsensusHash: %v", err)
 	}
 	// NOTE: AppHash is arbitrary length
-	if err := ValidateHash(h.LastResultsHash); err != nil {
-		return fmt.Errorf("wrong LastResultsHash: %v", err)
+	if err := ValidateHash(h.ResultsHash); err != nil {
+		return fmt.Errorf("wrong ResultsHash: %v", err)
 	}
 
 	return nil
@@ -467,7 +467,7 @@ func (h *Header) Hash() tmbytes.HexBytes {
 		cdcEncode(h.NextValidatorsHash),
 		cdcEncode(h.ConsensusHash),
 		cdcEncode(h.AppHash),
-		cdcEncode(h.LastResultsHash),
+		cdcEncode(h.ResultsHash),
 		cdcEncode(h.EvidenceHash),
 		cdcEncode(h.ProposerAddress),
 	})
@@ -505,7 +505,7 @@ func (h *Header) StringIndented(indent string) string {
 		indent, h.NextValidatorsHash,
 		indent, h.AppHash,
 		indent, h.ConsensusHash,
-		indent, h.LastResultsHash,
+		indent, h.ResultsHash,
 		indent, h.EvidenceHash,
 		indent, h.ProposerAddress,
 		indent, h.Hash())
@@ -529,7 +529,7 @@ func (h *Header) ToProto() *tmproto.Header {
 		AppHash:            h.AppHash,
 		DataHash:           h.DataHash,
 		EvidenceHash:       h.EvidenceHash,
-		LastResultsHash:    h.LastResultsHash,
+		ResultsHash:        h.ResultsHash,
 		LastCommitHash:     h.LastCommitHash,
 		ProposerAddress:    h.ProposerAddress,
 	}
@@ -561,7 +561,7 @@ func HeaderFromProto(ph *tmproto.Header) (Header, error) {
 	h.AppHash = ph.AppHash
 	h.DataHash = ph.DataHash
 	h.EvidenceHash = ph.EvidenceHash
-	h.LastResultsHash = ph.LastResultsHash
+	h.ResultsHash = ph.ResultsHash
 	h.LastCommitHash = ph.LastCommitHash
 	h.ProposerAddress = ph.ProposerAddress
 
@@ -1085,8 +1085,8 @@ func SignedHeaderFromProto(shp *tmproto.SignedHeader) (*SignedHeader, error) {
 type Data struct {
 
 	// Txs that will be applied by state @ block.Height+1.
-	// NOTE: not all txs here are valid.  We're just agreeing on the order first.
-	// This means that block.AppHash does not include these txs.
+	// NOTE: all txs here are valid.  We're just agreeing on the order first.
+	// This means that block.AppHash includes these txs.
 	Txs Txs `json:"txs"`
 
 	// Volatile

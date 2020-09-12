@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
+
 	cfg "github.com/tendermint/tendermint/config"
 	mempl "github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/proxy/mocks"
@@ -106,7 +108,7 @@ func TestApplyBlock(t *testing.T) {
 	block := makeBlock(state, 1)
 	blockID := types.BlockID{Hash: block.Hash(), PartSetHeader: block.MakePartSet(testPartSize).Header()}
 
-	state, retainHeight, err := blockExec.ApplyBlock(state, blockID, block)
+	state, retainHeight, _, err := blockExec.ApplyBlock(state, blockID, block)
 	require.Nil(t, err)
 	assert.EqualValues(t, retainHeight, 1)
 
@@ -156,7 +158,7 @@ func TestBeginBlockValidators(t *testing.T) {
 		lastCommit := types.NewCommit(1, 0, prevBlockID, tc.lastCommitSigs)
 
 		// block for height 2
-		block, _ := state.MakeBlock(2, makeTxs(2), lastCommit, nil, state.Validators.GetProposer().Address)
+		block, _ := state.MakeBlock(2, makeTxs(2), lastCommit, nil, state.Validators.GetProposer().Address, nil, nil)
 
 		_, err = sm.ExecCommitBlock(proxyApp.Consensus(), block, log.TestingLogger(), stateDB)
 		require.Nil(t, err, tc.desc)
@@ -224,7 +226,7 @@ func TestBeginBlockByzantineValidators(t *testing.T) {
 	lastCommit := types.NewCommit(9, 0, prevBlockID, commitSigs)
 	for _, tc := range testCases {
 
-		block, _ := state.MakeBlock(10, makeTxs(2), lastCommit, nil, state.Validators.GetProposer().Address)
+		block, _ := state.MakeBlock(10, makeTxs(2), lastCommit, nil, state.Validators.GetProposer().Address, nil, nil)
 		block.Time = now
 		block.Evidence.Evidence = tc.evidence
 		_, err = sm.ExecCommitBlock(proxyApp.Consensus(), block, log.TestingLogger(), stateDB)
@@ -408,7 +410,7 @@ func TestEndBlockValidatorUpdates(t *testing.T) {
 		{PubKey: pk, Power: 10},
 	}
 
-	state, _, err = blockExec.ApplyBlock(state, blockID, block)
+	state, _, _, err = blockExec.ApplyBlock(state, blockID, block)
 	require.Nil(t, err)
 	// test new validator was added to NextValidators
 	if assert.Equal(t, state.Validators.Size()+1, state.NextValidators.Size()) {
@@ -463,7 +465,7 @@ func TestEndBlockValidatorUpdatesResultingInEmptySet(t *testing.T) {
 		{PubKey: vp, Power: 0},
 	}
 
-	assert.NotPanics(t, func() { state, _, err = blockExec.ApplyBlock(state, blockID, block) })
+	assert.NotPanics(t, func() { state, _, _, err = blockExec.ApplyBlock(state, blockID, block) })
 	assert.NotNil(t, err)
 	assert.NotEmpty(t, state.NextValidators.Validators)
 }
@@ -515,6 +517,7 @@ func TestCheckBlockWithErrors(t *testing.T) {
 	prevHash := state.LastBlockID.Hash
 	prevParts := types.PartSetHeader{}
 	prevBlockID := types.BlockID{Hash: prevHash, PartSetHeader: prevParts}
+	resultHash := sm.ABCIResponsesResultsHash(&tmstate.ABCIResponses{DeliverBlock: &abcix.ResponseDeliverBlock{}})
 
 	var (
 		now        = tmtime.Now()
@@ -530,19 +533,19 @@ func TestCheckBlockWithErrors(t *testing.T) {
 
 	// block for height 2: Response with invalid tx
 	lastCommit1 := types.NewCommit(1, 0, prevBlockID, []types.CommitSig{commitSig0, commitSig1})
-	block2, _ := state.MakeBlock(2, makeTxs(2), lastCommit1, nil, state.Validators.GetProposer().Address)
+	block2, _ := state.MakeBlock(2, makeTxs(2), lastCommit1, nil, state.Validators.GetProposer().Address, nil, resultHash)
 	err = blockExec.CheckBlock(block2)
 	assert.EqualError(t, err, "invalid transaction, code: 1")
 
 	// block for height 3: Response with mismatch ResultHash
 	lastCommit2 := types.NewCommit(2, 0, prevBlockID, []types.CommitSig{commitSig0, commitSig1})
-	block3, _ := state.MakeBlock(3, makeTxs(3), lastCommit2, nil, state.Validators.GetProposer().Address)
+	block3, _ := state.MakeBlock(3, makeTxs(3), lastCommit2, nil, state.Validators.GetProposer().Address, nil, resultHash)
 	err = blockExec.CheckBlock(block3)
 	assert.Contains(t, err.Error(), "resultHash")
 
-	//// block for height 4: Response with mismatch AppHash
-	//lastCommit3 := types.NewCommit(3, 0, prevBlockID, []types.CommitSig{commitSig0, commitSig1})
-	//block4, _ := state.MakeBlock(4, makeTxs(4), lastCommit3, nil, state.Validators.GetProposer().Address)
-	//err = blockExec.CheckBlock(block4)
-	//assert.Contains(t, err.Error(), "appHash")
+	// block for height 4: Response with mismatch AppHash
+	lastCommit3 := types.NewCommit(3, 0, prevBlockID, []types.CommitSig{commitSig0, commitSig1})
+	block4, _ := state.MakeBlock(4, makeTxs(4), lastCommit3, nil, state.Validators.GetProposer().Address, nil, resultHash)
+	err = blockExec.CheckBlock(block4)
+	assert.Contains(t, err.Error(), "appHash")
 }

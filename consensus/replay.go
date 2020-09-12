@@ -8,10 +8,9 @@ import (
 	"reflect"
 	"time"
 
-	abcix "github.com/tendermint/tendermint/abcix/types"
-
 	dbm "github.com/tendermint/tm-db"
 
+	abcix "github.com/tendermint/tendermint/abcix/types"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/proxy"
 	sm "github.com/tendermint/tendermint/state"
@@ -340,7 +339,6 @@ func (h *Handshaker) ReplayBlocks(
 	// First handle edge cases and constraints on the storeBlockHeight and storeBlockBase.
 	switch {
 	case storeBlockHeight == 0:
-		assertAppHashEqualsOneFromState(appHash, state)
 		return appHash, nil
 
 	case appBlockHeight < storeBlockBase-1:
@@ -372,10 +370,8 @@ func (h *Handshaker) ReplayBlocks(
 
 		} else if appBlockHeight == storeBlockHeight {
 			// We're good!
-			assertAppHashEqualsOneFromState(appHash, state)
 			return appHash, nil
 		}
-
 	} else if storeBlockHeight == stateBlockHeight+1 {
 		// We saved the block in the store but haven't updated the state,
 		// so we'll need to replay a block using the WAL.
@@ -391,8 +387,8 @@ func (h *Handshaker) ReplayBlocks(
 			// NOTE: We could instead use the cs.WAL on cs.Start,
 			// but we'd have to allow the WAL to replay a block that wrote it's #ENDHEIGHT
 			h.logger.Info("Replay last block using real app")
-			state, err = h.replayBlock(state, storeBlockHeight, proxyApp.Consensus())
-			return state.AppHash, err
+			appHash, err = h.replayBlock(state, storeBlockHeight, proxyApp.Consensus())
+			return appHash, err
 
 		case appBlockHeight == storeBlockHeight:
 			// We ran Commit, but didn't save the state, so replayBlock with mock app.
@@ -402,8 +398,8 @@ func (h *Handshaker) ReplayBlocks(
 			}
 			mockApp := newMockProxyApp(appHash, abciResponses)
 			h.logger.Info("Replay last block using mock app")
-			state, err = h.replayBlock(state, storeBlockHeight, mockApp)
-			return state.AppHash, err
+			appHash, err = h.replayBlock(state, storeBlockHeight, mockApp)
+			return appHash, err
 		}
 
 	}
@@ -437,34 +433,32 @@ func (h *Handshaker) replayBlocks(
 	for i := appBlockHeight + 1; i <= finalBlock; i++ {
 		h.logger.Info("Applying block", "height", i)
 		block := h.store.LoadBlock(i)
-		// Extra check to ensure the app was not changed in a way it shouldn't have.
-		if len(appHash) > 0 {
-			assertAppHashEqualsOneFromBlock(appHash, block)
-		}
 
 		appHash, err = sm.ExecCommitBlock(proxyApp.Consensus(), block, h.logger, h.stateDB)
 		if err != nil {
 			return nil, err
 		}
-
+		// Extra check to ensure the app was not changed in a way it shouldn't have.
+		if len(block.AppHash) > 0 {
+			assertAppHashEqualsOneFromBlock(appHash, block)
+		}
 		h.nBlocks++
 	}
 
 	if mutateState {
 		// sync the final block
-		state, err = h.replayBlock(state, storeBlockHeight, proxyApp.Consensus())
+		newAppHash, err := h.replayBlock(state, storeBlockHeight, proxyApp.Consensus())
 		if err != nil {
 			return nil, err
 		}
-		appHash = state.AppHash
+		appHash = newAppHash
 	}
 
-	assertAppHashEqualsOneFromState(appHash, state)
 	return appHash, nil
 }
 
 // ApplyBlock on the proxyApp with the last block.
-func (h *Handshaker) replayBlock(state sm.State, height int64, proxyApp proxy.AppConnConsensus) (sm.State, error) {
+func (h *Handshaker) replayBlock(state sm.State, height int64, proxyApp proxy.AppConnConsensus) ([]byte, error) {
 	block := h.store.LoadBlock(height)
 	meta := h.store.LoadBlockMeta(height)
 
@@ -473,15 +467,14 @@ func (h *Handshaker) replayBlock(state sm.State, height int64, proxyApp proxy.Ap
 	blockExec := sm.NewBlockExecutor(h.stateDB, h.logger, proxyApp, emptyMempool{}, emptyEvidencePool{})
 	blockExec.SetEventBus(h.eventBus)
 
-	var err error
-	state, _, err = blockExec.ApplyBlock(state, meta.BlockID, block)
+	_, _, appHash, err := blockExec.ApplyBlock(state, meta.BlockID, block)
 	if err != nil {
-		return sm.State{}, err
+		return nil, err
 	}
 
 	h.nBlocks++
 
-	return state, nil
+	return appHash, nil
 }
 
 func assertAppHashEqualsOneFromBlock(appHash []byte, block *types.Block) {
@@ -491,17 +484,5 @@ func assertAppHashEqualsOneFromBlock(appHash []byte, block *types.Block) {
 Block: %v
 `,
 			appHash, block.AppHash, block))
-	}
-}
-
-func assertAppHashEqualsOneFromState(appHash []byte, state sm.State) {
-	if !bytes.Equal(appHash, state.AppHash) {
-		panic(fmt.Sprintf(`state.AppHash does not match AppHash after replay. Got
-%X, expected %X.
-
-State: %v
-
-Did you reset Tendermint without resetting your application's data?`,
-			appHash, state.AppHash, state))
 	}
 }
