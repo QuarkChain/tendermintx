@@ -209,7 +209,6 @@ func (app *adaptedApp) Commit() (resp abcix.ResponseCommit) {
 		// TODO: panic for debugging purposes. better error handling soon!
 		panic(err)
 	}
-
 	app.state.AppHash = resp.Data
 	saveState(app.state, app.logger)
 	return
