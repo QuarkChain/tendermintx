@@ -267,6 +267,31 @@ func (app *testApp) Commit() abcix.ResponseCommit {
 	return abcix.ResponseCommit{RetainHeight: 1}
 }
 
+func (app *testApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckBlock {
+	if req.Height == 1 {
+		return abcix.ResponseCheckBlock{
+			Code: 1,
+		}
+	}
+	if req.Height == 2 {
+		return abcix.ResponseCheckBlock{
+			DeliverTxs: []*abcix.ResponseDeliverTx{
+				{
+					Code: 1,
+				},
+			},
+		}
+	}
+	//TODO: uncomment
+	//if req.Height == 4 {
+	//	return abcix.ResponseCheckBlock{
+	//		AppHash: tmrand.Bytes(20),
+	//	}
+	//}
+
+	return abcix.ResponseCheckBlock{}
+}
+
 func (app *testApp) Query(reqQuery abcix.RequestQuery) (resQuery abcix.ResponseQuery) {
 	return
 }

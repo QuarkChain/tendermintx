@@ -101,6 +101,12 @@ message RequestDeliverBlock {
 }
 
 message RequestCheckBlock {
+  int64                   height               = 1;
+  bytes                   hash                 = 2;
+  tendermint.types.Header header               = 3 [(gogoproto.nullable) = false];
+  LastCommitInfo          last_commit_info     = 4 [(gogoproto.nullable) = false];
+  repeated Evidence       byzantine_validators = 5 [(gogoproto.nullable) = false];
+  repeated bytes          txs                  = 6;
 }
 
 // lists available snapshots
@@ -250,8 +256,15 @@ message ResponseDeliverBlock {
 }
 
 message ResponseCheckBlock {
-  uint32 code = 1;
-  string codespace = 2;
+  uint32                            code                    = 1;
+  bytes                             app_hash                = 2;
+  repeated        ResponseDeliverTx deliver_txs             = 3;
+  repeated        ValidatorUpdate   validator_updates       = 4
+  [(gogoproto.nullable) = false];
+  ConsensusParams                   consensus_param_updates = 5;
+  repeated        Event             events                  = 6
+  [(gogoproto.nullable) = false, (gogoproto.jsontag) = "events,omitempty"];
+  string                            codespace               = 7;
 }
 
 message ResponseListSnapshots {
