@@ -290,6 +290,13 @@ func (app *CounterApplication) CheckTx(req abcix.RequestCheckTx) abcix.ResponseC
 	return abcix.ResponseCheckTx{Code: code.CodeTypeOK}
 }
 
+func (app *CounterApplication) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckBlock {
+	return abcix.ResponseCheckBlock{
+		//TODO: uncomment
+		//AppHash:    req.Header.AppHash,
+	}
+}
+
 func txAsUint64(tx []byte) uint64 {
 	tx8 := make([]byte, 8)
 	copy(tx8[len(tx8)-len(tx):], tx)

@@ -124,17 +124,7 @@ func (app *Application) CreateBlock(
 	appHash := make([]byte, 8)
 	binary.PutVarint(appHash, size)
 
-	events := []types.Event{
-		{
-			Type: "create_block",
-			Attributes: []types.EventAttribute{
-				{Key: []byte("height"), Value: []byte{byte(req.Height)}},
-				{Key: []byte("valid tx"), Value: []byte{byte(len(txs))}},
-				{Key: []byte("invalid tx"), Value: []byte{byte(len(invalidTxs))}},
-			},
-		},
-	}
-	return types.ResponseCreateBlock{Txs: txs, InvalidTxs: invalidTxs, Hash: appHash, Events: events}
+	return types.ResponseCreateBlock{Txs: txs, InvalidTxs: invalidTxs, Hash: appHash, Events: nil}
 }
 
 // Combination of ABCI.BeginBlock, []ABCI.DeliverTx, and ABCI.EndBlock
@@ -151,6 +141,28 @@ func (app *Application) DeliverBlock(req types.RequestDeliverBlock) types.Respon
 		txResp := types.ResponseDeliverTx{GasUsed: gasUsed}
 		ret.DeliverTxs = append(ret.DeliverTxs, &txResp)
 	}
+	return ret
+}
+
+func (app *Application) CheckBlock(req types.RequestCheckBlock) types.ResponseCheckBlock {
+	// Tx looks like "[key1]=[value1],[key2]=[value2],[from],[gasprice]"
+	// e.g. "a=41,c=42,alice,100"
+	ret := types.ResponseCheckBlock{}
+
+	lastState := app.state
+	for _, tx := range req.Txs {
+		newState, gasUsed, err := executeTx(lastState, tx, true)
+		if err != nil {
+			panic("consensus failure: invalid tx found in DeliverBlock: " + err.Error())
+		}
+		lastState = newState
+		txResp := types.ResponseDeliverTx{GasUsed: gasUsed}
+		ret.DeliverTxs = append(ret.DeliverTxs, &txResp)
+	}
+	if len(lastState.AppHash) != 0 {
+		ret.AppHash = lastState.AppHash
+	}
+
 	return ret
 }
 
