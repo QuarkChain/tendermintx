@@ -684,7 +684,7 @@ func (mem *basemempool) RemoveTxs(txs types.Txs) error {
 // sending nil tx would terminate the listening side
 func (mem *basemempool) subscribe() reactorSub {
 	ret := reactorSub{
-		txCh: make(chan *mempoolTx),
+		txCh: make(chan *mempoolTx, 100),
 		quit: make(chan struct{}),
 	}
 	go func() {
@@ -710,6 +710,7 @@ func (mem *basemempool) subscribe() reactorSub {
 func (mem *basemempool) notifyReactor(tx *mempoolTx) {
 	mem.reactorSubMtx.Lock()
 	defer mem.reactorSubMtx.Unlock()
+	// Also garbage collect closed subscriptions
 	newSubs := make([]reactorSub, 0, len(mem.reactorSubs))
 	for _, sub := range mem.reactorSubs {
 		select {
