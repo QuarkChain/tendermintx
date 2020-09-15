@@ -70,7 +70,7 @@ func (t *btree) GetNext(starter *NodeKey, predicate func(interface{}) bool) (int
 }
 
 // Insert inserts value into the tree
-func (t *btree) Insert(key NodeKey, data interface{}) error {
+func (t *btree) Insert(key NodeKey, data interface{}) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 	item := bnode{
@@ -78,7 +78,6 @@ func (t *btree) Insert(key NodeKey, data interface{}) error {
 		data: data,
 	}
 	t.tree.ReplaceOrInsert(item)
-	return nil
 }
 
 // Remove removes a value from the tree with provided key,

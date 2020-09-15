@@ -42,12 +42,6 @@ type treeMempool struct {
 	// serial (ie. by abci responses which are called in serial).
 	recheckCursor *tElement    // next expected response
 	recheckEnd    tree.NodeKey // re-checking stops here
-
-	waitChWrapper struct {
-		sync.RWMutex
-		ch     chan struct{}
-		closed bool
-	}
 }
 
 // newTreeMempool returns a new mempool with the given configuration and connection to an application.
@@ -58,9 +52,7 @@ func newTreeMempool(
 	treeGen func() tree.BalancedTree,
 	options ...Option,
 ) Mempool {
-	tm := &treeMempool{txs: treeGen(), treeGen: treeGen}
-	tm.waitChWrapper.ch = make(chan struct{})
-	return newBasemempool(tm, config, proxyAppConn, height, options...)
+	return newBasemempool(&treeMempool{txs: treeGen(), treeGen: treeGen}, config, proxyAppConn, height, options...)
 }
 
 func NewLLRBMempool(
@@ -89,23 +81,10 @@ func (mem *treeMempool) Size() int {
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
 func (mem *treeMempool) addTx(memTx *mempoolTx, priority uint64) {
-	prevSize := mem.txs.Size()
 	hash := TxKey(memTx.tx)
 	nodeKey := tree.NodeKey{Priority: priority, TS: time.Now(), Hash: hash}
 	mem.txs.Insert(nodeKey, memTx)
 	mem.txsMap.Store(hash, &tElement{nodeKey, memTx})
-
-	// Notify subscribers now have at least one tx. Note we may have
-	// race closing the channel based only on `mem.txs`, thus a bool flag
-	// is used to avoid closing an already closed channel
-	if prevSize == 0 {
-		mem.waitChWrapper.Lock()
-		if !mem.waitChWrapper.closed {
-			close(mem.waitChWrapper.ch)
-			mem.waitChWrapper.closed = true
-		}
-		mem.waitChWrapper.Unlock()
-	}
 }
 
 // Called from:
@@ -124,16 +103,6 @@ func (mem *treeMempool) removeTx(tx types.Tx) (elemRemoved bool) {
 		elemRemoved = true
 	}
 	mem.txsMap.Delete(TxKey(tx))
-
-	// Re-init tx wait ch
-	if elemRemoved && mem.txs.Size() == 0 {
-		mem.waitChWrapper.Lock()
-		if mem.waitChWrapper.closed {
-			mem.waitChWrapper.ch = make(chan struct{})
-			mem.waitChWrapper.closed = false
-		}
-		mem.waitChWrapper.Unlock()
-	}
 	return
 }
 
@@ -245,12 +214,6 @@ func (mem *treeMempool) getMempoolTx(tx types.Tx) *mempoolTx {
 		return e.(*tElement).tx
 	}
 	return nil
-}
-
-func (mem *treeMempool) txsWaitChan() <-chan struct{} {
-	mem.waitChWrapper.RLock()
-	defer mem.waitChWrapper.RUnlock()
-	return mem.waitChWrapper.ch
 }
 
 func (mem *treeMempool) nextTx(memTx *mempoolTx) *mempoolTx {

@@ -70,15 +70,6 @@ func (mem *cListMempool) TxsFront() *clist.CElement {
 	return mem.txs.Front()
 }
 
-// txsWaitChan returns a channel to wait on transactions. It will be closed
-// once the mempool is not empty (ie. the internal `mem.txs` has at least one
-// element)
-//
-// Safe for concurrent use by multiple goroutines.
-func (mem *cListMempool) txsWaitChan() <-chan struct{} {
-	return mem.txs.WaitChan()
-}
-
 // Safe for concurrent use by multiple goroutines.
 func (mem *cListMempool) Size() int {
 	return mem.txs.Len()
