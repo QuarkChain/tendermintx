@@ -91,8 +91,8 @@ func (c *Client) ABCIQueryWithOptions(path string, data tmbytes.HexBytes,
 	}
 
 	// Update the light client if we're behind.
-	// NOTE: AppHash for height H is in header H+1.
-	h, err := c.updateLightClientIfNeededTo(resp.Height + 1)
+	// NOTE: AppHash for height H is in header H.
+	h, err := c.updateLightClientIfNeededTo(resp.Height)
 	if err != nil {
 		return nil, err
 	}
@@ -340,7 +340,7 @@ func (c *Client) BlockResults(height *int64) (*ctypes.ResultBlockResults, error)
 
 	// Verify block results.
 	results := types.NewResults(res.TxsResults)
-	if rH, tH := results.Hash(), trustedHeader.LastResultsHash; !bytes.Equal(rH, tH) {
+	if rH, tH := results.Hash(), trustedHeader.ResultsHash; !bytes.Equal(rH, tH) {
 		return nil, fmt.Errorf("last results %X does not match with trusted last results %X",
 			rH, tH)
 	}

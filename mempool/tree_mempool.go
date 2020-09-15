@@ -34,7 +34,7 @@ type treeMempool struct {
 	treeGen func() tree.BalancedTree // return a specified balanced tree
 
 	// Map for quick access to txs to record sender in CheckTx.
-	// txsMap: txKey -> lElement
+	// txsMap: txKey -> tElement
 	txsMap sync.Map
 
 	// Track whether we're rechecking txs.
@@ -72,6 +72,15 @@ func NewLLRBMempool(
 	return newTreeMempool(config, proxyAppConn, height, tree.NewLLRB, options...)
 }
 
+func NewBTreeMempool(
+	config *cfg.MempoolConfig,
+	proxyAppConn proxy.AppConnMempool,
+	height int64,
+	options ...Option,
+) Mempool {
+	return newTreeMempool(config, proxyAppConn, height, tree.NewBTree, options...)
+}
+
 // Safe for concurrent use by multiple goroutines.
 func (mem *treeMempool) Size() int {
 	return mem.txs.Size()
@@ -83,10 +92,7 @@ func (mem *treeMempool) addTx(memTx *mempoolTx, priority uint64) {
 	prevSize := mem.txs.Size()
 	hash := TxKey(memTx.tx)
 	nodeKey := tree.NodeKey{Priority: priority, TS: time.Now(), Hash: hash}
-	if err := mem.txs.Insert(nodeKey, memTx); err != nil {
-		// TODO: better error handling here
-		panic("failed to insert tx into tree mempool: " + err.Error())
-	}
+	mem.txs.Insert(nodeKey, memTx)
 	mem.txsMap.Store(hash, &tElement{nodeKey, memTx})
 
 	// Notify subscribers now have at least one tx. Note we may have

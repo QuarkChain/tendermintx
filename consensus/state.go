@@ -833,14 +833,7 @@ func (cs *State) handleTxsAvailable() {
 
 	switch cs.Step {
 	case cstypes.RoundStepNewHeight: // timeoutCommit phase
-		if cs.needProofBlock(cs.Height) {
-			// enterPropose will be called by enterNewRound
-			return
-		}
-
-		// +1ms to ensure RoundStepNewRound timeout always happens after RoundStepNewHeight
-		timeoutCommit := cs.StartTime.Sub(tmtime.Now()) + 1*time.Millisecond
-		cs.scheduleTimeout(timeoutCommit, cs.Height, 0, cstypes.RoundStepNewRound)
+		return
 	case cstypes.RoundStepNewRound: // after timeoutCommit
 		cs.enterPropose(cs.Height, 0)
 	}
@@ -905,9 +898,9 @@ func (cs *State) enterNewRound(height int64, round int32) {
 	cs.metrics.Rounds.Set(float64(round))
 
 	// Wait for txs to be available in the mempool
-	// before we enterPropose in round 0. If the last block changed the app hash,
-	// we may need an empty "proof" block, and enterPropose immediately.
-	waitForTxs := cs.config.WaitForTxs() && round == 0 && !cs.needProofBlock(height)
+	// before we enterPropose in round 0. If the height == 1,
+	// we enterPropose immediately.
+	waitForTxs := cs.config.WaitForTxs() && round == 0 && height > 1
 	if waitForTxs {
 		if cs.config.CreateEmptyBlocksInterval > 0 {
 			cs.scheduleTimeout(cs.config.CreateEmptyBlocksInterval, height, round,
@@ -916,20 +909,6 @@ func (cs *State) enterNewRound(height int64, round int32) {
 	} else {
 		cs.enterPropose(height, round)
 	}
-}
-
-// needProofBlock returns true on the first height (so the genesis app hash is signed right away)
-// and where the last block (height-1) caused the app hash to change
-func (cs *State) needProofBlock(height int64) bool {
-	if height == 1 {
-		return true
-	}
-
-	lastBlockMeta := cs.blockStore.LoadBlockMeta(height - 1)
-	if lastBlockMeta == nil {
-		panic(fmt.Sprintf("needProofBlock: last block meta for height %d not found", height-1))
-	}
-	return !bytes.Equal(cs.state.AppHash, lastBlockMeta.Header.AppHash)
 }
 
 // Enter (CreateEmptyBlocks): from enterNewRound(height,round)
@@ -1521,10 +1500,10 @@ func (cs *State) finalizeCommit(height int64) {
 	stateCopy := cs.state.Copy()
 
 	// Execute and commit the block, update and save the state, and update the mempool.
-	// NOTE The block.AppHash wont reflect these txs until the next block.
+	// NOTE The block.AppHash reflects these txs in the current block.
 	var err error
 	var retainHeight int64
-	stateCopy, retainHeight, err = cs.blockExec.ApplyBlock(
+	stateCopy, retainHeight, _, err = cs.blockExec.ApplyBlock(
 		stateCopy,
 		types.BlockID{Hash: block.Hash(), PartSetHeader: blockParts.Header()},
 		block)
@@ -1737,6 +1716,11 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 		block, err := types.BlockFromProto(pbb)
 		if err != nil {
 			return added, err
+		}
+
+		if err = cs.blockExec.CheckBlock(block); err != nil {
+			cs.Logger.Error("Error on CheckBlock", "err", err)
+			return false, err
 		}
 
 		cs.ProposalBlock = block

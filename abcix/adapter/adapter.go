@@ -1,30 +1,39 @@
 package adapter
 
 import (
+	"encoding/json"
 	"errors"
+	"io/ioutil"
+	"math"
+	"os"
 	"reflect"
 
-	"github.com/jinzhu/copier"
-	tdypes "github.com/tendermint/tendermint/types"
+	dbm "github.com/tendermint/tm-db"
 
+	"github.com/jinzhu/copier"
 	abci "github.com/tendermint/tendermint/abci/types"
 	abcix "github.com/tendermint/tendermint/abcix/types"
+	"github.com/tendermint/tendermint/libs/log"
+	tdtypes "github.com/tendermint/tendermint/types"
 )
 
 var (
-	maxBytes            = tdypes.DefaultConsensusParams().Block.MaxBytes
-	maxGas              = tdypes.DefaultConsensusParams().Block.MaxGas
-	maxOverheadForBlock = tdypes.MaxOverheadForBlock
-	// MaxHeaderBytes is a maximum header size.
-	maxHeaderBytes = tdypes.MaxHeaderBytes
-	// MaxVoteBytes is a maximum vote size (including amino overhead).
-	maxVoteBytes = tdypes.MaxVoteBytes
-	// MaxEvidenceBytes is a maximum size of any evidence (including amino overhead).
-	maxEvidenceBytes = tdypes.MaxEvidenceBytes
+	maxBytes = tdtypes.DefaultConsensusParams().Block.MaxBytes
+	maxGas   = tdtypes.DefaultConsensusParams().Block.MaxGas
+
+	stateKey = []byte("adaptorStateKey")
 )
+
+type state struct {
+	db      dbm.DB
+	AppHash []byte        `json:"appHash"`
+	Events  []abcix.Event `json:"events"`
+}
 
 type adaptedApp struct {
 	abciApp abci.Application
+	state   state
+	logger  log.Logger
 }
 
 type AdaptedApp interface {
@@ -128,14 +137,11 @@ func (app *adaptedApp) CreateBlock(
 	iter *abcix.MempoolIter,
 ) (resp abcix.ResponseCreateBlock) {
 	if maxGas < 0 {
-		maxGas = 1<<(64-1) - 1
+		maxGas = int64(math.MaxInt64)
+
 	}
 	// Update remainBytes based on previous block
-	remainBytes := maxBytes -
-		maxOverheadForBlock -
-		maxHeaderBytes -
-		int64(len(req.LastCommitInfo.Votes))*maxVoteBytes -
-		int64(len(req.ByzantineValidators))*maxEvidenceBytes
+	remainBytes := CalcRemainBytes(req)
 	remainGas := maxGas
 
 	for {
@@ -150,8 +156,11 @@ func (app *adaptedApp) CreateBlock(
 		resp.Txs = append(resp.Txs, tx)
 		remainBytes -= int64(len(tx))
 		remainGas--
+		resp.DeliverTxs = append(resp.DeliverTxs, &abcix.ResponseDeliverTx{Code: abcix.CodeTypeOK})
 	}
-	return
+	resp.AppHash = app.state.AppHash
+	resp.Events = app.state.Events
+	return resp
 }
 
 func (app *adaptedApp) InitChain(req abcix.RequestInitChain) (resp abcix.ResponseInitChain) {
@@ -189,6 +198,8 @@ func (app *adaptedApp) DeliverBlock(req abcix.RequestDeliverBlock) (resp abcix.R
 	allEvents = append(allEvents, beginEvents...)
 	allEvents = append(allEvents, endEvents...)
 	resp.Events = allEvents
+	app.state.Events = allEvents
+	saveState(app.state, app.logger)
 	return resp
 }
 
@@ -198,12 +209,21 @@ func (app *adaptedApp) Commit() (resp abcix.ResponseCommit) {
 		// TODO: panic for debugging purposes. better error handling soon!
 		panic(err)
 	}
+	app.state.AppHash = resp.Data
+	saveState(app.state, app.logger)
 	return
 }
 
 func (app *adaptedApp) CheckBlock(req abcix.RequestCheckBlock) abcix.ResponseCheckBlock {
-	// TODO: defer to consensus engine for now
-	panic("implement me")
+	respDeliverTx := make([]*abcix.ResponseDeliverTx, len(req.Txs))
+	for i := range respDeliverTx {
+		respDeliverTx[i] = &abcix.ResponseDeliverTx{Code: 0}
+	}
+	return abcix.ResponseCheckBlock{
+		AppHash:    app.state.AppHash,
+		DeliverTxs: respDeliverTx,
+		Events:     app.state.Events,
+	}
 }
 
 func (app *adaptedApp) ListSnapshots(req abcix.RequestListSnapshots) (resp abcix.ResponseListSnapshots) {
@@ -234,6 +254,62 @@ func (app *adaptedApp) ApplySnapshotChunk(req abcix.RequestApplySnapshotChunk) (
 	return
 }
 
-func AdaptToABCIx(abciApp abci.Application) abcix.Application {
-	return &adaptedApp{abciApp: abciApp}
+func AdaptToABCIx(abciApp abci.Application, optionDB ...dbm.DB) abcix.Application {
+	var db dbm.DB
+	switch len(optionDB) {
+	case 0:
+		dir, err := ioutil.TempDir(os.TempDir(), "adaptor")
+		if err != nil {
+			panic("failed to generate DB dir")
+		}
+		db, err = dbm.NewGoLevelDB("adaptor", dir)
+		if err != nil {
+			panic("failed to generate adaptor DB")
+		}
+	case 1:
+		db = optionDB[0]
+	default:
+		panic("wrong options")
+
+	}
+	state := loadState(db)
+	logger := log.NewTMLogger(log.NewSyncWriter(os.Stdout))
+	return &adaptedApp{abciApp: abciApp, state: state, logger: logger}
+}
+
+func loadState(db dbm.DB) state {
+	var state state
+	state.db = db
+	stateBytes, err := db.Get(stateKey)
+	if err != nil {
+		panic(err)
+	}
+	if len(stateBytes) == 0 {
+		return state
+	}
+	err = json.Unmarshal(stateBytes, &state)
+	if err != nil {
+		panic(err)
+	}
+	return state
+}
+
+func saveState(state state, logger log.Logger) {
+	stateBytes, err := json.Marshal(state)
+	if err != nil {
+		logger.Error("failed to marshal state", "err", err)
+	}
+	err = state.db.Set(stateKey, stateBytes)
+	if err != nil {
+		logger.Error("failed to save state", "err", err)
+	}
+}
+
+func CalcRemainBytes(req abcix.RequestCreateBlock) int64 {
+	remainBytes := maxBytes -
+		tdtypes.MaxOverheadForBlock -
+		tdtypes.MaxHeaderBytes -
+		int64(len(req.LastCommitInfo.Votes))*tdtypes.MaxVoteBytes -
+		int64(len(req.ByzantineValidators))*tdtypes.MaxEvidenceBytes
+	return remainBytes
 }

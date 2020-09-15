@@ -82,9 +82,9 @@ type mockBlockApplier struct {
 // XXX: Add whitelist/blacklist?
 func (mba *mockBlockApplier) ApplyBlock(
 	state sm.State, blockID types.BlockID, block *types.Block,
-) (sm.State, int64, error) {
+) (sm.State, int64, []byte, error) {
 	state.LastBlockHeight++
-	return state, 0, nil
+	return state, 0, []byte{}, nil
 }
 
 type mockSwitchIo struct {
@@ -448,7 +448,7 @@ func makeTxs(height int64) (txs []types.Tx) {
 }
 
 func makeBlock(height int64, state sm.State, lastCommit *types.Commit) *types.Block {
-	block, _ := state.MakeBlock(height, makeTxs(height), lastCommit, nil, state.Validators.GetProposer().Address)
+	block, _ := state.MakeBlock(height, makeTxs(height), lastCommit, nil, state.Validators.GetProposer().Address, nil, nil)
 	return block
 }
 
@@ -533,7 +533,7 @@ func newReactorStore(
 		thisParts := thisBlock.MakePartSet(types.BlockPartSizeBytes)
 		blockID := types.BlockID{Hash: thisBlock.Hash(), PartSetHeader: thisParts.Header()}
 
-		state, _, err = blockExec.ApplyBlock(state, blockID, thisBlock)
+		state, _, _, err = blockExec.ApplyBlock(state, blockID, thisBlock)
 		if err != nil {
 			panic(fmt.Errorf("error apply block: %w", err))
 		}

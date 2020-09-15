@@ -17,7 +17,7 @@ import (
 const (
 	defaultDialTimeout      = time.Second
 	defaultFilterTimeout    = 5 * time.Second
-	defaultHandshakeTimeout = 3 * time.Second
+	defaultHandshakeTimeout = 5 * time.Second
 )
 
 // IPResolver is a behaviour subset of net.Resolver.

@@ -71,12 +71,6 @@ type State struct {
 	// Changes returned by EndBlock and updated after Commit.
 	ConsensusParams                  tmproto.ConsensusParams
 	LastHeightConsensusParamsChanged int64
-
-	// Merkle root of the results from executing prev block
-	LastResultsHash []byte
-
-	// the latest AppHash we've received from calling abci.Commit()
-	AppHash []byte
 }
 
 // Copy makes a copy of the State for mutating.
@@ -97,10 +91,6 @@ func (state State) Copy() State {
 
 		ConsensusParams:                  state.ConsensusParams,
 		LastHeightConsensusParamsChanged: state.LastHeightConsensusParamsChanged,
-
-		AppHash: state.AppHash,
-
-		LastResultsHash: state.LastResultsHash,
 	}
 }
 
@@ -166,8 +156,6 @@ func (state *State) ToProto() (*tmstate.State, error) {
 	sm.LastHeightValidatorsChanged = state.LastHeightValidatorsChanged
 	sm.ConsensusParams = state.ConsensusParams
 	sm.LastHeightConsensusParamsChanged = state.LastHeightConsensusParamsChanged
-	sm.LastResultsHash = state.LastResultsHash
-	sm.AppHash = state.AppHash
 
 	return sm, nil
 }
@@ -216,8 +204,6 @@ func StateFromProto(pb *tmstate.State) (*State, error) { //nolint:golint
 	state.LastHeightValidatorsChanged = pb.LastHeightValidatorsChanged
 	state.ConsensusParams = pb.ConsensusParams
 	state.LastHeightConsensusParamsChanged = pb.LastHeightConsensusParamsChanged
-	state.LastResultsHash = pb.LastResultsHash
-	state.AppHash = pb.AppHash
 
 	return state, nil
 }
@@ -234,6 +220,8 @@ func (state State) MakeBlock(
 	commit *types.Commit,
 	evidence []types.Evidence,
 	proposerAddress []byte,
+	appHash []byte,
+	resultHash []byte,
 ) (*types.Block, *types.PartSet) {
 
 	// Build base block with block data.
@@ -252,7 +240,7 @@ func (state State) MakeBlock(
 		state.Version.Consensus, state.ChainID,
 		timestamp, state.LastBlockID,
 		state.Validators.Hash(), state.NextValidators.Hash(),
-		types.HashConsensusParams(state.ConsensusParams), state.AppHash, state.LastResultsHash,
+		types.HashConsensusParams(state.ConsensusParams), appHash, resultHash,
 		proposerAddress,
 	)
 
@@ -345,7 +333,5 @@ func MakeGenesisState(genDoc *types.GenesisDoc) (State, error) {
 
 		ConsensusParams:                  *genDoc.ConsensusParams,
 		LastHeightConsensusParamsChanged: 1,
-
-		AppHash: genDoc.AppHash,
 	}, nil
 }

@@ -198,13 +198,13 @@ func TestStateBadProposal(t *testing.T) {
 	round++
 	incrementRound(vss[1:]...)
 
-	// make the block bad by tampering with statehash
-	stateHash := propBlock.AppHash
-	if len(stateHash) == 0 {
-		stateHash = make([]byte, 32)
+	// make the block bad by tampering with lastBlockID
+	lastBlockID := propBlock.LastBlockID.Hash
+	if len(lastBlockID) == 0 {
+		lastBlockID = make([]byte, 32)
 	}
-	stateHash[0] = (stateHash[0] + 1) % 255
-	propBlock.AppHash = stateHash
+	lastBlockID[0] = (lastBlockID[0] + 1) % 255
+	propBlock.LastBlockID.Hash = lastBlockID
 	propBlockParts := propBlock.MakePartSet(partSize)
 	blockID := types.BlockID{Hash: propBlock.Hash(), PartSetHeader: propBlockParts.Header()}
 	proposal := types.NewProposal(vs2.Height, round, -1, blockID)
@@ -1831,6 +1831,23 @@ func TestStateOutputVoteStats(t *testing.T) {
 	case <-time.After(50 * time.Millisecond):
 	}
 
+}
+
+func TestStateCheckBlockFail(t *testing.T) {
+	cs, _ := randStateShouldCheckBlockFail(1)
+	height, round := cs.Height, cs.Round
+
+	cs.eventBus.Stop()
+	eventBus := types.NewEventBusWithBufferCapacity(0)
+	eventBus.SetLogger(log.TestingLogger().With("module", "events"))
+	cs.SetEventBus(eventBus)
+	eventBus.Start()
+
+	voteCh := subscribeUnBuffered(cs.eventBus, types.EventQueryVote)
+	// start round and wait for propose and prevote
+	startTestRound(cs, height, round)
+
+	ensurePrevoteWithNilBlock(voteCh)
 }
 
 // subscribe subscribes test client to the given query and returns a channel with cap = 1.
