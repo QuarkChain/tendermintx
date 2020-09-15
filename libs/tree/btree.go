@@ -84,8 +84,8 @@ func (t *btree) UpdateKey(oldKey NodeKey, newKey NodeKey) error {
 
 // Insert inserts value into the tree
 func (t *btree) Insert(key NodeKey, data interface{}) error {
-	t.mtx.RLock()
-	defer t.mtx.RUnlock()
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
 	item := bnode{
 		key:  key,
 		data: data,
@@ -103,8 +103,8 @@ func (t *btree) Insert(key NodeKey, data interface{}) error {
 // Remove removes a value from the tree with provided key,
 // removed data is returned if key found, otherwise nil is returned
 func (t *btree) Remove(key NodeKey) (interface{}, error) {
-	t.mtx.RLock()
-	defer t.mtx.RUnlock()
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
 	item := bnode{
 		key: key,
 	}
