@@ -180,6 +180,16 @@ type basemempool struct {
 
 	logger  log.Logger
 	metrics *Metrics
+
+	// Slice of subscribers, will notify them when new tx comes
+	reactorSubs   []reactorSub
+	reactorSubMtx sync.Mutex
+}
+
+// Mempool reactor subscription
+type reactorSub struct {
+	txCh chan *mempoolTx
+	quit chan struct{}
 }
 
 type mempoolImpl interface {
@@ -506,6 +516,7 @@ func (mem *basemempool) resCbFirstTime(
 				"total", mem.Size(),
 			)
 			mem.notifyTxsAvailable()
+			mem.notifyReactor(memTx)
 		} else {
 			// ignore bad transaction
 			mem.logger.Info("Rejected bad transaction",
@@ -667,6 +678,47 @@ func (mem *basemempool) RemoveTxs(txs types.Txs) error {
 		mem.cache.Remove(tx)
 	}
 	return nil
+}
+
+// Used by reactor to iterate all tx + new tx for broadcasting, and
+// sending nil tx would terminate the listening side
+func (mem *basemempool) subscribe() reactorSub {
+	ret := reactorSub{
+		txCh: make(chan *mempoolTx),
+		quit: make(chan struct{}),
+	}
+	go func() {
+		var tx *mempoolTx
+		for {
+			tx := mem.nextTx(tx)
+			if tx == nil {
+				return
+			}
+			select {
+			case ret.txCh <- tx:
+			case <-ret.quit:
+				return
+			}
+		}
+	}()
+	mem.reactorSubMtx.Lock()
+	defer mem.reactorSubMtx.Unlock()
+	mem.reactorSubs = append(mem.reactorSubs, ret)
+	return ret
+}
+
+func (mem *basemempool) notifyReactor(tx *mempoolTx) {
+	mem.reactorSubMtx.Lock()
+	defer mem.reactorSubMtx.Unlock()
+	newSubs := make([]reactorSub, 0, len(mem.reactorSubs))
+	for _, sub := range mem.reactorSubs {
+		select {
+		case sub.txCh <- tx:
+			newSubs = append(newSubs, sub)
+		case <-sub.quit:
+		}
+	}
+	mem.reactorSubs = newSubs
 }
 
 //--------------------------------------------------------------------------------

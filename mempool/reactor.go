@@ -192,31 +192,24 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 	if !ok {
 		panic("can not cast mempool to basemempool") // programmer error
 	}
-	var next *mempoolTx
+	sub := basemempool.subscribe()
+	defer func() {
+		close(sub.quit)
+	}()
+
+	var memTx *mempoolTx
 	for {
 		// In case of both next.NextWaitChan() and peer.Quit() are variable at the same time
 		if !memR.IsRunning() || !peer.IsRunning() {
 			return
 		}
-		// This happens because the CElement we were looking at got garbage
-		// collected (removed). That is, .NextWait() returned nil. Go ahead and
-		// start from the beginning.
-		if next == nil {
-			select {
-			case <-basemempool.txsWaitChan(): // Wait until a tx is available
-				next = basemempool.nextTx(nil)
-				// Race happens because tx is removed. Start from the beginning
-				if next == nil {
-					continue
-				}
-			case <-peer.Quit():
-				return
-			case <-memR.Quit():
-				return
-			}
+		select {
+		case memTx = <-sub.txCh:
+		case <-peer.Quit():
+			return
+		case <-memR.Quit():
+			return
 		}
-
-		memTx := next
 
 		// make sure the peer is up to date
 		peerState, ok := peer.Get(types.PeerStateKey).(PeerState)
@@ -254,15 +247,6 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 				continue
 			}
 		}
-
-		select {
-		case <-peer.Quit():
-			return
-		case <-memR.Quit():
-			return
-		default:
-			next = basemempool.nextTx(next)
-		}
 	}
 }
 
@@ -280,7 +264,7 @@ func (memR *Reactor) decodeMsg(bz []byte) (TxMessage, error) {
 
 	if i, ok := msg.Sum.(*protomem.Message_Tx); ok {
 		message = TxMessage{
-			Tx: types.Tx(i.Tx.GetTx()),
+			Tx: i.Tx.GetTx(),
 		}
 		return message, nil
 	}
