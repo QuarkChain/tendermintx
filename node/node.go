@@ -315,7 +315,7 @@ func onlyValidatorIsUs(state sm.State, pubKey crypto.PubKey) bool {
 func createMempoolAndMempoolReactor(config *cfg.Config, proxyApp proxy.AppConns,
 	state sm.State, memplMetrics *mempl.Metrics, logger log.Logger) (*mempl.Reactor, mempl.Mempool) {
 
-	mempool := mempl.NewCListMempool(
+	mempool := mempl.NewLLRBMempool(
 		config.Mempool,
 		proxyApp.Mempool(),
 		state.LastBlockHeight,

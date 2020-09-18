@@ -70,15 +70,6 @@ func (mem *cListMempool) TxsFront() *clist.CElement {
 	return mem.txs.Front()
 }
 
-// TxsWaitChan returns a channel to wait on transactions. It will be closed
-// once the mempool is not empty (ie. the internal `mem.txs` has at least one
-// element)
-//
-// Safe for concurrent use by multiple goroutines.
-func (mem *cListMempool) TxsWaitChan() <-chan struct{} {
-	return mem.txs.WaitChan()
-}
-
 // Safe for concurrent use by multiple goroutines.
 func (mem *cListMempool) Size() int {
 	return mem.txs.Len()
@@ -148,7 +139,8 @@ func (mem *cListMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
 	proxyAppConn.FlushAsync()
 }
 
-func (mem *cListMempool) getNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
+// GetNextTxBytes finds satisfied tx in O(N), which can be optimized with balance tree to O(logN)
+func (mem *cListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
 	var prevElement *clist.CElement
 	if e, ok := mem.txsMap.Load(TxKey(starter)); ok {
 		prevElement = e.(*clist.CElement)
@@ -207,6 +199,26 @@ func (mem *cListMempool) getRecheckCursorTx() *mempoolTx {
 func (mem *cListMempool) getMempoolTx(tx types.Tx) *mempoolTx {
 	if e, ok := mem.txsMap.Load(TxKey(tx)); ok {
 		return e.(*clist.CElement).Value.(*mempoolTx)
+	}
+	return nil
+}
+
+func (mem *cListMempool) nextTx(memTx *mempoolTx) *mempoolTx {
+	if memTx == nil {
+		// Simply return the first
+		front := mem.txs.Front()
+		if front != nil {
+			return front.Value.(*mempoolTx)
+		}
+		return nil
+	}
+
+	if e, ok := mem.txsMap.Load(TxKey(memTx.tx)); ok {
+		celem := e.(*clist.CElement)
+		next := celem.Next()
+		if next != nil {
+			return next.Value.(*mempoolTx)
+		}
 	}
 	return nil
 }

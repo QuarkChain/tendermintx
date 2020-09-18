@@ -52,8 +52,7 @@ func newTreeMempool(
 	treeGen func() tree.BalancedTree,
 	options ...Option,
 ) Mempool {
-	treeMempool := &treeMempool{txs: treeGen(), treeGen: treeGen}
-	return newBasemempool(treeMempool, config, proxyAppConn, height, options...)
+	return newBasemempool(&treeMempool{txs: treeGen(), treeGen: treeGen}, config, proxyAppConn, height, options...)
 }
 
 func NewLLRBMempool(
@@ -139,6 +138,7 @@ func (mem *treeMempool) reapMaxTxs(max int) types.Txs {
 	return txs
 }
 
+// iterate txs and recheck them one by one
 func (mem *treeMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
 	if mem.Size() == 0 {
 		panic("recheckTxs is called, but the mempool is empty")
@@ -174,7 +174,7 @@ func (mem *treeMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
 	proxyAppConn.FlushAsync()
 }
 
-func (mem *treeMempool) getNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
+func (mem *treeMempool) GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
 	var prevNodeKey *tree.NodeKey
 	if len(starter) > 0 {
 		if e, ok := mem.txsMap.Load(TxKey(starter)); ok {
@@ -192,6 +192,7 @@ func (mem *treeMempool) getNextTxBytes(remainBytes int64, remainGas int64, start
 	return memTx.(*mempoolTx).tx, nil
 }
 
+// not really being used (unless in unsafe code)
 func (mem *treeMempool) deleteAll() {
 	mem.txs = mem.treeGen()
 	mem.txsMap.Range(func(key, _ interface{}) bool {
@@ -213,4 +214,18 @@ func (mem *treeMempool) getMempoolTx(tx types.Tx) *mempoolTx {
 		return e.(*tElement).tx
 	}
 	return nil
+}
+
+func (mem *treeMempool) nextTx(memTx *mempoolTx) *mempoolTx {
+	var starter *tree.NodeKey
+	if memTx != nil {
+		if e, ok := mem.txsMap.Load(TxKey(memTx.tx)); ok {
+			starter = &e.(*tElement).nodeKey
+		}
+	}
+	result, _, err := mem.txs.GetNext(starter, nil)
+	if err != nil { // End of iteration
+		return nil
+	}
+	return result.(*mempoolTx)
 }

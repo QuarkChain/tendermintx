@@ -180,22 +180,32 @@ type basemempool struct {
 
 	logger  log.Logger
 	metrics *Metrics
+
+	// Slice of subscribers, will notify them when new tx comes
+	reactorSubs   []reactorSub
+	reactorSubMtx sync.Mutex
+}
+
+// Mempool reactor subscription
+type reactorSub struct {
+	txCh chan *mempoolTx
+	quit chan struct{}
 }
 
 type mempoolImpl interface {
 	Size() int
+	GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error)
 
-	// all private methods will assume locks are held by basemempool so the impl themselves won't need to
 	addTx(*mempoolTx, uint64)
 	removeTx(types.Tx) bool // return whether corresponding element is removed or not
 	updateRecheckCursor()
 	reapMaxTxs(int) types.Txs
 	recheckTxs(proxy.AppConnMempool)
-	getNextTxBytes(int64, int64, []byte) ([]byte, error)
 	isRecheckCursorNil() bool
 	getRecheckCursorTx() *mempoolTx
 	getMempoolTx(types.Tx) *mempoolTx
 	deleteAll()
+	nextTx(tx *mempoolTx) *mempoolTx // not based on priority
 }
 
 // Option sets an optional parameter on the basemempool.
@@ -499,6 +509,7 @@ func (mem *basemempool) resCbFirstTime(
 				"total", mem.Size(),
 			)
 			mem.notifyTxsAvailable()
+			mem.notifyReactor(memTx)
 		} else {
 			// ignore bad transaction
 			mem.logger.Info("Rejected bad transaction",
@@ -649,15 +660,6 @@ func (mem *basemempool) Update(
 	return nil
 }
 
-// GetNextTxBytes finds satisfied tx with two iterations which cost O(N) time, will be optimized with balance tree
-// or other techniques to reduce the time complexity to O(logN) or even O(1)
-func (mem *basemempool) GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
-	mem.updateMtx.RLock()
-	defer mem.updateMtx.RUnlock()
-
-	return mem.getNextTxBytes(remainBytes, remainGas, starter)
-}
-
 // Lock() must be held by the caller during execution.
 func (mem *basemempool) RemoveTxs(txs types.Txs) error {
 	for _, tx := range txs {
@@ -669,6 +671,48 @@ func (mem *basemempool) RemoveTxs(txs types.Txs) error {
 		mem.cache.Remove(tx)
 	}
 	return nil
+}
+
+// Used by reactor to iterate all tx + new tx for broadcasting, and
+// sending nil tx would terminate the listening side
+func (mem *basemempool) subscribe() reactorSub {
+	ret := reactorSub{
+		txCh: make(chan *mempoolTx, 100),
+		quit: make(chan struct{}),
+	}
+	go func() {
+		var tx *mempoolTx
+		for {
+			tx := mem.nextTx(tx)
+			if tx == nil {
+				return
+			}
+			select {
+			case ret.txCh <- tx:
+			case <-ret.quit:
+				return
+			}
+		}
+	}()
+	mem.reactorSubMtx.Lock()
+	defer mem.reactorSubMtx.Unlock()
+	mem.reactorSubs = append(mem.reactorSubs, ret)
+	return ret
+}
+
+func (mem *basemempool) notifyReactor(tx *mempoolTx) {
+	mem.reactorSubMtx.Lock()
+	defer mem.reactorSubMtx.Unlock()
+	// Also garbage collect closed subscriptions
+	newSubs := make([]reactorSub, 0, len(mem.reactorSubs))
+	for _, sub := range mem.reactorSubs {
+		select {
+		case sub.txCh <- tx:
+			newSubs = append(newSubs, sub)
+		case <-sub.quit:
+		}
+	}
+	mem.reactorSubs = newSubs
 }
 
 //--------------------------------------------------------------------------------
