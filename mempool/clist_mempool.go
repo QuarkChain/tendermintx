@@ -139,8 +139,7 @@ func (mem *cListMempool) recheckTxs(proxyAppConn proxy.AppConnMempool) {
 	proxyAppConn.FlushAsync()
 }
 
-// GetNextTxBytes finds satisfied tx with two iterations which cost O(N) time, will be optimized with balance tree
-// or other techniques to reduce the time complexity to O(logN) or even O(1)
+// GetNextTxBytes finds satisfied tx in O(N), which can be optimized with balance tree to O(logN)
 func (mem *cListMempool) GetNextTxBytes(remainBytes int64, remainGas int64, starter []byte) ([]byte, error) {
 	var prevElement *clist.CElement
 	if e, ok := mem.txsMap.Load(TxKey(starter)); ok {
