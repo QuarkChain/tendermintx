@@ -166,7 +166,8 @@ func TestMempoolIDsPanicsIfNodeRequestsOvermaxActiveIDs(t *testing.T) {
 
 func TestDontExhaustMaxActiveIDs(t *testing.T) {
 	const N = 1
-	for _, mpEnum := range mpEnums {
+	// TODO: running two mempool tests takes too long
+	for _, mpEnum := range []mpEnum{enumllrbmempool} {
 		config := cfg.ResetTestRoot(fmt.Sprintf("mempool_test_%d", mpEnum))
 		reactors := makeAndConnectReactors(config, N, mpEnum)
 		//reactors := makeAndConnectReactors(config, N, enumclistmempool)

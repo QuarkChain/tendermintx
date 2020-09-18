@@ -55,7 +55,7 @@ var (
 		enumllrbmempool:  NewLLRBMempool,
 		enumbtreemempool: NewBTreeMempool,
 	}
-	mpEnums = []mpEnum{enumclistmempool, enumllrbmempool, enumbtreemempool}
+	mpEnums = []mpEnum{enumclistmempool, enumllrbmempool}
 )
 
 func newMempoolWithAppAndConfig(cc proxy.ClientCreator, config *cfg.Config, me mpEnum) (Mempool, cleanupFunc) {
